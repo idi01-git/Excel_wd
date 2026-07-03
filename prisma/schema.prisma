@@ -1,0 +1,421 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  MEMBER
+  VERIFIED_AUTHOR
+  MODERATOR
+  ADMIN
+}
+
+enum PublicationCategory {
+  ARTICLE
+  STORY
+  POEM
+  REVIEW
+}
+
+enum PublicationStatus {
+  DRAFT
+  PENDING
+  PUBLISHED
+  REJECTED
+}
+
+enum InteractionType {
+  LIKE
+  DISLIKE
+  BOOKMARK
+}
+
+model User {
+  id            String    @id @default(uuid())
+  name          String
+  username      String    @unique
+  email         String    @unique
+  passwordHash  String
+  role          Role      @default(MEMBER)
+  profilePhoto  String?
+  bio           String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  publications       Publication[]
+  interactions       Interaction[]
+  comments           Comment[]
+  commentUpvotes     CommentUpvote[]
+  commentDownvotes   CommentDownvote[]
+
+  followers          Follow[]         @relation("FollowingRelationFollowers")
+  following          Follow[]         @relation("FollowingRelationFollowing")
+  notifications      Notification[]   @relation("RecipientNotifications")
+  actorNotifications Notification[]   @relation("ActorNotifications")
+  alumniProfile      AlumniProfile?
+
+  eventRegistrations EventRegistration[]
+  eventReports       EventReport[]
+  bookReviews        BookReview[]
+  issueRequests      IssueRequest[]
+}
+
+model Publication {
+  id             String              @id @default(uuid())
+  title          String
+  slug           String              @unique
+  content        Json                // TipTap JSON state
+  coverImage     String?
+  category       PublicationCategory
+  tags           String[]
+  authorId       String
+  author         User                @relation(fields: [authorId], references: [id])
+  status         PublicationStatus   @default(DRAFT)
+  rejectionNote  String?
+  readingTime    Int                 @default(1)
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  publishedAt    DateTime?
+
+  interactions   Interaction[]
+  comments       Comment[]
+
+  @@index([authorId, status])
+  @@index([status, category])
+}
+
+model Interaction {
+  id            String          @id @default(uuid())
+  userId        String
+  user          User            @relation(fields: [userId], references: [id])
+  publicationId String
+  publication   Publication     @relation(fields: [publicationId], references: [id])
+  type          InteractionType
+  createdAt     DateTime        @default(now())
+
+  @@unique([userId, publicationId, type]) // Ensures a user can only have one type of interaction per post
+}
+
+model Comment {
+  id              String      @id @default(uuid())
+  content         String
+  authorId        String
+  author          User        @relation(fields: [authorId], references: [id])
+  
+  publicationId   String?
+  publication     Publication? @relation(fields: [publicationId], references: [id])
+  
+  editorShelfId   String?
+  editorShelf     EditorShelfItem? @relation(fields: [editorShelfId], references: [id])
+  
+  parentCommentId String?
+  parent          Comment?    @relation("CommentReplies", fields: [parentCommentId], references: [id])
+  replies         Comment[]   @relation("CommentReplies")
+  upvotesCount    Int         @default(0)
+  downvotesCount  Int         @default(0)
+  isDeleted       Boolean     @default(false)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  upvotes         CommentUpvote[]
+  downvotes       CommentDownvote[]
+
+  @@index([publicationId, parentCommentId])
+  @@index([editorShelfId, parentCommentId])
+}
+
+model CommentUpvote {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  commentId   String
+  comment     Comment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@unique([userId, commentId])
+}
+
+model CommentDownvote {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  commentId   String
+  comment     Comment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@unique([userId, commentId])
+}
+
+enum NotificationType {
+  LIKE
+  COMMENT_REPLY
+  MENTION
+  SUBMISSION_APPROVED
+  SUBMISSION_REJECTED
+  NEW_FOLLOWED_POST
+  EVENT_REGISTRATION_CONFIRMED
+  EVENT_UPDATE
+  EVENT_WINNER_ANNOUNCED
+  ISSUE_REQUEST_APPROVED
+  ISSUE_REQUEST_REJECTED
+}
+
+enum GalleryItemType {
+  PHOTO
+  VIDEO
+  POSTER
+  MEMORY
+}
+
+enum AchievementCategory {
+  COMPETITION
+  PUBLICATION
+  AWARD
+  MILESTONE
+}
+
+model Follow {
+  id          String   @id @default(uuid())
+  followerId  String
+  follower    User     @relation("FollowingRelationFollowers", fields: [followerId], references: [id])
+  followingId String
+  following   User     @relation("FollowingRelationFollowing", fields: [followingId], references: [id])
+  createdAt   DateTime @default(now())
+
+  @@unique([followerId, followingId])
+}
+
+model Notification {
+  id              String           @id @default(uuid())
+  recipientId     String
+  recipient       User             @relation("RecipientNotifications", fields: [recipientId], references: [id])
+  type            NotificationType
+  actorId         String?          // User who triggered the notification (null if system)
+  actor           User?            @relation("ActorNotifications", fields: [actorId], references: [id])
+  entityType      String           // 'PUBLICATION', 'COMMENT', 'EDITORS_SHELF', 'EVENT', 'BOOK'
+  entityId        String           // ID of the related entity
+  isRead          Boolean          @default(false)
+  createdAt       DateTime         @default(now())
+
+  eventId         String?
+  event           Event?           @relation(fields: [eventId], references: [id])
+
+  @@index([recipientId, isRead])
+}
+
+model EditorShelfItem {
+  id            String    @id @default(uuid())
+  title         String
+  author        String    // Original author of the work, not a platform user
+  coverImage    String?
+  editorialNote String    // Rich text or markdown
+  genre         String[]
+  slug          String    @unique
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  comments      Comment[]
+}
+
+model AlumniProfile {
+  id              String   @id @default(uuid())
+  userId          String?  @unique // Link to User if they have an account
+  user            User?    @relation(fields: [userId], references: [id])
+  name            String
+  photo           String?
+  batch           String   // e.g., "2020-2024"
+  branch          String
+  currentPosition String?
+  message         String?  // Message to juniors
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model GalleryItem {
+  id          String          @id @default(uuid())
+  type        GalleryItemType
+  url         String
+  caption     String?
+  eventId     String?         // Nullable for Phase 2 (Events in Phase 3)
+  uploadedById String?
+  createdAt   DateTime        @default(now())
+}
+
+model Achievement {
+  id          String              @id @default(uuid())
+  title       String
+  description String
+  category    AchievementCategory
+  date        DateTime
+  createdAt   DateTime            @default(now())
+}
+
+enum EventStatus {
+  UPCOMING
+  PAST
+  CANCELLED
+}
+
+enum BookAvailabilityStatus {
+  AVAILABLE
+  ISSUED
+  MAINTENANCE
+}
+
+enum IssueRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  RETURNED
+}
+
+enum WinnerPosition {
+  FIRST
+  SECOND
+  THIRD
+  CONSOLATION
+  SPECIAL_MENTION
+  OTHER
+}
+
+model Event {
+  id              String      @id @default(uuid())
+  title           String
+  slug            String      @unique
+  description     String      // Rich text or plain description
+  posterImage     String?     // URL to event poster
+  date            DateTime    // Event date
+  time            String?     // e.g. "3:00 PM - 5:00 PM"
+  venue           String
+  status          EventStatus @default(UPCOMING)
+  isCompetition   Boolean     @default(false)
+  maxCapacity     Int?        // null = unlimited
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  registrations   EventRegistration[]
+  winners         EventWinner[]
+  report          EventReport?
+  gallery         EventGalleryItem[]
+  notifications   Notification[]
+
+  @@index([status, date])
+}
+
+model EventRegistration {
+  id           String   @id @default(uuid())
+  eventId      String
+  event        Event    @relation(fields: [eventId], references: [id])
+  userId       String
+  user         User     @relation(fields: [userId], references: [id])
+  name         String
+  email        String
+  phone        String?
+  extraFields  Json?
+  registeredAt DateTime @default(now())
+
+  @@unique([eventId, userId])
+  @@index([eventId])
+}
+
+model EventWinner {
+  id              String        @id @default(uuid())
+  eventId         String
+  event           Event         @relation(fields: [eventId], references: [id])
+  participantName String
+  position        WinnerPosition
+  prize           String?
+  description     String?
+  createdAt       DateTime      @default(now())
+
+  @@index([eventId])
+}
+
+model EventReport {
+  id          String   @id @default(uuid())
+  eventId     String   @unique
+  event       Event    @relation(fields: [eventId], references: [id])
+  title       String
+  content     Json     // TipTap JSON state
+  authorId    String
+  author      User     @relation(fields: [authorId], references: [id])
+  coverImage  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model EventGalleryItem {
+  id          String          @id @default(uuid())
+  eventId     String
+  event       Event           @relation(fields: [eventId], references: [id])
+  url         String
+  caption     String?
+  type        GalleryItemType
+  uploadedById String?
+  createdAt   DateTime        @default(now())
+
+  @@index([eventId])
+}
+
+model Book {
+  id                String                 @id @default(uuid())
+  title             String
+  author            String
+  coverImage        String?
+  description       String
+  genre             String[]
+  isbn              String?
+  pageCount         Int?
+  publishedYear     Int?
+  availabilityStatus BookAvailabilityStatus @default(AVAILABLE)
+  totalCopies       Int                    @default(1)
+  issuedCopies      Int                    @default(0)
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+
+  reviews           BookReview[]
+  issueRequests     IssueRequest[]
+
+  @@index([availabilityStatus])
+  @@index([genre])
+}
+
+model BookReview {
+  id          String   @id @default(uuid())
+  bookId      String
+  book        Book     @relation(fields: [bookId], references: [id])
+  reviewerId  String
+  reviewer    User     @relation(fields: [reviewerId], references: [id])
+  rating      Int
+  reviewText  String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([bookId, reviewerId])
+  @@index([bookId])
+}
+
+model IssueRequest {
+  id          String             @id @default(uuid())
+  bookId      String
+  book        Book               @relation(fields: [bookId], references: [id])
+  requesterId String
+  requester   User               @relation(fields: [requesterId], references: [id])
+  status      IssueRequestStatus @default(PENDING)
+  requestDate DateTime           @default(now())
+  issueDate   DateTime?
+  returnDate  DateTime?
+  adminNote   String?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  @@index([bookId, status])
+  @@index([requesterId, status])
+}

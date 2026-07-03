@@ -1,0 +1,127 @@
+"use client";
+
+import { motion } from "motion/react";
+import { cn } from "@/lib/utils";
+import React, { useEffect, useState } from "react";
+
+interface InteractionButtonProps {
+  icon: React.ElementType;
+  count?: number;
+  label?: string;
+  active: boolean;
+  onClick: (e: React.MouseEvent) => void;
+  activeColor: string;
+  defaultColor?: string;
+  withConfetti?: boolean;
+  withFill?: boolean;
+  fillColor?: string;
+  size?: number;
+  className?: string;
+  textClassName?: string;
+}
+
+function Confetti({ colorClass }: { colorClass: string }) {
+  const [show, setShow] = useState(true);
+  
+  useEffect(() => {
+    const t = setTimeout(() => setShow(false), 1000);
+    return () => clearTimeout(t);
+  }, []);
+
+  if (!show) return null;
+
+  return (
+    <div className={cn("absolute inset-0 pointer-events-none flex items-center justify-center z-10", colorClass)}>
+      {[...Array(6)].map((_, i) => {
+        const angle = (i * 60) * (Math.PI / 180);
+        // Slightly random distances
+        const distance = 16 + Math.random() * 8;
+        return (
+          <motion.div
+            key={i}
+            initial={{ x: 0, y: 0, scale: 0, opacity: 1 }}
+            animate={{ 
+              x: Math.cos(angle) * distance, 
+              y: Math.sin(angle) * distance, 
+              scale: [0, 1.2, 0],
+              opacity: [1, 1, 0]
+            }}
+            transition={{ duration: 0.5, ease: "easeOut" }}
+            className="absolute w-1.5 h-1.5 rounded-full bg-current"
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+export function InteractionButton({ 
+  icon: Icon, 
+  count, 
+  label,
+  active, 
+  onClick, 
+  activeColor,
+  defaultColor = "text-gray-400",
+  withConfetti = false,
+  withFill = true,
+  fillColor,
+  size = 14,
+  className,
+  textClassName
+}: InteractionButtonProps) {
+  const [justActivated, setJustActivated] = useState(false);
+  const [optimisticActive, setOptimisticActive] = useState(active);
+  const [optimisticCount, setOptimisticCount] = useState(count ?? 0);
+
+  useEffect(() => {
+    setOptimisticActive(active);
+    setOptimisticCount(count ?? 0);
+  }, [active, count]);
+
+  const handleClick = (e: React.MouseEvent) => {
+    const nextActive = !optimisticActive;
+    setOptimisticActive(nextActive);
+    
+    if (count !== undefined) {
+      setOptimisticCount(prev => nextActive ? prev + 1 : prev - 1);
+    }
+
+    if (nextActive) {
+      setJustActivated(true);
+      setTimeout(() => setJustActivated(false), 1000);
+    }
+    onClick(e);
+  };
+
+  return (
+    <motion.button
+      onClick={handleClick}
+      className={cn("relative flex items-center gap-1.5 outline-none group transition-colors", className)}
+      whileTap={{ scale: 0.85 }}
+    >
+      <div className={cn("relative flex items-center justify-center", optimisticActive ? activeColor : defaultColor)}>
+        {withConfetti && justActivated && <Confetti colorClass={activeColor} />}
+        <motion.div
+          initial={false}
+          animate={{ scale: optimisticActive ? 1.15 : 1 }}
+          transition={{ type: "spring", stiffness: 450, damping: 15 }}
+        >
+          <Icon 
+            size={size} 
+            strokeWidth={optimisticActive ? 2.5 : 1.5} 
+            className={cn("transition-colors duration-200", !optimisticActive && "group-hover:text-gray-600")}
+            fill={optimisticActive && withFill ? (fillColor || "currentColor") : "transparent"}
+          />
+        </motion.div>
+      </div>
+      
+      {(count !== undefined || label) && (
+        <span className={cn("font-medium transition-colors", textClassName, optimisticActive ? "text-gray-900" : "text-gray-500 group-hover:text-gray-700")}>
+          {label && <span className="mr-1">{label}</span>}
+          {count !== undefined && optimisticCount}
+        </span>
+      )}
+    </motion.button>
+  );
+}
