@@ -1,8 +1,8 @@
-// src/app/api/comments/[id]/downvote/route.ts
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { db } from '@/lib/db';
+import { recordAuditEvent } from '@/lib/audit';
+import { toggleCommentVote } from '@/lib/interaction-actions';
 
 export async function POST(
   req: Request,
@@ -16,86 +16,34 @@ export async function POST(
     }
 
     const userId = session.user.id;
-
-    const comment = await db.comment.findUnique({
-      where: { id: commentId }
+    const result = await toggleCommentVote({
+      commentId,
+      userId,
+      direction: 'downvote'
     });
 
-    if (!comment) {
+    if (!result) {
       return NextResponse.json({ error: 'Comment not found' }, { status: 404 });
     }
 
-    const result = await db.$transaction(async (tx: any) => {
-      // 1. Remove upvote if exists
-      const existingUpvote = await tx.commentUpvote.findUnique({
-        where: {
-          userId_commentId: { userId, commentId }
-        }
-      });
-
-      let upvoteCountDecrement = 0;
-      if (existingUpvote) {
-        await tx.commentUpvote.delete({
-          where: { id: existingUpvote.id }
-        });
-        upvoteCountDecrement = 1;
-      }
-
-      // Check existing downvote
-      const existingDownvote = await tx.commentDownvote.findUnique({
-        where: {
-          userId_commentId: { userId, commentId }
-        }
-      });
-
-      let updatedUpvotesCount = comment.upvotesCount;
-      let updatedDownvotesCount = comment.downvotesCount;
-      let downvoted = false;
-
-      if (existingDownvote) {
-        // Remove downvote
-        await tx.commentDownvote.delete({
-          where: { id: existingDownvote.id }
-        });
-        
-        const updated = await tx.comment.update({
-          where: { id: commentId },
-          data: { 
-            downvotesCount: { decrement: 1 },
-            upvotesCount: upvoteCountDecrement > 0 ? { decrement: upvoteCountDecrement } : undefined
-          }
-        });
-        updatedUpvotesCount = updated.upvotesCount;
-        updatedDownvotesCount = updated.downvotesCount;
-        downvoted = false;
-      } else {
-        // Create downvote
-        await tx.commentDownvote.create({
-          data: { userId, commentId }
-        });
-
-        const updated = await tx.comment.update({
-          where: { id: commentId },
-          data: { 
-            downvotesCount: { increment: 1 },
-            upvotesCount: upvoteCountDecrement > 0 ? { decrement: upvoteCountDecrement } : undefined
-          }
-        });
-        updatedUpvotesCount = updated.upvotesCount;
-        updatedDownvotesCount = updated.downvotesCount;
-        downvoted = true;
-      }
-
-      return { downvoted, upvotesCount: updatedUpvotesCount, downvotesCount: updatedDownvotesCount };
+    await recordAuditEvent({
+      actorId: userId,
+      action: result.active ? 'COMMENT_DOWNVOTE_ON' : 'COMMENT_DOWNVOTE_OFF',
+      entityType: 'COMMENT',
+      entityId: commentId,
+      metadata: {
+        upvotesCount: result.upvotesCount,
+        downvotesCount: result.downvotesCount
+      },
+      request: req
     });
 
     return NextResponse.json({
       success: true,
-      downvoted: result.downvoted,
+      downvoted: result.active,
       upvotesCount: result.upvotesCount,
       downvotesCount: result.downvotesCount
     });
-
   } catch (error: any) {
     console.error('Comment downvote error:', error);
     return NextResponse.json({ error: 'Failed to register downvote' }, { status: 500 });

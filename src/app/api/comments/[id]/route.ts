@@ -1,8 +1,8 @@
-// src/app/api/comments/[id]/route.ts
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { db } from '@/lib/db';
+import { recordAuditEvent } from '@/lib/audit';
 
 async function checkAuth() {
   const session = await getServerSession(authOptions);
@@ -42,6 +42,17 @@ export async function PUT(
       data: { content: content.trim() }
     });
 
+    await recordAuditEvent({
+      actorId: user.id,
+      action: 'COMMENT_EDIT',
+      entityType: 'COMMENT',
+      entityId: id,
+      metadata: {
+        contentLength: content.trim().length
+      },
+      request: req
+    });
+
     return NextResponse.json({ success: true, comment: updated });
   } catch (error: any) {
     console.error('Edit comment error:', error);
@@ -66,7 +77,6 @@ export async function DELETE(
       return NextResponse.json({ error: 'Comment not found' }, { status: 404 });
     }
 
-    // Allow author OR staff (moderator/admin) to delete comments
     const isAuthor = comment.authorId === user.id;
     const isStaff = user.role === 'MODERATOR' || user.role === 'ADMIN';
 
@@ -74,13 +84,23 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized to delete this comment' }, { status: 403 });
     }
 
-    // Soft delete: clear content and set isDeleted = true
     const softDeleted = await db.comment.update({
       where: { id },
       data: {
         content: '[deleted]',
         isDeleted: true
       }
+    });
+
+    await recordAuditEvent({
+      actorId: user.id,
+      action: 'COMMENT_DELETE',
+      entityType: 'COMMENT',
+      entityId: id,
+      metadata: {
+        softDeleted: true
+      },
+      request: req
     });
 
     return NextResponse.json({ success: true, comment: softDeleted });

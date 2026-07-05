@@ -1,8 +1,8 @@
-// src/app/api/editors-shelf/[slug]/comments/route.ts
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { db } from '@/lib/db';
+import { recordAuditEvent } from '@/lib/audit';
 
 export async function GET(
   req: Request,
@@ -10,17 +10,16 @@ export async function GET(
 ) {
   try {
     const { slug } = await params;
+    const { searchParams } = new URL(req.url);
+    const sort = searchParams.get('sort') || 'new';
     const item = await db.editorShelfItem.findUnique({
       where: { slug },
       select: { id: true }
     });
 
     if (!item) {
-      return NextResponse.json({ error: 'Shelf item not found' }, { status: 404 });
+      return NextResponse.json({ error: 'Curated item not found' }, { status: 404 });
     }
-
-    const { searchParams } = new URL(req.url);
-    const sort = searchParams.get('sort') || 'new';
 
     let orderBy: any = { createdAt: 'desc' };
     if (sort === 'top') {
@@ -91,7 +90,7 @@ export async function POST(
     });
 
     if (!item) {
-      return NextResponse.json({ error: 'Shelf item not found' }, { status: 404 });
+      return NextResponse.json({ error: 'Curated item not found' }, { status: 404 });
     }
 
     const { content, parentCommentId } = await req.json();
@@ -105,21 +104,27 @@ export async function POST(
         content: content.trim(),
         editorShelfId: item.id,
         authorId: session.user.id,
-        parentCommentId: parentCommentId || null
+        parentCommentId: parentCommentId || null,
+        upvotesCount: 1,
+        upvotes: {
+          create: {
+            userId: session.user.id
+          }
+        }
       },
       include: {
         author: {
           select: { id: true, name: true, username: true, profilePhoto: true }
-        }
+        },
+        upvotes: { select: { userId: true } },
+        downvotes: { select: { userId: true } }
       }
     });
 
-    // Trigger Notifications & Mentions
     const { createNotification } = await import('@/lib/notifications');
 
-    // 1. Handle Mentions Parsing
     const mentions = content.match(/@([a-zA-Z0-9_]+)/g);
-    let mentionedUserIds = new Set<string>();
+    const mentionedUserIds = new Set<string>();
 
     if (mentions) {
       const usernames = mentions.map((m: string) => m.slice(1).toLowerCase().trim());
@@ -142,7 +147,6 @@ export async function POST(
       }
     }
 
-    // 2. Handle Reply Notifications (if reply, notify parent comment author)
     if (parentCommentId) {
       const parentComment = await db.comment.findUnique({
         where: { id: parentCommentId },
@@ -158,6 +162,19 @@ export async function POST(
         );
       }
     }
+
+    await recordAuditEvent({
+      actorId: session.user.id,
+      action: parentCommentId ? 'COMMENT_REPLY' : 'COMMENT_CREATE',
+      entityType: 'COMMENT',
+      entityId: comment.id,
+      metadata: {
+        editorShelfSlug: slug,
+        editorShelfId: item.id,
+        parentCommentId: parentCommentId || null
+      },
+      request: req
+    });
 
     return NextResponse.json({ success: true, comment });
   } catch (error: any) {

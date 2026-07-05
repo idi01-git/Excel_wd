@@ -1,8 +1,9 @@
-// src/app/api/publications/[slug]/comments/route.ts
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { db } from '@/lib/db';
+import { recordAuditEvent } from '@/lib/audit';
+import { resolvePublicationReference } from '@/lib/interaction-actions';
 
 export async function GET(
   req: Request,
@@ -12,6 +13,11 @@ export async function GET(
     const { slug } = await params;
     const { searchParams } = new URL(req.url);
     const sort = searchParams.get('sort') || 'new';
+    const publication = await resolvePublicationReference(slug);
+
+    if (!publication) {
+      return NextResponse.json({ error: 'Publication not found' }, { status: 404 });
+    }
 
     let orderBy: any = { createdAt: 'desc' };
     if (sort === 'top') {
@@ -20,7 +26,7 @@ export async function GET(
 
     const comments = await db.comment.findMany({
       where: {
-        publicationId: slug,
+        publicationId: publication.id,
         parentCommentId: null
       },
       include: {
@@ -77,6 +83,11 @@ export async function POST(
     }
 
     const { content, parentCommentId } = await req.json();
+    const publication = await resolvePublicationReference(slug);
+
+    if (!publication) {
+      return NextResponse.json({ error: 'Publication not found' }, { status: 404 });
+    }
 
     if (!content || content.trim() === '') {
       return NextResponse.json({ error: 'Comment content cannot be empty' }, { status: 400 });
@@ -85,23 +96,29 @@ export async function POST(
     const comment = await db.comment.create({
       data: {
         content: content.trim(),
-        publicationId: slug,
+        publicationId: publication.id,
         authorId: session.user.id,
-        parentCommentId: parentCommentId || null
+        parentCommentId: parentCommentId || null,
+        upvotesCount: 1,
+        upvotes: {
+          create: {
+            userId: session.user.id
+          }
+        }
       },
       include: {
         author: {
           select: { id: true, name: true, username: true, profilePhoto: true }
-        }
+        },
+        upvotes: { select: { userId: true } },
+        downvotes: { select: { userId: true } }
       }
     });
 
-    // Trigger Notifications & Mentions
     const { createNotification } = await import('@/lib/notifications');
 
-    // 1. Handle Mentions Parsing
     const mentions = content.match(/@([a-zA-Z0-9_]+)/g);
-    let mentionedUserIds = new Set<string>();
+    const mentionedUserIds = new Set<string>();
 
     if (mentions) {
       const usernames = mentions.map((m: string) => m.slice(1).toLowerCase().trim());
@@ -124,7 +141,6 @@ export async function POST(
       }
     }
 
-    // 2. Handle Reply Notifications (only if the replier didn't mention them)
     if (parentCommentId) {
       const parentComment = await db.comment.findUnique({
         where: { id: parentCommentId },
@@ -139,22 +155,28 @@ export async function POST(
           comment.id
         );
       }
-    } else {
-      // Top-level comment: Notify the publication author
-      const publication = await db.publication.findUnique({
-        where: { id: slug }, // slug is the publication ID in this route
-        select: { authorId: true }
-      });
-      if (publication && publication.authorId !== session.user.id && !mentionedUserIds.has(publication.authorId)) {
-        await createNotification(
-          publication.authorId,
-          'COMMENT_REPLY',
-          session.user.id,
-          'PUBLICATION',
-          comment.id
-        );
-      }
+    } else if (publication.authorId !== session.user.id && !mentionedUserIds.has(publication.authorId)) {
+      await createNotification(
+        publication.authorId,
+        'COMMENT_REPLY',
+        session.user.id,
+        'PUBLICATION',
+        comment.id
+      );
     }
+
+    await recordAuditEvent({
+      actorId: session.user.id,
+      action: parentCommentId ? 'COMMENT_REPLY' : 'COMMENT_CREATE',
+      entityType: 'COMMENT',
+      entityId: comment.id,
+      metadata: {
+        publicationId: publication.id,
+        publicationSlug: publication.slug,
+        parentCommentId: parentCommentId || null
+      },
+      request: req
+    });
 
     return NextResponse.json({ success: true, comment });
   } catch (error: any) {

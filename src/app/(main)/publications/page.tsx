@@ -1,7 +1,8 @@
 // src/app/(main)/publications/page.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useCallback, useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'motion/react';
 import PublicationCollection, {
   type PublicationItem,
@@ -9,14 +10,41 @@ import PublicationCollection, {
 
 const categories = ['All', 'Articles', 'Stories', 'Poems', 'Reviews'];
 
-export default function PublicationsPage() {
+function PublicationsContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [publications, setPublications] = useState<PublicationItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const [category, setCategory] = useState<string>('All');
   const [sort, setSort] = useState<string>('latest');
   const [search, setSearch] = useState<string>('');
 
-  const fetchPublications = async () => {
+  const syncCategoryFromUrl = (value: string | null) => {
+    if (!value) return 'All';
+
+    const normalized = value.trim().toLowerCase();
+    if (normalized === 'articles' || normalized === 'article') return 'Articles';
+    if (normalized === 'stories' || normalized === 'story') return 'Stories';
+    if (normalized === 'poems' || normalized === 'poem') return 'Poems';
+    if (normalized === 'reviews' || normalized === 'review') return 'Reviews';
+
+    return 'All';
+  };
+
+  const category = syncCategoryFromUrl(searchParams.get('category'));
+
+  const updateCategory = (nextCategory: string) => {
+    const nextParams = new URLSearchParams(searchParams.toString());
+    if (nextCategory === 'All') {
+      nextParams.delete('category');
+    } else {
+      nextParams.set('category', nextCategory);
+    }
+
+    const queryString = nextParams.toString();
+    router.replace(`/publications${queryString ? `?${queryString}` : ''}`, { scroll: false });
+  };
+
+  const fetchPublications = useCallback(async () => {
     setLoading(true);
     try {
       const queryParams = new URLSearchParams({
@@ -34,11 +62,12 @@ export default function PublicationsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [category, search, sort]);
 
   useEffect(() => {
-    fetchPublications();
-  }, [category, sort]);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void fetchPublications();
+  }, [fetchPublications]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -83,7 +112,7 @@ export default function PublicationsPage() {
           {categories.map((c) => (
             <button
               key={c}
-              onClick={() => setCategory(c)}
+              onClick={() => updateCategory(c)}
               className={`relative py-1.5 px-4 rounded-full text-xs font-semibold tracking-wide transition-all outline-none ${
                 category === c
                   ? 'text-white'
@@ -133,3 +162,12 @@ export default function PublicationsPage() {
     </div>
   );
 }
+
+export default function PublicationsPage() {
+  return (
+    <Suspense fallback={<div className="w-full max-w-6xl mx-auto py-8">Loading...</div>}>
+      <PublicationsContent />
+    </Suspense>
+  );
+}
+

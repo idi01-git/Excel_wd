@@ -3,7 +3,7 @@
 
 import { useSession, signOut } from 'next-auth/react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -27,7 +27,6 @@ import {
   Newspaper,
   PenTool,
   Feather,
-  LayoutGrid,
 } from 'lucide-react';
 import NotificationBell from '@/components/navigation/NotificationBell';
 import GlobalSearchBar from '@/components/navigation/GlobalSearchBar';
@@ -82,6 +81,7 @@ function DropdownLink({ item, onClick }: { item: NavSubItem; onClick?: () => voi
 export default function Navbar() {
   const { data: session } = useSession();
   const pathname = usePathname();
+  const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -90,7 +90,9 @@ export default function Navbar() {
   const showModLink = currentUser?.role === 'MODERATOR' || currentUser?.role === 'ADMIN';
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMobileOpen(false);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setDropdownOpen(false);
   }, [pathname]);
 
@@ -123,7 +125,6 @@ export default function Navbar() {
     { label: 'Stories', href: '/publications?category=Stories', icon: PenTool, description: 'Fiction, short stories & tales' },
     { label: 'Poems', href: '/publications?category=Poems', icon: Feather, description: 'Verse, lyrical prose & rhymes' },
     { label: 'Reviews', href: '/publications?category=Reviews', icon: BookMarkedIcon, description: 'Book analysis & commentary' },
-    { label: 'View All', href: '/publications', icon: LayoutGrid, description: 'Explore all published literature' },
   ];
 
   const communityItems: NavSubItem[] = [
@@ -163,6 +164,10 @@ export default function Navbar() {
               {/* Publications — dropdown */}
               <NavigationMenuItem>
                 <NavigationMenuTrigger
+                  onClick={(event) => {
+                    event.preventDefault();
+                    router.push('/publications');
+                  }}
                   className={`${navLinkClass(isActive('/publications'))} bg-transparent! data-[state=open]:bg-gray-50 dark:data-[state=open]:bg-white/5 data-[state=open]:text-gray-950 dark:data-[state=open]:text-white data-[state=open]:border-gray-200/50 dark:data-[state=open]:border-white/10 hover:bg-gray-50! dark:hover:bg-white/5!`}
                 >
                   Publications
@@ -267,7 +272,7 @@ export default function Navbar() {
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: -4, scale: 0.97 }}
                       transition={{ duration: 0.15, ease: 'easeOut' }}
-                      className="absolute right-0 mt-2 w-56 bg-white dark:bg-neutral-900 border border-gray-200/80 dark:border-white/10 rounded-2xl shadow-2xl shadow-gray-200/60 dark:shadow-none py-1.5 z-50"
+                      className="absolute right-0 mt-2 w-56 bg-white dark:bg-neutral-900 border border-gray-200/80 dark:border-white/10 rounded-2xl shadow-2xl shadow-gray-200/60 dark:shadow-none py-1.5 z-[200]"
                     >
                       {/* User info */}
                       <div className="px-3 py-2 border-b border-gray-100 dark:border-white/5 mb-1">

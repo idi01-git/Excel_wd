@@ -120,7 +120,7 @@ export default function NotificationBell() {
       {isOpen && (
         <div
           onClick={(e) => e.stopPropagation()}
-          className="absolute right-0 mt-3 w-80 bg-white border border-gray-200 shadow-2xl rounded-xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-1 duration-200"
+          className="absolute right-0 mt-3 w-80 bg-white border border-gray-200 shadow-2xl rounded-xl overflow-hidden z-[200] animate-in fade-in slide-in-from-top-1 duration-200"
         >
           {/* Header */}
           <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-100 flex items-center justify-between">

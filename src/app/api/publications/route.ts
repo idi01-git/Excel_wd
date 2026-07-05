@@ -2,9 +2,13 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { PublicationStatus, PublicationCategory, InteractionType, Prisma } from '@prisma/client';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 
 export async function GET(req: Request) {
   try {
+    const session = await getServerSession(authOptions);
+    const userId = session?.user?.id;
     const { searchParams } = new URL(req.url);
     const categoryQuery = searchParams.get('category');
     const sortQuery = searchParams.get('sort') || 'latest';
@@ -42,23 +46,18 @@ export async function GET(req: Request) {
     let orderBy: Prisma.PublicationOrderByWithRelationInput = { createdAt: 'desc' };
 
     if (sortQuery === 'popular') {
-      // Sort by interactions (likes/bookmarks count)
       orderBy = {
         interactions: {
           _count: 'desc'
         }
       };
     } else if (sortQuery === 'discussed') {
-      // Sort by comments count
       orderBy = {
         comments: {
           _count: 'desc'
         }
       };
     } else if (sortQuery === 'trending') {
-      // Combined score: interactions + comments
-      // Prisma doesn't directly support sorting by sum of two relation counts, 
-      // so we sort by interactions count as a proxy or do it in memory.
       orderBy = {
         interactions: {
           _count: 'desc'
@@ -66,7 +65,7 @@ export async function GET(req: Request) {
       };
     }
 
-    const publications = await db.publication.findMany({
+    const publicationsRaw = await db.publication.findMany({
       where: whereClause,
       include: {
         author: {
@@ -84,9 +83,30 @@ export async function GET(req: Request) {
               where: { type: InteractionType.LIKE }
             }
           }
-        }
+        },
+        ...(userId ? {
+          interactions: {
+            where: {
+              userId: userId,
+              type: { in: [InteractionType.LIKE, InteractionType.BOOKMARK] }
+            },
+            select: {
+              id: true,
+              type: true
+            }
+          }
+        } : {})
       },
       orderBy
+    });
+
+    const publications = publicationsRaw.map(pub => {
+      const { interactions, ...rest } = pub as any;
+      return {
+        ...rest,
+        hasLiked: interactions ? interactions.some((i: any) => i.type === 'LIKE') : false,
+        hasBookmarked: interactions ? interactions.some((i: any) => i.type === 'BOOKMARK') : false
+      };
     });
 
     return NextResponse.json({ success: true, publications });

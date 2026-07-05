@@ -65,6 +65,7 @@ model User {
   eventReports       EventReport[]
   bookReviews        BookReview[]
   issueRequests      IssueRequest[]
+  auditLogs          AuditLog[]
 }
 
 model Publication {
@@ -418,4 +419,20 @@ model IssueRequest {
 
   @@index([bookId, status])
   @@index([requesterId, status])
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  actorId    String?
+  actor      User?    @relation(fields: [actorId], references: [id])
+  action     String
+  entityType String
+  entityId   String
+  metadata   Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  @@index([actorId])
+  @@index([entityType, entityId])
 }

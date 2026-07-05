@@ -1,0 +1,241 @@
+.simple-editor-wrapper {
+  --tt-toolbar-height: 44px;
+  --tt-theme-text: var(--tt-gray-light-900);
+
+  .dark & {
+    --tt-theme-text: var(--tt-gray-dark-900);
+  }
+}
+
+.simple-editor-wrapper {
+  --tt-toolbar-height: 44px;
+  --tt-theme-text: var(--tt-gray-light-900);
+
+  .dark & {
+    --tt-theme-text: var(--tt-gray-dark-900);
+  }
+}
+
+.simple-editor-wrapper {
+  width: 100%;
+  height: auto;
+  min-height: 400px;
+}
+
+.tiptap.ProseMirror {
+  font-family: var(--font-serif);
+}
+
+.simple-editor-content {
+  max-width: 100%;
+  width: 100%;
+  margin: 0 auto;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.simple-editor-content .tiptap.ProseMirror.simple-editor {
+  flex: 1;
+  padding: 1.5rem;
+}
+
+@media screen and (max-width: 480px) {
+  .simple-editor-content .tiptap.ProseMirror.simple-editor {
+    padding: 1rem 1.5rem 30vh;
+  }
+}
+
+/* ==========================================================================
+   Three Premium Writing Styles (Broadsheet, Minimal, Scholar)
+   ========================================================================== */
+
+/* 1. Broadsheet (Editorial newsroom/newspaper style) */
+.theme-broadsheet {
+  background-color: #fafafa;
+  color: #111111;
+  
+  .dark & {
+    background-color: #000000;
+    color: #fafafa;
+  }
+
+  .simple-editor-content {
+    background-color: #ffffff;
+    border: 1px solid #111111;
+    color: #111111;
+    box-shadow: 4px 4px 0px rgba(17, 17, 17, 0.9);
+    border-radius: 6px;
+    transition: all 0.2s ease;
+
+    .dark & {
+      background-color: #09090b;
+      border: 1px solid #27272a;
+      color: #fafafa;
+      box-shadow: 4px 4px 0px rgba(250, 250, 250, 0.05);
+    }
+  }
+
+  .tiptap-toolbar {
+    background-color: #ffffff;
+    border: 1px solid #111111;
+    border-radius: 6px;
+    margin-bottom: 1.25rem;
+    transition: all 0.2s ease;
+
+    .dark & {
+      background-color: #09090b;
+      border: 1px solid #27272a;
+    }
+  }
+}
+
+/* 2. Minimal (Medium/Notion-like distraction-free canvas) */
+.theme-minimal {
+  background-color: #ffffff;
+  color: #18181b;
+
+  .dark & {
+    background-color: #000000;
+    color: #f4f4f5;
+  }
+
+  .simple-editor-content {
+    background-color: transparent;
+    border: none;
+    box-shadow: none;
+    border-radius: 0;
+    padding-left: 0;
+    padding-right: 0;
+    color: #18181b;
+
+    .dark & {
+      color: #f4f4f5;
+    }
+  }
+
+  .tiptap-toolbar {
+    background-color: rgba(255, 255, 255, 0.8);
+    border: 1px solid rgba(228, 228, 231, 0.8);
+    border-radius: 12px;
+    backdrop-filter: blur(12px);
+    margin-bottom: 1.5rem;
+    box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.03);
+    transition: all 0.2s ease;
+
+    .dark & {
+      background-color: rgba(9, 9, 11, 0.8);
+      border: 1px solid rgba(39, 39, 42, 0.8);
+      box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.2);
+    }
+
+    + .simple-editor-content {
+      border-radius: 0;
+    }
+  }
+}
+
+/* 3. Scholar (Warm cream/sepia book styling) */
+.theme-scholar {
+  background-color: #f4f1ea;
+  color: #2c221a;
+
+  .dark & {
+    background-color: #1a1817;
+    color: #e3ded5;
+  }
+
+  .simple-editor-content {
+    background-color: #fdfbf7;
+    border: 1px solid #e8e1d5;
+    color: #2c221a;
+    box-shadow: 0 4px 24px -4px rgba(44, 34, 26, 0.04);
+    border-radius: 10px;
+    transition: all 0.2s ease;
+
+    .dark & {
+      background-color: #121110;
+      border: 1px solid #2a2724;
+      color: #e3ded5;
+      box-shadow: none;
+    }
+  }
+
+  .tiptap-toolbar {
+    background-color: #fbf9f4;
+    border: 1px solid #e8e1d5;
+    border-radius: 10px;
+    margin-bottom: 1.25rem;
+    transition: all 0.2s ease;
+
+    .dark & {
+      background-color: #181615;
+      border: 1px solid #2a2724;
+    }
+  }
+}
+
+/* Custom highlight thickness styles */
+.simple-editor mark {
+  &[data-thickness] {
+    background: linear-gradient(to top, var(--highlight-color, currentColor) var(--highlight-thickness, 100%), transparent var(--highlight-thickness, 100%)) !important;
+    background-color: transparent !important;
+  }
+}
+
+/* Premium blockquote style */
+.simple-editor blockquote {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 1.125rem;
+  line-height: 1.6;
+  border-left: 3px solid var(--tt-theme-text, #111);
+  padding-left: 1.5rem;
+  margin: 1.5rem 0;
+  color: var(--tt-theme-text, #555);
+  opacity: 0.85;
+}
+
+
+.editor-weight-slider {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.editor-weight-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: currentColor;
+  border: 2px solid #ffffff;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.24);
+  transition: transform 140ms ease, box-shadow 140ms ease;
+}
+
+.editor-weight-slider:active::-webkit-slider-thumb {
+  transform: scale(1.18);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.32);
+}
+
+.editor-weight-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: currentColor;
+  border: 2px solid #ffffff;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.24);
+  transition: transform 140ms ease, box-shadow 140ms ease;
+}
+
+.editor-weight-slider:active::-moz-range-thumb {
+  transform: scale(1.18);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.32);
+}
+
+.editor-weight-slider::-moz-range-track {
+  height: 8px;
+  border-radius: 999px;
+  background: transparent;
+}

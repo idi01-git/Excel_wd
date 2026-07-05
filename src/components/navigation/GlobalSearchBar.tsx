@@ -185,7 +185,7 @@ export default function GlobalSearchBar() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -10, scale: 0.95 }}
             transition={{ type: "spring", stiffness: 400, damping: 30 }}
-            className="absolute right-0 top-full mt-2 w-72 md:w-80 bg-white dark:bg-neutral-900 border border-gray-200 dark:border-white/10 shadow-2xl dark:shadow-none rounded-xl overflow-hidden z-50 py-2 max-h-[350px] overflow-y-auto"
+            className="absolute right-0 top-full mt-2 w-72 md:w-80 bg-white dark:bg-neutral-900 border border-gray-200 dark:border-white/10 shadow-2xl dark:shadow-none rounded-xl overflow-hidden z-[200] py-2 max-h-[350px] overflow-y-auto"
           >
           {loading ? (
             <div className="p-4 text-center text-xs text-gray-500 flex justify-center gap-2 items-center">

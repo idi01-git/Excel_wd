@@ -39,6 +39,8 @@ export interface PublicationItem {
     comments: number;
     interactions: number;
   };
+  hasLiked?: boolean;
+  hasBookmarked?: boolean;
 }
 
 type ViewMode = "list" | "card";
@@ -106,21 +108,123 @@ function getInitialContent(content: any): string[] {
 
 // ─── Local State Wrapper for Interaction Button ────────────────────────────────
 
-function LocalInteractionButton({ icon, count, activeColor, withConfetti, withFill }: {
+// Preview engagement state
+
+type PreviewInteractionType = 'LIKE' | 'BOOKMARK';
+
+function usePreviewInteractions(params: {
+  slug: string;
+  initialLikeCount: number;
+  initialLiked?: boolean;
+  initialBookmarked?: boolean;
+}) {
+  const { slug, initialLikeCount, initialLiked = false, initialBookmarked = false } = params;
+  const [likeCount, setLikeCount] = useState(initialLikeCount);
+  const [hasLiked, setHasLiked] = useState(initialLiked);
+  const [hasBookmarked, setHasBookmarked] = useState(initialBookmarked);
+  const [pendingInteraction, setPendingInteraction] = useState<PreviewInteractionType | null>(null);
+  const pendingRef = useRef(false);
+
+  const toggleLike = async () => {
+    if (pendingRef.current) return;
+
+    pendingRef.current = true;
+    setPendingInteraction('LIKE');
+
+    const previousLikeCount = likeCount;
+    const previousLiked = hasLiked;
+    const nextLiked = !previousLiked;
+    const nextLikeCount = Math.max(0, previousLikeCount + (nextLiked ? 1 : -1));
+
+    setHasLiked(nextLiked);
+    setLikeCount(nextLikeCount);
+
+    try {
+      const res = await fetch(`/api/publications/${slug}/interact`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'LIKE' })
+      });
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        throw new Error('Failed to update like');
+      }
+
+      setLikeCount(data.stats.likes);
+      setHasLiked(data.active);
+    } catch {
+      setHasLiked(previousLiked);
+      setLikeCount(previousLikeCount);
+    } finally {
+      pendingRef.current = false;
+      setPendingInteraction(null);
+    }
+  };
+
+  const toggleBookmark = async () => {
+    if (pendingRef.current) return;
+
+    pendingRef.current = true;
+    setPendingInteraction('BOOKMARK');
+
+    const previousBookmarked = hasBookmarked;
+    const nextBookmarked = !previousBookmarked;
+
+    setHasBookmarked(nextBookmarked);
+
+    try {
+      const res = await fetch(`/api/publications/${slug}/interact`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'BOOKMARK' })
+      });
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        throw new Error('Failed to update bookmark');
+      }
+
+      setHasBookmarked(data.active);
+    } catch {
+      setHasBookmarked(previousBookmarked);
+    } finally {
+      pendingRef.current = false;
+      setPendingInteraction(null);
+    }
+  };
+
+  return {
+    likeCount,
+    hasLiked,
+    hasBookmarked,
+    pendingInteraction,
+    toggleLike,
+    toggleBookmark
+  };
+}
+
+function LocalInteractionButton({ icon, count, activeColor, withConfetti, withFill, active = false, disabled = false, onInteract }: {
   icon: React.ElementType;
   count?: number;
   activeColor: string;
   withConfetti?: boolean;
   withFill?: boolean;
+  active?: boolean;
+  disabled?: boolean;
+  onInteract?: (e: React.MouseEvent) => void | Promise<void>;
 }) {
-  const [active, setActive] = useState(false);
-
   return (
     <InteractionButton
       icon={icon}
-      count={count ? count + (active ? 1 : 0) : undefined}
+      count={count}
       active={active}
-      onClick={(e) => { e.stopPropagation(); setActive(!active); }}
+      disabled={disabled}
+      onClick={(e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        onInteract?.(e);
+      }}
       activeColor={activeColor}
       withConfetti={withConfetti}
       withFill={withFill}
@@ -129,16 +233,26 @@ function LocalInteractionButton({ icon, count, activeColor, withConfetti, withFi
   );
 }
 
-// ─── Expanded panel (shared between list and card) ────────────────────────────
-
 function ExpandedPanel({
   pub,
   layoutId,
   onClose,
+  likeCount,
+  hasLiked,
+  hasBookmarked,
+  pendingInteraction,
+  onToggleLike,
+  onToggleBookmark,
 }: {
   pub: PublicationItem;
   layoutId: string;
   onClose: () => void;
+  likeCount: number;
+  hasLiked: boolean;
+  hasBookmarked: boolean;
+  pendingInteraction: PreviewInteractionType | null;
+  onToggleLike: () => void | Promise<void>;
+  onToggleBookmark: () => void | Promise<void>;
 }) {
   const icon  = categoryIcon(pub.category);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -244,12 +358,27 @@ function ExpandedPanel({
                 </span>
               ))}
               <div className="ml-auto flex items-center gap-4 text-[11px] text-gray-500">
-                <LocalInteractionButton icon={Heart} count={pub._count.interactions} activeColor="text-red-500" withConfetti />
+                <LocalInteractionButton 
+                  icon={Heart} 
+                  count={likeCount} 
+                  active={hasLiked}
+                  disabled={pendingInteraction !== null}
+                  activeColor="text-red-500" 
+                  onInteract={onToggleLike}
+                  withConfetti 
+                />
                 <span className="flex items-center gap-1.5 text-gray-400">
                   <MessageCircle size={14} strokeWidth={1.5} />
                   <span className="font-medium text-gray-500">{pub._count.comments}</span>
                 </span>
-                <LocalInteractionButton icon={Bookmark} activeColor="text-yellow-500" withConfetti />
+                <LocalInteractionButton 
+                  icon={Bookmark} 
+                  active={hasBookmarked}
+                  disabled={pendingInteraction !== null}
+                  activeColor="text-yellow-500" 
+                  onInteract={onToggleBookmark}
+                  withConfetti 
+                />
                 
                 <div className="w-px h-3 bg-gray-200 mx-1" />
                 
@@ -286,13 +415,32 @@ function ExpandedPanel({
 
 function ListItem({ pub }: { pub: PublicationItem }) {
   const [expanded, setExpanded] = useState(false);
+  const engagement = usePreviewInteractions({
+    slug: pub.slug,
+    initialLikeCount: pub._count.interactions,
+    initialLiked: pub.hasLiked,
+    initialBookmarked: pub.hasBookmarked
+  });
+
   const layoutId = `pub-list-${pub.id}`;
   const icon  = categoryIcon(pub.category);
 
   return (
     <>
       <AnimatePresence>
-        {expanded && <ExpandedPanel pub={pub} layoutId={layoutId} onClose={() => setExpanded(false)} />}
+        {expanded && (
+          <ExpandedPanel 
+            pub={pub} 
+            layoutId={layoutId} 
+            onClose={() => setExpanded(false)} 
+            likeCount={engagement.likeCount}
+            hasLiked={engagement.hasLiked} 
+            hasBookmarked={engagement.hasBookmarked} 
+            pendingInteraction={engagement.pendingInteraction}
+            onToggleLike={engagement.toggleLike} 
+            onToggleBookmark={engagement.toggleBookmark} 
+          />
+        )}
       </AnimatePresence>
 
       <motion.div
@@ -330,7 +478,14 @@ function ListItem({ pub }: { pub: PublicationItem }) {
               {categoryLabel(pub.category)}
             </span>
             <div className="flex items-center gap-3 text-[11px] text-gray-400">
-              <LocalInteractionButton icon={Heart} count={pub._count.interactions} activeColor="text-red-500" />
+              <LocalInteractionButton 
+                icon={Heart} 
+                count={engagement.likeCount} 
+                active={engagement.hasLiked}
+                disabled={engagement.pendingInteraction !== null}
+                activeColor="text-red-500" 
+                onInteract={engagement.toggleLike}
+              />
               <span className="flex items-center gap-1.5">
                 <MessageCircle size={12} strokeWidth={1.5} className="text-gray-400" />
                 <span className="font-medium">{pub._count.comments}</span>
@@ -350,13 +505,32 @@ function ListItem({ pub }: { pub: PublicationItem }) {
 
 function CardItem({ pub }: { pub: PublicationItem }) {
   const [expanded, setExpanded] = useState(false);
+  const engagement = usePreviewInteractions({
+    slug: pub.slug,
+    initialLikeCount: pub._count.interactions,
+    initialLiked: pub.hasLiked,
+    initialBookmarked: pub.hasBookmarked
+  });
+
   const layoutId = `pub-card-${pub.id}`;
   const icon  = categoryIcon(pub.category);
 
   return (
     <>
       <AnimatePresence>
-        {expanded && <ExpandedPanel pub={pub} layoutId={layoutId} onClose={() => setExpanded(false)} />}
+        {expanded && (
+          <ExpandedPanel 
+            pub={pub} 
+            layoutId={layoutId} 
+            onClose={() => setExpanded(false)} 
+            likeCount={engagement.likeCount}
+            hasLiked={engagement.hasLiked} 
+            hasBookmarked={engagement.hasBookmarked} 
+            pendingInteraction={engagement.pendingInteraction}
+            onToggleLike={engagement.toggleLike} 
+            onToggleBookmark={engagement.toggleBookmark} 
+          />
+        )}
       </AnimatePresence>
 
       <motion.div
@@ -396,7 +570,14 @@ function CardItem({ pub }: { pub: PublicationItem }) {
               </motion.p>
             </div>
             <div className="flex items-center gap-3 text-[11px] text-gray-400">
-              <LocalInteractionButton icon={Heart} count={pub._count.interactions} activeColor="text-red-500" />
+              <LocalInteractionButton 
+                icon={Heart} 
+                count={engagement.likeCount} 
+                active={engagement.hasLiked}
+                disabled={engagement.pendingInteraction !== null}
+                activeColor="text-red-500" 
+                onInteract={engagement.toggleLike}
+              />
               <span className="flex items-center gap-1.5">
                 <MessageCircle size={12} strokeWidth={1.5} className="text-gray-400" />
                 <span className="font-medium">{pub._count.comments}</span>
