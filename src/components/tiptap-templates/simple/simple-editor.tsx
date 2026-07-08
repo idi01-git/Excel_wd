@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import { EditorContent, EditorContext, useEditor, Editor } from "@tiptap/react"
 import { TextSelection } from "@tiptap/pm/state"
+import { motion, LayoutGroup } from "motion/react"
 
 // --- Tiptap Core Extensions ---
 import { StarterKit } from "@tiptap/starter-kit"
@@ -94,6 +95,7 @@ import {
   Popover,
   PopoverTrigger,
   PopoverContent,
+  PopoverAnchor,
 } from "@/components/tiptap-ui-primitive/popover"
 
 // --- Hooks ---
@@ -112,9 +114,24 @@ import "@/components/tiptap-templates/simple/simple-editor.scss"
 
 import content from "@/components/tiptap-templates/simple/data/content.json"
 
-function applyFontWeight(editor: Editor, fontWeight: number) {
+function applyFontWeight(editor: Editor, fontWeight: number, restoreFocus = false) {
   const weight = fontWeight.toString()
-  editor.chain().focus().setFontWeight(weight).run()
+  const { empty, $from } = editor.state.selection
+  
+  let chain = editor.chain()
+  if (restoreFocus) chain = chain.focus()
+  
+  if (empty) {
+    // Apply to the whole line/block if nothing is selected
+    const from = $from.start()
+    const to = $from.end()
+    chain = chain.setTextSelection({ from, to }).setMark('textStyle', { fontWeight: weight }).setTextSelection($from.pos)
+  } else {
+    // Apply to selection
+    chain = chain.setMark('textStyle', { fontWeight: weight })
+  }
+  
+  chain.run()
 }
 
 const CustomHighlight = Highlight.extend({
@@ -479,16 +496,12 @@ const MainToolbarContent = ({
       <ToolbarGroup>
         {/* Bold Button (Left-click toggles bold, Right-click for custom weight) */}
         <Popover open={boldOpen} onOpenChange={setBoldOpen}>
-          <PopoverTrigger asChild>
+          <PopoverAnchor asChild>
             <Button
               variant="ghost"
               tooltip="Bold (Right-click for thickness)"
               aria-label="Bold text"
               data-active-state={editor.isActive('bold') ? "on" : "off"}
-              onPointerDown={(e) => {
-                // Prevent popover from triggering on left-click — only right-click opens it
-                if (e.button === 0) e.preventDefault()
-              }}
               onClick={() => {
                 editor.chain().focus().toggleBold().run()
               }}
@@ -499,30 +512,44 @@ const MainToolbarContent = ({
             >
               <Bold className="w-4 h-4" />
             </Button>
-          </PopoverTrigger>
-          <PopoverContent className="p-3 bg-white dark:bg-slate-950 border border-gray-200 dark:border-white/10 rounded-xl shadow-lg z-50 min-w-[200px]">
+          </PopoverAnchor>
+          <PopoverContent 
+            className="p-3 bg-white dark:bg-slate-950 border border-gray-200 dark:border-white/10 rounded-xl shadow-lg z-50 min-w-[200px]"
+            onInteractOutside={(e) => {
+              // Prevent closing if interacting with the editor
+              if ((e.target as Element).closest('.ProseMirror')) {
+                e.preventDefault()
+              }
+            }}
+          >
             <div className="flex flex-col gap-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">Font Weight</span>
-                <span className="text-[10px] text-gray-500 font-mono">{boldWeight}</span>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">Thickness</span>
+                <span className="text-[10px] font-mono bg-slate-100 dark:bg-white/10 px-1.5 py-0.5 rounded text-slate-600 dark:text-slate-300">
+                  {boldWeight}
+                </span>
               </div>
               <input 
                 type="range" 
                 min="300" 
                 max="900" 
-                step="1"
+                step="100"
                 value={boldWeight}
                 onInput={(e) => {
                   const val = Number(e.currentTarget.value)
                   setBoldWeight(val)
-                  applyFontWeight(editor, val)
+                  applyFontWeight(editor, val, false)
                 }}
                 style={{
                   background: `linear-gradient(90deg, currentColor ${((boldWeight - 300) / 600) * 100}%, rgba(148, 163, 184, 0.35) ${((boldWeight - 300) / 600) * 100}%)`,
                 }}
-                className="editor-weight-slider w-full h-2 rounded-full appearance-none cursor-pointer focus:outline-none transition-all duration-150 ease-out text-black dark:text-white"
+                className="editor-weight-slider w-full h-1.5 rounded-full appearance-none cursor-pointer focus:outline-none transition-all duration-150 ease-out text-slate-900 dark:text-white"
               />
-              <div className="text-[10px] text-gray-500">Weight: {boldWeight}</div>
+              <div className="flex justify-between text-[9px] text-slate-400 font-medium tracking-widest mt-1 uppercase">
+                <span>Light</span>
+                <span>Normal</span>
+                <span>Black</span>
+              </div>
             </div>
           </PopoverContent>
         </Popover>
@@ -533,15 +560,12 @@ const MainToolbarContent = ({
         {/* Highlight/Color Dropdown (Click to toggle highlight, Right-click to choose color) */}
         {!isMobile ? (
           <Popover open={colorOpen} onOpenChange={setColorOpen}>
-            <PopoverTrigger asChild>
+            <PopoverAnchor asChild>
               <Button
                 variant="ghost"
                 tooltip="Highlight (Right-click to select color & thickness)"
                 aria-label="Highlight color"
                 data-active-state={isHighlighted ? "on" : "off"}
-                onPointerDown={(e) => {
-                  if (e.button === 0) e.preventDefault()
-                }}
                 onClick={handleColorLeftClick}
                 onContextMenu={(e) => {
                   e.preventDefault()
@@ -550,7 +574,7 @@ const MainToolbarContent = ({
               >
                 <HighlighterIcon className="tiptap-button-icon" />
               </Button>
-            </PopoverTrigger>
+            </PopoverAnchor>
             <PopoverContent className="p-3 bg-white dark:bg-slate-950 border border-gray-200 dark:border-white/10 rounded-xl shadow-lg z-50 min-w-[220px]">
               <div className="flex flex-col gap-3">
                 <div className="flex items-center justify-between">
@@ -610,43 +634,35 @@ const MainToolbarContent = ({
 
       <ToolbarSeparator />
 
-      <ToolbarGroup>
-        <Button
-          variant="ghost"
-          tooltip="Align Left"
-          aria-label="Align Left"
-          data-active-state={isLeftAligned ? "on" : "off"}
-          onClick={() => editor.chain().focus().setTextAlign('left').run()}
-        >
-          <AlignLeft className="w-4 h-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          tooltip="Align Center"
-          aria-label="Align Center"
-          data-active-state={isCenterAligned ? "on" : "off"}
-          onClick={() => editor.chain().focus().setTextAlign('center').run()}
-        >
-          <AlignCenter className="w-4 h-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          tooltip="Align Right"
-          aria-label="Align Right"
-          data-active-state={isRightAligned ? "on" : "off"}
-          onClick={() => editor.chain().focus().setTextAlign('right').run()}
-        >
-          <AlignRight className="w-4 h-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          tooltip="Justify"
-          aria-label="Justify"
-          data-active-state={isJustifyAligned ? "on" : "off"}
-          onClick={() => editor.chain().focus().setTextAlign('justify').run()}
-        >
-          <AlignJustify className="w-4 h-4" />
-        </Button>
+      <ToolbarGroup className="relative flex items-center bg-gray-100/50 dark:bg-white/5 p-0.5 rounded-xl border border-gray-200/50 dark:border-white/5">
+        <LayoutGroup id="alignment-group">
+          {[
+            { id: 'left', icon: AlignLeft, label: "Align Left", active: isLeftAligned },
+            { id: 'center', icon: AlignCenter, label: "Align Center", active: isCenterAligned },
+            { id: 'right', icon: AlignRight, label: "Align Right", active: isRightAligned },
+            { id: 'justify', icon: AlignJustify, label: "Justify", active: isJustifyAligned },
+          ].map((item) => (
+            <div key={item.id} className="relative">
+              {item.active && (
+                <motion.div
+                  layoutId="active-alignment-pill"
+                  className="absolute inset-0 bg-white dark:bg-white/10 rounded-[0.6rem] shadow-sm z-0"
+                  transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                />
+              )}
+              <Button
+                variant="ghost"
+                tooltip={item.label}
+                aria-label={item.label}
+                data-active-state={item.active ? "on" : "off"}
+                onClick={() => editor.chain().focus().setTextAlign(item.id).run()}
+                className="relative z-10 bg-transparent hover:bg-transparent data-[active-state=on]:bg-transparent"
+              >
+                <item.icon className="w-4 h-4 relative z-10" />
+              </Button>
+            </div>
+          ))}
+        </LayoutGroup>
       </ToolbarGroup>
 
       <ToolbarSeparator />
@@ -695,6 +711,7 @@ export interface SimpleEditorProps {
   onSaveStatusChange?: (status: string) => void
   status?: string
   editorStyle?: 'broadsheet' | 'minimal' | 'scholar'
+  onChange?: (content: any) => void
 }
 
 export function SimpleEditor({ 
@@ -702,7 +719,8 @@ export function SimpleEditor({
   onAutoSave, 
   onSaveStatusChange, 
   status = 'DRAFT',
-  editorStyle = 'scholar'
+  editorStyle = 'scholar',
+  onChange
 }: SimpleEditorProps) {
   const isMobile = useIsBreakpoint()
   const { height } = useWindowSize()
@@ -762,6 +780,7 @@ export function SimpleEditor({
       setIsDirty(true)
       setSaveStatus("Unsaved changes...")
       if (onSaveStatusChange) onSaveStatusChange("Unsaved changes...")
+      if (onChange) onChange(editor.getJSON())
     }
   })
 

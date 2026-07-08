@@ -4,9 +4,14 @@ import { db } from '@/lib/db';
 
 export async function GET(req: Request) {
   try {
-    const items = await db.editorShelfItem.findMany({
+    const items = await db.book.findMany({
+      where: {
+        editorPickType: {
+          not: null
+        }
+      },
       orderBy: {
-        createdAt: 'desc'
+        updatedAt: 'desc'
       }
     });
 

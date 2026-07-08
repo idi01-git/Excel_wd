@@ -30,7 +30,8 @@ export async function PUT(
       pageCount,
       publishedYear,
       totalCopies,
-      availabilityStatus
+      availabilityStatus,
+      amazonLink
     } = await req.json();
 
     const book = await db.book.findUnique({
@@ -62,7 +63,8 @@ export async function PUT(
         pageCount: pageCount ? parseInt(pageCount) : book.pageCount,
         publishedYear: publishedYear ? parseInt(publishedYear) : book.publishedYear,
         totalCopies: parsedTotalCopies,
-        availabilityStatus: status
+        availabilityStatus: status,
+        amazonLink: amazonLink !== undefined ? amazonLink : book.amazonLink
       }
     });
 

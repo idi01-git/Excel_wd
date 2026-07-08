@@ -19,27 +19,17 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Missing required parameters (title, author, note)' }, { status: 400 });
     }
 
-    // Slug generation
-    const slugBase = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-    let slug = `${slugBase}-${Date.now().toString().slice(-4)}`;
+    // No slug generation needed for Book, we use id
 
-    // Collision check
-    const collision = await db.editorShelfItem.findUnique({
-      where: { slug }
-    });
-
-    if (collision) {
-      slug = `${slugBase}-${Math.random().toString(36).substr(2, 5)}`;
-    }
-
-    const item = await db.editorShelfItem.create({
+    const item = await db.book.create({
       data: {
         title,
         author,
         coverImage: coverImage || null,
-        editorialNote,
+        description: editorialNote, // Mapping editorial note to description temporarily or clubReview
+        clubReview: editorialNote,
         genre: Array.isArray(genre) ? genre : [genre],
-        slug
+        editorPickType: req.headers.get('x-pick-type') || 'WEEK'
       }
     });
 

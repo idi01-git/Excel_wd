@@ -120,7 +120,7 @@ export default function NotificationBell() {
       {isOpen && (
         <div
           onClick={(e) => e.stopPropagation()}
-          className="absolute right-0 mt-3 w-80 bg-white border border-gray-200 shadow-2xl rounded-xl overflow-hidden z-[200] animate-in fade-in slide-in-from-top-1 duration-200"
+          className="absolute right-0 mt-3 w-80 bg-white border border-gray-200 shadow-2xl rounded-xl overflow-hidden z-200 animate-in fade-in slide-in-from-top-1 duration-200"
         >
           {/* Header */}
           <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
@@ -152,7 +152,7 @@ export default function NotificationBell() {
                       className="w-7 h-7 rounded-full object-cover border border-gray-200"
                     />
                   )}
-                  <div className="flex-grow">
+                  <div className="grow">
                     <p className="text-gray-700 leading-snug">{getNotificationText(n)}</p>
                     <span className="text-[10px] text-gray-400 mt-1 block">
                       {new Date(n.createdAt).toLocaleDateString(undefined, {
@@ -164,7 +164,7 @@ export default function NotificationBell() {
                     </span>
                   </div>
                   {!n.isRead && (
-                    <span className="h-1.5 w-1.5 bg-violet-600 rounded-full self-center flex-shrink-0"></span>
+                    <span className="h-1.5 w-1.5 bg-violet-600 rounded-full self-center shrink-0"></span>
                   )}
                 </div>
               ))

@@ -185,7 +185,7 @@ export default function GlobalSearchBar() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -10, scale: 0.95 }}
             transition={{ type: "spring", stiffness: 400, damping: 30 }}
-            className="absolute right-0 top-full mt-2 w-72 md:w-80 bg-white dark:bg-neutral-900 border border-gray-200 dark:border-white/10 shadow-2xl dark:shadow-none rounded-xl overflow-hidden z-[200] py-2 max-h-[350px] overflow-y-auto"
+            className="absolute right-0 top-full mt-2 w-72 md:w-80 bg-white dark:bg-neutral-900 border border-gray-200 dark:border-white/10 shadow-2xl dark:shadow-none rounded-xl overflow-hidden z-200 py-2 max-h-[350px] overflow-y-auto"
           >
           {loading ? (
             <div className="p-4 text-center text-xs text-gray-500 flex justify-center gap-2 items-center">
@@ -212,7 +212,7 @@ export default function GlobalSearchBar() {
                           alt=""
                           className="w-8 h-8 object-cover rounded border border-gray-200 dark:border-white/10"
                         />
-                        <div className="flex-grow min-w-0">
+                        <div className="grow min-w-0">
                           <span className="block text-xs font-semibold text-gray-800 dark:text-white truncate">{pub.title}</span>
                           <span className="block text-[10px] text-gray-500 dark:text-neutral-400 capitalize">{pub.category?.toLowerCase()}</span>
                         </div>
@@ -239,7 +239,7 @@ export default function GlobalSearchBar() {
                           alt=""
                           className="w-8 h-8 object-cover rounded-full border border-gray-200 dark:border-white/10"
                         />
-                        <div className="flex-grow min-w-0">
+                        <div className="grow min-w-0">
                           <span className="block text-xs font-semibold text-gray-800 dark:text-white truncate">{user.name}</span>
                           <span className="block text-[10px] text-gray-500 dark:text-neutral-400">@{user.username} &middot; {user.role?.toLowerCase()}</span>
                         </div>
@@ -266,7 +266,7 @@ export default function GlobalSearchBar() {
                           alt=""
                           className="w-8 h-8 object-cover rounded-full border border-gray-200 dark:border-white/10"
                         />
-                        <div className="flex-grow min-w-0">
+                        <div className="grow min-w-0">
                           <span className="block text-xs font-semibold text-gray-800 dark:text-white truncate">{alum.name}</span>
                           <span className="block text-[10px] text-gray-500 dark:text-neutral-400 truncate">{alum.currentPosition || 'Alumnus'}</span>
                         </div>

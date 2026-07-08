@@ -80,7 +80,7 @@ export async function PUT(
       return NextResponse.json({ error: 'Locked: Publication is currently under review or published' }, { status: 403 });
     }
 
-    const { title, content, coverImage, category, tags } = await req.json();
+    const { title, content, coverImage, category, tags, language } = await req.json();
 
     // Recalculate word count and reading time
     const words = countWordsFromTipTapJSON(content);
@@ -110,6 +110,7 @@ export async function PUT(
         content: content || pub.content,
         coverImage: coverImage !== undefined ? coverImage : pub.coverImage,
         category: category || pub.category,
+        language: language || pub.language,
         tags: tags || pub.tags,
         readingTime
       }

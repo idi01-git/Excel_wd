@@ -9,14 +9,28 @@
   min-width: 2rem;
   border: none;
   padding: 0.5rem;
-  gap: 0.25rem;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: var(--tt-radius-lg, 0.75rem);
-  transition-property: background, color, opacity;
+  transition-property: background, color, opacity, transform;
   transition-duration: var(--tt-transition-duration-default);
   transition-timing-function: var(--tt-transition-easing-default);
+  position: relative;
+  overflow: hidden;
+  will-change: transform;
+
+  .tiptap-button-fluid-fill {
+    position: absolute;
+    inset: 0;
+    background-color: var(--tt-button-hover-bg-color);
+    transform: scaleY(0);
+    transform-origin: bottom;
+    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), background-color var(--tt-transition-duration-default) var(--tt-transition-easing-default);
+    z-index: 0;
+    pointer-events: none;
+    border-radius: inherit;
+  }
 
   // focus-visible
   &:focus-visible {
@@ -212,8 +226,12 @@
   &:hover:not([data-active-item="true"]):not([disabled]),
   &[data-active-item="true"]:not([disabled]),
   &[data-highlighted]:not([disabled]):not([data-highlighted="false"]) {
-    background-color: var(--tt-button-hover-bg-color);
+    background-color: transparent; // Rely on fluid fill
     color: var(--tt-button-hover-text-color);
+
+    .tiptap-button-fluid-fill {
+      transform: scaleY(1);
+    }
 
     .tiptap-button-icon {
       color: var(--tt-button-hover-icon-color);
@@ -232,8 +250,13 @@
   /* Active state of a button */
   &[data-active-state="on"]:not([disabled]),
   &[data-state="open"]:not([disabled]) {
-    background-color: var(--tt-button-active-bg-color);
+    background-color: transparent; // Use fluid fill instead of bg color directly
     color: var(--tt-button-active-text-color);
+
+    .tiptap-button-fluid-fill {
+      transform: scaleY(1);
+      background-color: var(--tt-button-active-bg-color);
+    }
 
     .tiptap-button-icon {
       color: var(--tt-button-active-icon-color);
@@ -249,7 +272,9 @@
     }
 
     &:hover {
-      background-color: var(--tt-button-active-hover-bg-color);
+      .tiptap-button-fluid-fill {
+        background-color: var(--tt-button-active-hover-bg-color);
+      }
     }
 
     /* Emphasized */

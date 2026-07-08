@@ -18,7 +18,7 @@ export async function PATCH(
       return NextResponse.json({ error: 'Forbidden: Admin access only' }, { status: 403 });
     }
 
-    const { action, adminNote } = await req.json();
+    const { action, adminNote, dueDate } = await req.json();
 
     if (action !== 'APPROVE' && action !== 'REJECT' && action !== 'RETURN') {
       return NextResponse.json({ error: 'Invalid loan status action' }, { status: 400 });
@@ -96,6 +96,7 @@ export async function PATCH(
           status: targetStatus,
           issueDate,
           returnDate,
+          dueDate: action === 'APPROVE' && dueDate ? new Date(dueDate) : undefined,
           adminNote: adminNote || request.adminNote
         }
       });

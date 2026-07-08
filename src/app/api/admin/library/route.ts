@@ -23,7 +23,9 @@ export async function POST(req: Request) {
       isbn,
       pageCount,
       publishedYear,
-      totalCopies
+      totalCopies,
+      availabilityStatus,
+      amazonLink
     } = await req.json();
 
     if (!title || !author || !description || !totalCopies) {
@@ -48,7 +50,8 @@ export async function POST(req: Request) {
         publishedYear: publishedYear ? parseInt(publishedYear) : null,
         totalCopies: parseInt(totalCopies),
         issuedCopies: 0,
-        availabilityStatus: BookAvailabilityStatus.AVAILABLE
+        availabilityStatus: availabilityStatus || BookAvailabilityStatus.AVAILABLE,
+        amazonLink: amazonLink || null
       }
     });
 

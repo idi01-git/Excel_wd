@@ -1,6 +1,8 @@
 "use client"
 
-import { forwardRef, Fragment, useMemo } from "react"
+import { forwardRef, Fragment, useMemo, useRef, useState } from "react"
+import { motion, useMotionValue, useSpring } from "motion/react"
+import { useMergeRefs } from "@floating-ui/react"
 
 // --- Tiptap UI Primitive ---
 import {
@@ -53,6 +55,8 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       shortcutKeys,
       variant,
       size,
+      onMouseMove,
+      onMouseLeave,
       ...props
     },
     ref
@@ -62,32 +66,81 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       [shortcutKeys]
     )
 
+    const innerRef = useRef<HTMLButtonElement>(null)
+    const mergedRef = useMergeRefs([ref, innerRef])
+
+    const x = useMotionValue(0)
+    const y = useMotionValue(0)
+    const springConfig = { damping: 15, stiffness: 150, mass: 0.1 }
+    const springX = useSpring(x, springConfig)
+    const springY = useSpring(y, springConfig)
+
+    const handleMouseMove = (e: React.MouseEvent<HTMLButtonElement>) => {
+      onMouseMove?.(e)
+      if (!innerRef.current) return
+      const rect = innerRef.current.getBoundingClientRect()
+      const centerX = rect.left + rect.width / 2
+      const centerY = rect.top + rect.height / 2
+      const distanceX = e.clientX - centerX
+      const distanceY = e.clientY - centerY
+      
+      x.set(distanceX * 0.2)
+      y.set(distanceY * 0.2)
+    }
+
+    const handleMouseLeave = (e: React.MouseEvent<HTMLButtonElement>) => {
+      onMouseLeave?.(e)
+      x.set(0)
+      y.set(0)
+    }
+
+    const innerContent = (
+      <>
+        <span className="tiptap-button-content relative z-10 flex items-center justify-center gap-[inherit] pointer-events-none">
+          {children}
+        </span>
+        <span className="tiptap-button-fluid-fill" />
+      </>
+    )
+
     if (!tooltip || !showTooltip) {
       return (
-        <button
+        <motion.button
           data-slot="tiptap-button"
           className={cn("tiptap-button", className)}
-          ref={ref}
+          ref={mergedRef}
           data-style={variant}
           data-size={size}
-          {...props}
+          onMouseMove={handleMouseMove}
+          onMouseLeave={handleMouseLeave}
+          whileTap={{ scale: 0.95 }}
+          style={{ x: springX, y: springY }}
+          {...props as any}
         >
-          {children}
-        </button>
+          {innerContent}
+        </motion.button>
       )
     }
 
     return (
       <Tooltip delay={200}>
         <TooltipTrigger
-          data-slot="tiptap-button"
-          className={cn("tiptap-button", className)}
-          ref={ref}
-          data-style={variant}
-          data-size={size}
-          {...props}
+          asChild
         >
-          {children}
+          <motion.button
+            data-slot="tiptap-button"
+            className={cn("tiptap-button", className)}
+            ref={mergedRef}
+            data-style={variant}
+            data-size={size}
+            onMouseMove={handleMouseMove}
+            onMouseLeave={handleMouseLeave}
+            whileTap={{ scale: 0.95 }}
+            style={{ x: springX, y: springY }}
+            {...props as any}
+          >
+            {innerContent}
+          </motion.button>
         </TooltipTrigger>
         <TooltipContent>
           {tooltip}

@@ -78,7 +78,7 @@ export default function FollowButton({ targetUserId }: FollowButtonProps) {
       className={`py-1.5 px-4 rounded-full text-xs font-semibold tracking-wide transition duration-300 border flex items-center gap-1.5 ${
         following
           ? 'bg-violet-600/10 text-violet-400 border-violet-500/20 hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/20'
-          : 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white border-transparent hover:shadow-lg hover:shadow-indigo-500/20'
+          : 'bg-linear-to-r from-violet-600 to-indigo-600 text-white border-transparent hover:shadow-lg hover:shadow-indigo-500/20'
       }`}
     >
       {loading ? (

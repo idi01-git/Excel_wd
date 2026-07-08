@@ -3,10 +3,11 @@
 
 import { useCallback, useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { motion } from 'motion/react';
+import { motion, LayoutGroup } from 'motion/react';
 import PublicationCollection, {
   type PublicationItem,
 } from '@/components/animated-collection';
+import SortDropdown from '@/components/SortDropdown';
 
 const categories = ['All', 'Articles', 'Stories', 'Poems', 'Reviews'];
 
@@ -109,39 +110,41 @@ function PublicationsContent() {
       {/* Filter Tabs & Sort */}
       <div className="flex flex-wrap items-center justify-between gap-4 mb-10 border-b border-gray-100 pb-5">
         <div className="flex flex-wrap gap-1.5 bg-gray-50 p-1 border border-gray-200/50 rounded-full">
-          {categories.map((c) => (
-            <button
-              key={c}
-              onClick={() => updateCategory(c)}
-              className={`relative py-1.5 px-4 rounded-full text-xs font-semibold tracking-wide transition-all outline-none ${
-                category === c
-                  ? 'text-white'
-                  : 'text-gray-500 hover:text-black hover:bg-gray-100/50'
-              }`}
-            >
-              {category === c && (
-                <motion.div
-                  layoutId="active-category"
-                  className="absolute inset-0 bg-black rounded-full shadow-sm"
-                  transition={{ type: "spring", stiffness: 260, damping: 25, mass: 1 }}
-                />
-              )}
-              <span className="relative z-10">{c}</span>
-            </button>
-          ))}
+          <LayoutGroup id="publications-category-tabs">
+            {categories.map((c) => (
+              <button
+                key={c}
+                onClick={() => updateCategory(c)}
+                className={`relative py-1.5 px-4 rounded-full text-xs font-semibold tracking-wide transition-all outline-none ${
+                  category === c
+                    ? 'text-white'
+                    : 'text-gray-500 hover:text-black hover:bg-gray-100/50'
+                }`}
+              >
+                {category === c && (
+                  <motion.div
+                    layoutId="active-category"
+                    className="absolute inset-0 bg-black rounded-full shadow-sm"
+                    transition={{ type: "spring", stiffness: 260, damping: 25, mass: 1 }}
+                  />
+                )}
+                <span className="relative z-10">{c}</span>
+              </button>
+            ))}
+          </LayoutGroup>
         </div>
 
         <div className="flex items-center gap-2">
           <span className="text-xs text-gray-400 font-semibold uppercase tracking-wider">Sort:</span>
-          <select
+          <SortDropdown
+            options={[
+              { id: 'latest', label: 'Latest' },
+              { id: 'popular', label: 'Popular (Likes)' },
+              { id: 'discussed', label: 'Most Discussed' }
+            ]}
             value={sort}
-            onChange={(e) => setSort(e.target.value)}
-            className="bg-white border border-gray-200 text-black text-xs font-semibold rounded-full px-4 py-1.5 focus:outline-none focus:border-black transition-all duration-200 cursor-pointer"
-          >
-            <option value="latest">Latest</option>
-            <option value="popular">Popular (Likes)</option>
-            <option value="discussed">Most Discussed</option>
-          </select>
+            onChange={(val) => setSort(val)}
+          />
         </div>
       </div>
 

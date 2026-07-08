@@ -41,7 +41,8 @@ export async function GET(req: Request) {
             id: true,
             name: true,
             username: true,
-            email: true
+            email: true,
+            profilePhoto: true
           }
         }
       },

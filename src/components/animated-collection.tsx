@@ -1,6 +1,6 @@
 "use client";
 
-import { motion, AnimatePresence, type Transition } from "motion/react";
+import { motion, AnimatePresence, LayoutGroup, type Transition } from "motion/react";
 import {
   Newspaper,
   PenTool,
@@ -411,18 +411,12 @@ function ExpandedPanel({
   );
 }
 
-// ─── List item ────────────────────────────────────────────────────────────────
+// ─── Unified Publication Item (Layout Morphing) ────────────────────────────────
 
-function ListItem({ pub }: { pub: PublicationItem }) {
+function UnifiedPublicationItem({ pub, engagement, view }: { pub: PublicationItem; engagement: ReturnType<typeof usePreviewInteractions>; view: ViewMode }) {
   const [expanded, setExpanded] = useState(false);
-  const engagement = usePreviewInteractions({
-    slug: pub.slug,
-    initialLikeCount: pub._count.interactions,
-    initialLiked: pub.hasLiked,
-    initialBookmarked: pub.hasBookmarked
-  });
 
-  const layoutId = `pub-list-${pub.id}`;
+  const layoutId = `pub-unified-${pub.id}`;
   const icon  = categoryIcon(pub.category);
 
   return (
@@ -443,149 +437,111 @@ function ListItem({ pub }: { pub: PublicationItem }) {
         )}
       </AnimatePresence>
 
-      <motion.div
+      <motion.article
+        layout
         layoutId={layoutId}
         onClick={() => setExpanded(true)}
-        transition={smoothSpring}
-        className="relative flex items-center gap-4 w-full p-3.5 rounded-2xl cursor-pointer hover:bg-gray-50 transition-colors duration-200 group"
+        initial={{ opacity: 0, y: 20, scale: 0.95 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.9 }}
+        transition={{ type: "spring", stiffness: 300, damping: 25, mass: 1 }}
+        className={`group relative overflow-hidden bg-white border border-gray-200/60 rounded-3xl cursor-pointer ${
+          view === "list"
+            ? "flex flex-col md:flex-row shadow-[0_2px_10px_rgb(0,0,0,0.02)]"
+            : "flex flex-col shadow-sm"
+        } hover:shadow-xl hover:-translate-y-1 transition-all duration-300`}
       >
-        {/* Thumbnail */}
-        <motion.div layoutId={`${layoutId}-img`} transition={smoothSpring} className="relative w-16 h-16 shrink-0 rounded-xl overflow-hidden border border-gray-200">
-          <img
+        <motion.div
+          layout
+          className={`${
+            view === "list"
+              ? "w-full md:w-1/3 aspect-[4/3] md:aspect-auto md:min-h-[200px]"
+              : "w-full aspect-[4/3]"
+          } relative overflow-hidden shrink-0 border-b md:border-b-0 md:border-r border-gray-100`}
+        >
+          <motion.img
+            layout
+            layoutId={`${layoutId}-img`}
             src={coverSrc(pub)}
             alt={pub.title}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+            className="w-full h-full object-cover group-hover:scale-105 transition duration-700 ease-out"
           />
-        </motion.div>
-
-        {/* Info */}
-        <div className="flex flex-1 items-center justify-between min-w-0">
-          <div className="flex flex-col gap-1 min-w-0">
-            <motion.h3 layoutId={`${layoutId}-title`} transition={smoothSpring} className="text-sm font-semibold text-black leading-snug truncate group-hover:text-black transition-colors">
-              {pub.title}
-            </motion.h3>
-            <motion.p layoutId={`${layoutId}-desc`} transition={smoothSpring} className="flex items-center gap-2 text-xs text-gray-500">
-              {React.createElement(icon, { size: 11, strokeWidth: 1.8, className: "text-gray-400 shrink-0" })}
-              <span className="truncate">{pub.author.name}</span>
-              <span className="text-gray-400">&middot;</span>
-              <span>{pub.readingTime} min</span>
-            </motion.p>
-          </div>
-
-          <div className="flex items-center gap-3 shrink-0 ml-3">
-            <span className={cn("hidden sm:inline-flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-0.5 rounded-full border", categoryColor)}>
-              {React.createElement(icon, { size: 9, strokeWidth: 2 })}
-              {categoryLabel(pub.category)}
-            </span>
-            <div className="flex items-center gap-3 text-[11px] text-gray-400">
-              <LocalInteractionButton 
-                icon={Heart} 
-                count={engagement.likeCount} 
-                active={engagement.hasLiked}
-                disabled={engagement.pendingInteraction !== null}
-                activeColor="text-red-500" 
-                onInteract={engagement.toggleLike}
-              />
-              <span className="flex items-center gap-1.5">
-                <MessageCircle size={12} strokeWidth={1.5} className="text-gray-400" />
-                <span className="font-medium">{pub._count.comments}</span>
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Bottom divider */}
-        <div className="absolute bottom-0 left-20 right-3 h-px bg-gray-100" />
-      </motion.div>
-    </>
-  );
-}
-
-// ─── Grid card ────────────────────────────────────────────────────────────────
-
-function CardItem({ pub }: { pub: PublicationItem }) {
-  const [expanded, setExpanded] = useState(false);
-  const engagement = usePreviewInteractions({
-    slug: pub.slug,
-    initialLikeCount: pub._count.interactions,
-    initialLiked: pub.hasLiked,
-    initialBookmarked: pub.hasBookmarked
-  });
-
-  const layoutId = `pub-card-${pub.id}`;
-  const icon  = categoryIcon(pub.category);
-
-  return (
-    <>
-      <AnimatePresence>
-        {expanded && (
-          <ExpandedPanel 
-            pub={pub} 
-            layoutId={layoutId} 
-            onClose={() => setExpanded(false)} 
-            likeCount={engagement.likeCount}
-            hasLiked={engagement.hasLiked} 
-            hasBookmarked={engagement.hasBookmarked} 
-            pendingInteraction={engagement.pendingInteraction}
-            onToggleLike={engagement.toggleLike} 
-            onToggleBookmark={engagement.toggleBookmark} 
-          />
-        )}
-      </AnimatePresence>
-
-      <motion.div
-        layoutId={layoutId}
-        onClick={() => setExpanded(true)}
-        transition={smoothSpring}
-        className="relative flex flex-col w-full rounded-2xl overflow-hidden border border-gray-200 bg-white hover:border-gray-300 hover:shadow-lg cursor-pointer group transition-all duration-300"
-      >
-        {/* Cover */}
-        <motion.div layoutId={`${layoutId}-img`} transition={smoothSpring} className="relative w-full aspect-[4/3] overflow-hidden border-b border-gray-200">
-          <img
-            src={coverSrc(pub)}
-            alt={pub.title}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-          />
-          <span className={cn("absolute top-2.5 left-2.5 flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-0.5 rounded-full border backdrop-blur-sm", categoryColor)}>
+          <span className={cn("absolute top-3 left-3 flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-0.5 rounded-full border backdrop-blur-sm", categoryColor)}>
             {React.createElement(icon, { size: 9, strokeWidth: 2 })}
             {categoryLabel(pub.category)}
           </span>
         </motion.div>
 
-        {/* Info */}
-        <div className="p-4 flex flex-col gap-3">
-          <div className="flex gap-1.5 flex-wrap">
-            {pub.tags.slice(0, 2).map((tag) => (
-              <span key={tag} className="text-[10px] text-gray-500 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-full">#{tag}</span>
-            ))}
+        <motion.div layout className="flex flex-col flex-1 p-5 md:p-6 justify-between min-w-0">
+          <div>
+            <div className="flex gap-1.5 flex-wrap mb-3">
+              {pub.tags.slice(0, 3).map((tag) => (
+                <span key={tag} className="text-[10px] text-gray-500 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-full">#{tag}</span>
+              ))}
+            </div>
+            <motion.h3
+              layout
+              layoutId={`${layoutId}-title`}
+              className={`${
+                view === "list"
+                  ? "font-serif text-2xl font-bold text-black mb-3 leading-tight line-clamp-2"
+                  : "font-serif text-xl font-bold text-black leading-tight mb-2 line-clamp-2"
+              } group-hover:text-black transition-colors`}
+            >
+              {pub.title}
+            </motion.h3>
+            <motion.p
+              layout
+              layoutId={`${layoutId}-desc`}
+              className="text-gray-600 text-xs md:text-sm line-clamp-2 mb-4 leading-relaxed"
+            >
+              Read the full {categoryLabel(pub.category).toLowerCase()} to discover more insights.
+            </motion.p>
           </div>
-          <motion.h3 layoutId={`${layoutId}-title`} transition={smoothSpring} className="text-sm font-bold text-black leading-snug group-hover:text-black transition-colors line-clamp-2 font-serif">
-            {pub.title}
-          </motion.h3>
-          <div className="flex items-center justify-between mt-auto pt-3 border-t border-gray-100">
+          
+          <motion.div
+            layout
+            className={`${
+              view === "list"
+                ? "flex flex-wrap items-center justify-between text-xs text-gray-500 font-medium tracking-wide mt-auto"
+                : "flex flex-col gap-3 mt-auto pt-4 border-t border-gray-100"
+            }`}
+          >
             <div className="flex items-center gap-2">
-              <img src={avatarSrc(pub.author)} alt={pub.author.name} className="w-5 h-5 rounded-full object-cover border border-gray-200" />
-              <motion.p layoutId={`${layoutId}-desc`} transition={smoothSpring} className="text-[11px] text-gray-500 font-medium truncate max-w-[80px]">
-                {pub.author.name}
-              </motion.p>
+              <img src={avatarSrc(pub.author)} alt={pub.author.name} className="w-6 h-6 rounded-full object-cover border border-gray-200 shrink-0" />
+              <span className="truncate text-gray-700 font-bold">{pub.author.name}</span>
+              {view === "list" && (
+                <>
+                  <span className="w-1 h-1 rounded-full bg-gray-300"></span>
+                  <span className="uppercase text-[10px] font-bold text-gray-400">{pub.readingTime} min read</span>
+                </>
+              )}
             </div>
-            <div className="flex items-center gap-3 text-[11px] text-gray-400">
-              <LocalInteractionButton 
-                icon={Heart} 
-                count={engagement.likeCount} 
-                active={engagement.hasLiked}
-                disabled={engagement.pendingInteraction !== null}
-                activeColor="text-red-500" 
-                onInteract={engagement.toggleLike}
-              />
-              <span className="flex items-center gap-1.5">
-                <MessageCircle size={12} strokeWidth={1.5} className="text-gray-400" />
-                <span className="font-medium">{pub._count.comments}</span>
-              </span>
+            
+            <div className={`flex items-center gap-3 text-[11px] text-gray-400 ${view === "list" ? "" : "justify-between w-full"}`}>
+              {view === "card" && (
+                <span className="flex items-center gap-1.5 uppercase font-bold text-[9px] text-gray-400">
+                  <Clock size={11} strokeWidth={2} /> {pub.readingTime} min
+                </span>
+              )}
+              <div className="flex items-center gap-3 ml-auto">
+                <LocalInteractionButton 
+                  icon={Heart} 
+                  count={engagement.likeCount} 
+                  active={engagement.hasLiked}
+                  disabled={engagement.pendingInteraction !== null}
+                  activeColor="text-red-500" 
+                  onInteract={engagement.toggleLike}
+                />
+                <span className="flex items-center gap-1.5">
+                  <MessageCircle size={12} strokeWidth={1.5} className="text-gray-400" />
+                  <span className="font-medium">{pub._count.comments}</span>
+                </span>
+              </div>
             </div>
-          </div>
-        </div>
-      </motion.div>
+          </motion.div>
+        </motion.div>
+      </motion.article>
     </>
   );
 }
@@ -618,6 +574,19 @@ function Tab({ active, onClick, icon: Icon, label }: {
   );
 }
 
+// ─── Wrapper for persisting state across view toggles ───────────
+
+function PublicationWrapper({ pub, view }: { pub: PublicationItem; view: ViewMode }) {
+  const engagement = usePreviewInteractions({
+    slug: pub.slug,
+    initialLikeCount: pub._count.interactions,
+    initialLiked: pub.hasLiked,
+    initialBookmarked: pub.hasBookmarked
+  });
+
+  return <UnifiedPublicationItem pub={pub} engagement={engagement} view={view} />;
+}
+
 // ─── Main export ──────────────────────────────────────────────────────────────
 
 export default function PublicationCollection({ publications }: { publications: PublicationItem[] }) {
@@ -629,8 +598,10 @@ export default function PublicationCollection({ publications }: { publications: 
 
         {/* View toggle */}
         <div className="flex p-1 bg-gray-50 rounded-full w-fit border border-gray-200/50 gap-0.5">
-          <Tab active={view === "list"} onClick={() => setView("list")} icon={List} label="List" />
-          <Tab active={view === "card"} onClick={() => setView("card")} icon={LayoutGrid} label="Grid" />
+          <LayoutGroup id="collection-view-toggle">
+            <Tab active={view === "list"} onClick={() => setView("list")} icon={List} label="List" />
+            <Tab active={view === "card"} onClick={() => setView("card")} icon={LayoutGrid} label="Grid" />
+          </LayoutGroup>
         </div>
 
         <div className="h-px bg-gray-100 w-full" />
@@ -638,21 +609,15 @@ export default function PublicationCollection({ publications }: { publications: 
         {/* Content */}
         <AnimatePresence mode="popLayout" initial={false}>
           <motion.div
-            key={view}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
+            layout
             className={cn(
               "w-full",
-              view === "list" && "flex flex-col",
-              view === "card" && "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
+              view === "list" && "flex flex-col gap-6",
+              view === "card" && "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8"
             )}
           >
             {publications.map((pub) =>
-              view === "list"
-                ? <ListItem key={pub.id} pub={pub} />
-                : <CardItem key={pub.id} pub={pub} />
+              <PublicationWrapper key={pub.id} pub={pub} view={view} />
             )}
           </motion.div>
         </AnimatePresence>

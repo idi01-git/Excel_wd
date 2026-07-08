@@ -190,7 +190,7 @@ export default function CommentNode({
               <Link
                 key={index}
                 href={`/profile/${username}`}
-                className="text-[#0000ee] hover:underline font-semibold"
+                className="text-link hover:underline font-semibold"
               >
                 {part}
               </Link>

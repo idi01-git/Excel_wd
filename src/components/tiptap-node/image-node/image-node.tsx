@@ -86,7 +86,10 @@ export const ImageNode: React.FC<NodeViewProps> = (props) => {
         const nextHeight = imgRef.current.clientHeight
 
         editor.commands.command(({ tr }) => {
-          tr.setNodeMarkup(props.getPos(), undefined, getResizeAttrs(props, nextWidth, nextHeight))
+          const pos = props.getPos()
+          if (typeof pos === 'number') {
+            tr.setNodeMarkup(pos, undefined, getResizeAttrs(props, nextWidth, nextHeight))
+          }
           return true
         })
       }

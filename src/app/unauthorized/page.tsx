@@ -17,7 +17,7 @@ export default function UnauthorizedPage() {
         <div className="space-y-3">
           <Link
             href="/"
-            className="block w-full py-3 px-6 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-full font-medium hover:shadow-lg hover:shadow-indigo-500/20 transition duration-300"
+            className="block w-full py-3 px-6 bg-linear-to-r from-violet-600 to-indigo-600 text-white rounded-full font-medium hover:shadow-lg hover:shadow-indigo-500/20 transition duration-300"
           >
             Return to Home
           </Link>

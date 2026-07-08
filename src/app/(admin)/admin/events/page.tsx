@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { ArrowLeft, Plus, Calendar, MapPin, Users, Archive, XCircle, Trash2, Settings } from 'lucide-react';
 
 interface EventItem {
   id: string;
@@ -102,119 +103,164 @@ export default function AdminEventsPage() {
     }
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusBadge = (status: string) => {
     switch (status) {
       case 'UPCOMING':
-        return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
+        return 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/30';
       case 'PAST':
-        return 'bg-gray-500/10 text-gray-400 border-gray-500/20';
+        return 'bg-gray-100 text-gray-600 border-gray-200 dark:bg-gray-500/10 dark:text-gray-400 dark:border-white/10';
       default:
-        return 'bg-red-500/10 text-red-400 border-red-500/20';
+        return 'bg-red-50 text-red-600 border-red-200 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/30';
     }
   };
 
   return (
-    <div className="w-full max-w-5xl mx-auto py-6">
-      <Link href="/profile" className="text-sm font-semibold text-gray-500 hover:text-white transition mb-6 block">
-        &larr; Back to Dashboard
+    <div className="max-w-4xl mx-auto py-8 px-4 md:px-6">
+      {/* Back to Dashboard */}
+      <Link 
+        href="/profile" 
+        className="text-sm font-semibold text-gray-500 hover:text-black dark:hover:text-white transition flex items-center gap-1.5 mb-6"
+      >
+        <ArrowLeft className="w-4 h-4" />
+        <span>Back to Dashboard</span>
       </Link>
 
-      <div className="mb-8 border-b border-white/5 pb-5 flex justify-between items-end flex-wrap gap-4">
+      {/* Header section */}
+      <div className="mb-8 border-b border-gray-200/80 dark:border-neutral-800 pb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <h1 className="font-serif text-3xl text-white font-bold mb-1">Events Manager</h1>
-          <p className="text-gray-400 text-sm">Schedule events, track participant lists, add reports & galleries.</p>
+          <h1 className="font-serif text-4xl text-black dark:text-white font-bold leading-tight mb-2">
+            Events Manager
+          </h1>
+          <p className="text-gray-500 dark:text-neutral-500 text-sm font-medium">
+            Schedule events, track participant lists, add reports & galleries.
+          </p>
         </div>
         <Link
           href="/admin/events/new"
-          className="py-1.5 px-4 bg-violet-600 hover:bg-violet-700 text-xs font-semibold text-white rounded-full transition animate-pulse"
+          className="py-2 px-6 bg-black dark:bg-white hover:bg-gray-900 dark:hover:bg-neutral-100 text-white dark:text-black text-xs font-semibold rounded-full transition-all duration-200 shadow-sm flex items-center gap-1.5 self-start md:self-auto"
         >
-           Create New Event
+          <Plus className="w-3.5 h-3.5" />
+          <span>New Event</span>
         </Link>
       </div>
 
       {loading ? (
         <div className="py-12 animate-pulse space-y-4">
-          {[1, 2].map(n => <div key={n} className="h-14 bg-slate-900/60 rounded-xl" />)}
+          {[1, 2, 3].map(n => (
+            <div key={n} className="h-20 bg-gray-100 dark:bg-neutral-900/60 rounded-2xl" />
+          ))}
         </div>
       ) : events.length > 0 ? (
-        <div className="bg-slate-900/30 border border-white/5 rounded-2xl overflow-hidden shadow-2xl">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs text-gray-300">
-              <thead>
-                <tr className="bg-slate-950 border-b border-white/5 text-[10px] uppercase font-bold text-gray-500">
-                  <th className="p-4 pl-6">Event Title</th>
-                  <th className="p-4">Date & Venue</th>
-                  <th className="p-4">Status</th>
-                  <th className="p-4">Registrations</th>
-                  <th className="p-4 pr-6 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/5">
-                {events.map((event) => (
-                  <tr key={event.id} className="hover:bg-white/2 transition duration-150">
-                    <td className="p-4 pl-6">
-                      <strong className="text-white text-sm block">
-                        <Link href={`/admin/events/${event.id}`} className="hover:text-cyan-400 transition">
-                          {event.title}
-                        </Link>
-                      </strong>
-                    </td>
-                    <td className="p-4">
-                      <p className="text-gray-300">{new Date(event.date).toLocaleDateString()}</p>
-                      <p className="text-gray-500 text-[10px]">{event.venue}</p>
-                    </td>
-                    <td className="p-4">
-                      <span className={`px-2 py-0.5 border rounded uppercase text-[8px] font-bold ${getStatusColor(event.status)}`}>
-                        {event.status.toLowerCase()}
-                      </span>
-                    </td>
-                    <td className="p-4 text-gray-400 font-semibold pl-8">
-                      {event._count.registrations}
-                    </td>
-                    <td className="p-4 pr-6 text-right">
-                      {actionLoading === event.id ? (
-                        <span className="text-gray-500 text-[10px]">Processing...</span>
-                      ) : (
-                        <div className="flex justify-end gap-1.5">
-                          <Link
-                            href={`/admin/events/${event.id}`}
-                            className="py-1 px-2.5 bg-white/5 border border-white/10 hover:bg-white/10 text-white rounded font-semibold transition text-[10px]"
-                          >
-                            Manage
-                          </Link>
-                          {event.status === 'UPCOMING' && (
-                            <>
-                              <button
-                                onClick={() => handleStatusChange(event.id, 'ARCHIVE')}
-                                className="py-1 px-2.5 bg-violet-600/10 border border-violet-500/20 hover:bg-violet-600 text-violet-400 hover:text-white rounded font-semibold transition text-[10px]"
-                              >
-                                Archive
-                              </button>
-                              <button
-                                onClick={() => handleStatusChange(event.id, 'CANCEL')}
-                                className="py-1 px-2.5 bg-red-600/10 border border-red-500/20 hover:bg-red-600 text-red-400 hover:text-white rounded font-semibold transition text-[10px]"
-                              >
-                                Cancel
-                              </button>
-                            </>
-                          )}
+        <div className="bg-white dark:bg-neutral-900/30 border border-gray-200/80 dark:border-neutral-800 rounded-2xl overflow-hidden shadow-sm">
+          {/* Header row (Desktop only) */}
+          <div className="hidden md:grid grid-cols-12 gap-4 px-6 py-4 bg-gray-50 dark:bg-neutral-900/80 border-b border-gray-200/80 dark:border-neutral-800 text-[10px] uppercase font-bold tracking-widest text-gray-500 dark:text-neutral-400">
+            <div className="col-span-4">Event Title</div>
+            <div className="col-span-3">Date & Venue</div>
+            <div className="col-span-2">Status</div>
+            <div className="col-span-1">Registrations</div>
+            <div className="col-span-2 text-right">Actions</div>
+          </div>
+
+          {/* List items */}
+          <div className="divide-y divide-gray-100 dark:divide-neutral-800">
+            {events.map((event) => (
+              <div 
+                key={event.id} 
+                className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center px-6 py-5 hover:bg-gray-50/50 dark:hover:bg-neutral-800/20 transition duration-150"
+              >
+                {/* Event Title */}
+                <div className="col-span-1 md:col-span-4 flex items-center gap-4">
+                  <div className="p-3 bg-gray-100 dark:bg-neutral-800/50 rounded-xl text-gray-500 dark:text-neutral-400 shrink-0">
+                    <Calendar className="w-5 h-5 stroke-1.5" />
+                  </div>
+                  <div className="min-w-0">
+                    <strong className="text-gray-900 dark:text-white font-semibold text-sm block truncate hover:text-violet-600 dark:hover:text-cyan-450 transition">
+                      <Link href={`/admin/events/${event.id}`}>
+                        {event.title}
+                      </Link>
+                    </strong>
+                  </div>
+                </div>
+
+                {/* Date & Venue */}
+                <div className="col-span-1 md:col-span-3 text-xs">
+                  <span className="md:hidden text-[10px] text-gray-400 uppercase tracking-wider block mb-1">Details</span>
+                  <div className="flex items-center gap-1.5 text-gray-700 dark:text-neutral-300">
+                    <Calendar className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                    <span>{new Date(event.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-gray-500 dark:text-neutral-500 mt-1">
+                    <MapPin className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                    <span className="truncate">{event.venue}</span>
+                  </div>
+                </div>
+
+                {/* Status */}
+                <div className="col-span-1 md:col-span-2">
+                  <span className={`inline-flex items-center gap-1.5 text-[10px] px-2.5 py-0.5 border rounded-full font-bold uppercase tracking-widest ${getStatusBadge(event.status)}`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${
+                      event.status === 'UPCOMING' ? 'bg-emerald-500' : event.status === 'PAST' ? 'bg-gray-400' : 'bg-red-500'
+                    }`}></span>
+                    {event.status.toLowerCase()}
+                  </span>
+                </div>
+
+                {/* Registrations count */}
+                <div className="col-span-1 md:col-span-1 text-xs text-gray-600 dark:text-neutral-400 font-medium">
+                  <span className="md:hidden text-[10px] text-gray-400 uppercase tracking-wider block mb-1">Registrations</span>
+                  <div className="flex items-center gap-1.5">
+                    <Users className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                    <span>{event._count.registrations}</span>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="col-span-1 md:col-span-2 text-right">
+                  {actionLoading === event.id ? (
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-neutral-500">Processing...</span>
+                  ) : (
+                    <div className="flex flex-wrap md:justify-end gap-2">
+                      <Link
+                        href={`/admin/events/${event.id}`}
+                        className="inline-flex items-center gap-1 py-1.5 px-3 bg-gray-50 hover:bg-gray-100 dark:bg-neutral-800/50 hover:dark:bg-neutral-800 text-gray-700 dark:text-neutral-300 border border-gray-200 dark:border-white/5 rounded-full font-bold transition text-[10px] uppercase tracking-wider cursor-pointer"
+                      >
+                        <Settings className="w-3 h-3" />
+                        <span>Manage</span>
+                      </Link>
+                      {event.status === 'UPCOMING' && (
+                        <>
                           <button
-                            onClick={() => handleDelete(event.id)}
-                            className="py-1 px-2.5 bg-red-600/5 border border-red-500/20 hover:bg-red-700 text-red-400 hover:text-white rounded font-semibold transition text-[10px]"
+                            onClick={() => handleStatusChange(event.id, 'ARCHIVE')}
+                            className="inline-flex items-center gap-1 py-1.5 px-3 bg-violet-50 hover:bg-violet-100 dark:bg-violet-950/20 hover:dark:bg-violet-950/40 text-violet-600 dark:text-violet-400 border border-violet-200/60 dark:border-violet-500/20 rounded-full font-bold transition text-[10px] uppercase tracking-wider cursor-pointer"
                           >
-                            Delete
+                            <Archive className="w-3 h-3" />
+                            <span>Archive</span>
                           </button>
-                        </div>
+                          <button
+                            onClick={() => handleStatusChange(event.id, 'CANCEL')}
+                            className="inline-flex items-center gap-1 py-1.5 px-3 bg-red-50 hover:bg-red-100 dark:bg-red-950/20 hover:dark:bg-red-950/40 text-red-600 dark:text-red-400 border border-red-200/60 dark:border-red-500/20 rounded-full font-bold transition text-[10px] uppercase tracking-wider cursor-pointer"
+                          >
+                            <XCircle className="w-3 h-3" />
+                            <span>Cancel</span>
+                          </button>
+                        </>
                       )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                      <button
+                        onClick={() => handleDelete(event.id)}
+                        className="inline-flex items-center gap-1 py-1.5 px-3 bg-red-50 hover:bg-red-100 dark:bg-red-950/20 hover:dark:bg-red-950/40 text-red-600 dark:text-red-400 border border-red-200/60 dark:border-red-500/20 rounded-full font-bold transition text-[10px] uppercase tracking-wider cursor-pointer"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                        <span>Delete</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       ) : (
-        <div className="text-center py-20 bg-slate-900/10 border border-white/5 rounded-2xl text-gray-500 italic">
+        <div className="text-center py-20 bg-gray-50/50 dark:bg-neutral-900/10 border border-gray-200/80 dark:border-neutral-800 rounded-2xl text-gray-400 dark:text-neutral-600 italic text-sm">
           No events scheduled.
         </div>
       )}

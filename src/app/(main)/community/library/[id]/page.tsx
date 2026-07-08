@@ -5,6 +5,8 @@ import { useSession } from 'next-auth/react';
 import { useParams, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { ArrowLeft, BookOpen, CheckCircle2, AlertCircle, Star, Calendar, Clock, ShieldAlert, ChevronUp, Minus, Plus, Barcode, FileText, Download } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 
 interface Review {
   id: string;
@@ -32,6 +34,7 @@ interface BookDetail {
   availabilityStatus: 'AVAILABLE' | 'ISSUED' | 'MAINTENANCE';
   totalCopies: number;
   issuedCopies: number;
+  amazonLink?: string | null;
   reviews: Review[];
 }
 
@@ -166,319 +169,401 @@ export default function BookDetailPage() {
     }
   };
 
-  if (loading || !book) {
-    return (
-      <div className="max-w-4xl mx-auto py-16 animate-pulse">
-        <div className="h-8 bg-slate-900/60 rounded w-1/3 mb-10"></div>
-        <div className="h-96 bg-slate-900/60 rounded-2xl"></div>
-      </div>
-    );
-  }
-
   // Calculate star percentages for Goodreads-style bar charts
-  const ratingDistribution = [0, 0, 0, 0, 0]; // index 0 maps to 1 star, index 4 maps to 5 stars
-  book.reviews.forEach((r) => {
-    if (r.rating >= 1 && r.rating <= 5) {
-      ratingDistribution[r.rating - 1]++;
-    }
-  });
+  const ratingDistribution = [0, 0, 0, 0, 0];
+  if (book) {
+    book.reviews.forEach((r) => {
+      if (r.rating >= 1 && r.rating <= 5) {
+        ratingDistribution[r.rating - 1]++;
+      }
+    });
+  }
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'AVAILABLE':
-        return 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20';
+        return 'bg-emerald-50 text-emerald-600 border-emerald-250 dark:bg-emerald-500/15 dark:text-emerald-400 dark:border-emerald-500/20';
       case 'ISSUED':
-        return 'bg-amber-500/15 text-amber-400 border-amber-500/20';
+        return 'bg-amber-50 text-amber-600 border-amber-250 dark:bg-amber-500/15 dark:text-amber-400 dark:border-amber-500/20';
       default:
-        return 'bg-red-500/15 text-red-400 border-red-500/20';
+        return 'bg-red-50 text-red-600 border-red-250 dark:bg-red-500/15 dark:text-red-400 dark:border-red-500/20';
     }
   };
 
+  if (loading || !book) {
+    return (
+      <div className="max-w-4xl mx-auto py-16 px-4 animate-pulse">
+        <div className="h-8 bg-gray-250 dark:bg-neutral-900/60 rounded w-1/3 mb-10"></div>
+        <div className="h-96 bg-gray-250 dark:bg-neutral-900/60 rounded-2xl"></div>
+      </div>
+    );
+  }
+
   return (
-    <div className="max-w-4xl mx-auto py-4">
-      {/* Back to Library */}
-      <button onClick={() => router.push('/community/library')} className="text-sm font-semibold text-gray-500 hover:text-white transition mb-6 block">
-        &larr; Back to Catalog
+    <div className="max-w-5xl mx-auto pb-12 pt-0 px-4 md:px-8 text-neutral-900 dark:text-neutral-100 font-sans selection:bg-neutral-200 dark:selection:bg-neutral-800">
+      {/* Back Button */}
+      <button 
+        onClick={() => router.push('/community/library')} 
+        className="text-xs font-semibold text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors mb-10 flex items-center gap-2 cursor-pointer bg-transparent border-0 group"
+      >
+        <ArrowLeft className="w-3.5 h-3.5 transform group-hover:-translate-x-0.5 transition-transform" />
+        <span>Back to library</span>
       </button>
 
-      {/* Book details section */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
-        {/* Book cover column */}
-        <div className="md:col-span-1">
-          <div className="relative aspect-[3/4.5] rounded-2xl overflow-hidden bg-slate-950 border border-white/10 shadow-2xl flex items-center justify-center">
-            <img
-              src={book.coverImage || 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?w=400&h=600&fit=crop'}
-              alt={book.title}
-              className="w-full h-full object-cover"
-            />
-          </div>
-
-          {/* Availability Actions Box */}
-          <div className="bg-slate-900/40 border border-white/5 p-5 rounded-2xl mt-6 shadow-xl space-y-4">
-            <div>
-              <span className="block text-[10px] text-gray-500 uppercase tracking-wider font-semibold mb-1">Status</span>
-              <span className={`inline-block text-[10px] font-bold px-2.5 py-0.5 border rounded uppercase ${getStatusColor(book.availabilityStatus)}`}>
-                {book.availabilityStatus.toLowerCase()}
-              </span>
-            </div>
-            
-            <div className="text-xs text-gray-400 space-y-1">
-              <p>Copies Cataloged: <strong className="text-white">{book.totalCopies}</strong></p>
-              <p>Currently Issued: <strong className="text-white">{book.issuedCopies}</strong></p>
-              <p>Available: <strong className="text-white">{Math.max(0, book.totalCopies - book.issuedCopies)}</strong></p>
-            </div>
-
-            {/* Borrow Actions */}
-            {book.availabilityStatus === 'AVAILABLE' && (book.totalCopies - book.issuedCopies > 0) ? (
-              userState.hasRequested ? (
-                <div className="p-3 bg-violet-600/10 border border-violet-500/20 text-center rounded-xl text-xs font-semibold text-violet-400">
-                  Loan Request: {userState.activeRequest.status.toLowerCase()}
-                </div>
-              ) : session ? (
-                <button
-                  onClick={() => setLoanModalOpen(true)}
-                  className="w-full py-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:shadow-lg hover:shadow-indigo-500/25 text-white rounded-xl text-xs font-semibold transition"
-                >
-                  Request to Borrow
-                </button>
-              ) : (
-                <button
-                  onClick={() => router.push('/login')}
-                  className="w-full py-2.5 bg-white/5 border border-white/10 hover:bg-white/10 text-white rounded-xl text-xs font-semibold transition"
-                >
-                  Log In to Borrow
-                </button>
-              )
-            ) : (
-              <div className="p-3 bg-red-600/10 border border-red-500/20 text-center rounded-xl text-xs font-semibold text-red-400">
-                Out of Stock / Checked Out
+      {/* Top Section: Balanced Columns */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 mb-20 items-start">
+        
+        {/* Left Column: Book Cover Pedestal (Symmetrical & Focused) */}
+        <div className="lg:col-span-5 w-full">
+          <div className="w-full aspect-[4/5] bg-neutral-50 dark:bg-[#141416] rounded-[32px] flex items-center justify-center p-8 lg:p-12 border border-neutral-150 dark:border-neutral-900 shadow-inner">
+            <motion.div 
+              whileHover="hover"
+              className="relative max-w-[240px] sm:max-w-[280px] w-full"
+            >
+              {/* Stable atmospheric drop shadow with spring animation */}
+              <motion.div 
+                variants={{
+                  hover: { scale: 1.02 }
+                }}
+                transition={{ type: 'spring', stiffness: 180, damping: 24 }}
+                className="absolute inset-0 bg-black/15 dark:bg-black/45 rounded-lg blur-2xl transform translate-y-6 translate-x-2 pointer-events-none" 
+              />
+              <div className="relative aspect-[2/3] w-full rounded-lg overflow-hidden border border-black/5 dark:border-white/10 shadow-2xl">
+                <motion.img
+                  src={book.coverImage || 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?w=400&h=600&fit=crop'}
+                  alt={book.title}
+                  variants={{
+                    hover: { scale: 1.05 }
+                  }}
+                  transition={{ type: 'spring', stiffness: 180, damping: 24 }}
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/5 to-white/10 pointer-events-none" />
               </div>
-            )}
+            </motion.div>
           </div>
         </div>
 
-        {/* Book metadata column */}
-        <div className="md:col-span-2 space-y-6">
-          <div>
-            <h1 className="font-serif text-3xl md:text-4xl text-white font-bold mb-1 leading-tight">{book.title}</h1>
-            <p className="text-gray-400 text-sm">By <strong className="text-white font-serif">{book.author}</strong></p>
-            
-            <div className="flex items-center gap-4 mt-3">
-              <div className="flex items-center gap-1.5">
-                <span className="text-yellow-400 text-base"></span>
-                <span className="text-base font-bold text-white">{stats.avgRating > 0 ? stats.avgRating : '—'}</span>
-                <span className="text-xs text-gray-500">avg rating</span>
-              </div>
-              <span className="text-gray-700">|</span>
-              <span className="text-xs text-gray-400 font-semibold">{stats.totalReviews} member reviews</span>
-            </div>
+        {/* Right Column: Title, Metadata, Description & Actions */}
+        <div className="lg:col-span-7 flex flex-col pt-2 lg:pt-4">
+          
+          {/* Title and Author */}
+          <div className="mb-4">
+            <h1 className="text-3xl md:text-4xl lg:text-5xl font-serif text-neutral-900 dark:text-neutral-50 font-bold mb-2 leading-[1.15] tracking-tight">
+              {book.title}
+            </h1>
+            <p className="text-lg md:text-xl text-neutral-500 dark:text-neutral-400 font-serif italic">
+              by {book.author}
+            </p>
+          </div>
 
-            <div className="flex flex-wrap gap-1.5 mt-4">
+          {/* Integrated Metadata Info Row (No breaking symmetry) */}
+          <div className="flex flex-wrap items-center gap-y-2 gap-x-3 text-xs font-semibold text-neutral-400 dark:text-neutral-500 mb-8 pb-6 border-b border-neutral-100 dark:border-neutral-900">
+            <span>ISBN {book.isbn || 'N/A'}</span>
+            <span className="w-1 h-1 rounded-full bg-neutral-300 dark:bg-neutral-800" />
+            <span>{book.pageCount ? `${book.pageCount} pages` : 'Unknown length'}</span>
+            <span className="w-1 h-1 rounded-full bg-neutral-300 dark:bg-neutral-800" />
+            <span>Published {book.publishedYear || 'Unknown'}</span>
+            <span className="w-1 h-1 rounded-full bg-neutral-300 dark:bg-neutral-800" />
+            <span className={`px-2 py-0.5 rounded text-[10px] uppercase tracking-wider font-bold ${book.availabilityStatus === 'AVAILABLE' ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400' : 'bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400'}`}>
+              {book.availabilityStatus}
+            </span>
+          </div>
+
+          {/* About Section */}
+          <div className="space-y-3 mb-8">
+            <h3 className="text-[10px] uppercase tracking-widest text-neutral-400 dark:text-neutral-500 font-bold">About the book</h3>
+            <p className="text-base text-neutral-600 dark:text-neutral-300 leading-relaxed font-normal">
+              {book.description}
+            </p>
+          </div>
+
+          {/* Genres */}
+          <div className="space-y-3 mb-8">
+            <h3 className="text-[10px] uppercase tracking-widest text-neutral-400 dark:text-neutral-500 font-bold">Genres</h3>
+            <div className="flex flex-wrap gap-1.5">
               {book.genre.map(g => (
-                <span key={g} className="text-[9px] font-bold bg-white/5 text-gray-400 px-2 py-0.5 rounded uppercase">
+                <span key={g} className="text-xs font-medium px-3.5 py-1.5 rounded-full bg-neutral-50 dark:bg-neutral-950 border border-neutral-200/50 dark:border-neutral-900 text-neutral-600 dark:text-neutral-300">
                   {g}
                 </span>
               ))}
             </div>
           </div>
 
-          <div className="bg-slate-900/20 border border-white/5 p-6 rounded-2xl">
-            <h3 className="text-xs uppercase tracking-wider text-gray-500 font-bold mb-3 font-sans">Book Synopsis</h3>
-            <p className="text-gray-300 text-sm leading-relaxed font-sans">{book.description}</p>
-          </div>
+          {/* Borrow Actions */}
+          <div className="flex items-center gap-4 mt-4 pt-6 border-t border-neutral-100 dark:border-neutral-900">
+            {/* Copies Available Pill */}
+            <div className="flex items-center gap-3 bg-neutral-50 dark:bg-neutral-950 border border-neutral-200/60 dark:border-neutral-900 rounded-full px-4 py-3 shrink-0">
+              <span className="text-xs font-bold text-neutral-400 dark:text-neutral-500">Available</span>
+              <span className="text-sm font-bold text-neutral-900 dark:text-white min-w-[20px] text-center">
+                {Math.max(0, book.totalCopies - book.issuedCopies)}
+              </span>
+            </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 border-t border-white/5 pt-5 text-xs text-gray-500">
-            {book.isbn && <p>ISBN: <strong className="text-gray-300">{book.isbn}</strong></p>}
-            {book.pageCount && <p>Page Count: <strong className="text-gray-300">{book.pageCount} pages</strong></p>}
-            {book.publishedYear && <p>Published: <strong className="text-gray-300">{book.publishedYear}</strong></p>}
-          </div>
-        </div>
-      </div>
+            {book.availabilityStatus === 'AVAILABLE' && (book.totalCopies - book.issuedCopies > 0) ? (
+              userState.hasRequested ? (
+                <button disabled className="flex-grow py-3.5 bg-neutral-100 dark:bg-neutral-900 text-neutral-400 dark:text-neutral-555 rounded-full text-xs font-bold uppercase tracking-widest cursor-not-allowed">
+                  Loan Requested
+                </button>
+              ) : session ? (
+                <button
+                  onClick={() => setLoanModalOpen(true)}
+                  className="flex-grow py-3.5 bg-black hover:bg-neutral-900 dark:bg-white dark:hover:bg-neutral-100 dark:text-black text-white rounded-full text-xs font-bold uppercase tracking-widest transition-all duration-300 hover:shadow-lg shadow-black/10 dark:shadow-white/10 cursor-pointer"
+                >
+                  Request to Borrow
+                </button>
+              ) : (
+                <button
+                  onClick={() => router.push('/login')}
+                  className="flex-grow py-3.5 border border-black dark:border-white text-black dark:text-white hover:bg-neutral-50 dark:hover:bg-neutral-900 rounded-full text-xs font-bold uppercase tracking-widest transition cursor-pointer"
+                >
+                  Log In to Borrow
+                </button>
+              )
+            ) : (
+              <button disabled className="flex-grow py-3.5 bg-neutral-100 dark:bg-neutral-900 text-neutral-400 dark:text-neutral-555 rounded-full text-xs font-bold uppercase tracking-widest cursor-not-allowed">
+                Currently Unavailable
+              </button>
+            )}
 
-      {/* Ratings Distribution (Goodreads-style Charts) */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12 border-t border-white/10 pt-8">
-        <div className="md:col-span-1 flex flex-col justify-center items-center p-6 bg-slate-900/20 border border-white/5 rounded-2xl">
-          <span className="text-gray-500 text-xs font-bold uppercase tracking-wider mb-2">Member Rating</span>
-          <span className="text-5xl font-bold text-white font-serif">{stats.avgRating}</span>
-          <div className="flex gap-0.5 text-yellow-400 text-lg mt-1 mb-2">
-            {[1, 2, 3, 4, 5].map((s) => (
-              <span key={s}>{s <= Math.round(stats.avgRating) ? '' : ''}</span>
-            ))}
-          </div>
-          <span className="text-xs text-gray-500">{stats.totalReviews} reviews total</span>
-        </div>
-
-        {/* Bar chart breakdown */}
-        <div className="md:col-span-2 space-y-2 flex flex-col justify-center">
-          {ratingDistribution.map((count, index) => {
-            const star = index + 1;
-            const pct = stats.totalReviews > 0 ? (count / stats.totalReviews) * 100 : 0;
-            return (
-              <div key={star} className="flex items-center text-xs gap-3">
-                <span className="w-10 text-gray-500 font-semibold">{star} Star</span>
-                <div className="flex-grow h-2.5 bg-slate-900 rounded-full overflow-hidden border border-white/5">
-                  <div
-                    style={{ width: `${pct}%` }}
-                    className="h-full bg-violet-600 rounded-full"
-                  />
-                </div>
-                <span className="w-10 text-right text-gray-500 font-semibold">{count}</span>
-              </div>
-            );
-          }).reverse()}
-        </div>
-      </div>
-
-      {/* Write a review panel */}
-      {session && (
-        <section className="mb-12 p-6 bg-slate-900/30 border border-white/5 rounded-2xl">
-          <div className="flex justify-between items-center border-b border-white/5 pb-3 mb-4">
-            <h3 className="font-serif text-lg text-white font-bold">
-              {userState.hasReviewed ? 'Edit Your Review' : 'Write a Critique'}
-            </h3>
-            {userState.hasReviewed && (
-              <button
-                onClick={handleReviewDelete}
-                disabled={reviewLoading}
-                className="text-[10px] text-red-400 hover:text-red-300 font-bold transition"
+            {book.amazonLink && (
+              <a 
+                href={book.amazonLink} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="flex-grow py-3.5 border border-black dark:border-white text-black dark:text-white hover:bg-neutral-50 dark:hover:bg-neutral-900 rounded-full text-xs font-bold uppercase tracking-widest transition text-center cursor-pointer"
               >
-                Delete Review
+                Buy Now
+              </a>
+            )}
+
+            {/* Circular Download Button */}
+            <button
+              onClick={() => alert('Downloading PDF / digital copy...')}
+              className="w-12 h-12 rounded-full border border-neutral-200/60 dark:border-neutral-900 flex items-center justify-center text-neutral-850 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-950 transition cursor-pointer shrink-0 shadow-sm"
+              title="Download Digital Version"
+            >
+              <Download className="w-4 h-4" />
+            </button>
+          </div>
+
+        </div>
+      </div>
+
+      {/* Bottom Section: Reviews & Rating */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 xl:gap-16 border-t border-neutral-100 dark:border-neutral-900 pt-16 mb-16">
+        
+        {/* Rating Overview */}
+        <div className="lg:col-span-4 flex flex-col gap-6 lg:sticky lg:top-12">
+          <div>
+            <h2 className="text-xl font-bold text-neutral-900 dark:text-white uppercase tracking-wider mb-6">Reviews & Ratings</h2>
+            
+            <div className="flex items-baseline gap-2 mb-2">
+              <span className="text-6xl font-semibold tracking-tighter text-neutral-900 dark:text-white leading-none">
+                {stats.avgRating > 0 ? stats.avgRating.toFixed(1) : '0.0'}
+              </span>
+              <span className="text-lg text-neutral-400 font-medium">/ 5</span>
+            </div>
+            
+            <div className="flex items-center gap-1.5 mb-2">
+              <div className="flex gap-0.5">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <Star 
+                    key={i} 
+                    className={`w-4 h-4 ${i < Math.round(stats.avgRating) ? 'fill-amber-400 text-amber-400' : 'text-neutral-200 dark:text-neutral-800'}`} 
+                  />
+                ))}
+              </div>
+              <span className="text-xs text-neutral-400 font-medium">({stats.totalReviews} ratings)</span>
+            </div>
+          </div>
+
+          {/* Progress Bars */}
+          <div className="space-y-2 max-w-xs w-full">
+            {ratingDistribution.map((count, index) => {
+              const star = index + 1;
+              const pct = stats.totalReviews > 0 ? (count / stats.totalReviews) * 100 : 0;
+              return (
+                <div key={star} className="flex items-center text-xs gap-3">
+                  <div className="flex items-center gap-1 w-6 text-neutral-400 font-semibold">
+                    <span>{star}</span>
+                    <Star className="w-3 h-3 fill-neutral-400 text-neutral-400" />
+                  </div>
+                  <div className="flex-grow h-1 bg-neutral-100 dark:bg-neutral-900 rounded-full overflow-hidden">
+                    <div style={{ width: `${pct}%` }} className="h-full bg-neutral-900 dark:bg-white rounded-full" />
+                  </div>
+                </div>
+              );
+            }).reverse()}
+          </div>
+
+          {/* Submission Form */}
+          <div className="border-t border-neutral-100 dark:border-neutral-900 pt-8 w-full max-w-xs">
+            <h3 className="text-sm font-bold text-neutral-900 dark:text-white mb-1">
+              {userState.hasReviewed ? 'Edit your review' : 'Review this book'}
+            </h3>
+            <p className="text-xs text-neutral-400 mb-4">Share your review with other members</p>
+            
+            {session ? (
+              <form onSubmit={handleReviewSubmit} className="flex flex-col gap-3">
+                <div className="flex gap-1 mb-1">
+                  {[1, 2, 3, 4, 5].map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setRating(s)}
+                      className="focus:outline-none transition cursor-pointer"
+                    >
+                      <Star className={`w-5 h-5 ${rating >= s ? 'fill-amber-400 text-amber-400' : 'text-neutral-200 dark:text-neutral-800 hover:text-amber-300'}`} />
+                    </button>
+                  ))}
+                </div>
+                <textarea
+                  value={reviewText}
+                  onChange={(e) => setReviewText(e.target.value)}
+                  placeholder="Write your thoughts..."
+                  rows={3}
+                  required
+                  className="bg-transparent border border-neutral-200 dark:border-neutral-900 text-neutral-900 dark:text-white rounded-xl p-3 text-xs outline-none focus:border-neutral-900 dark:focus:border-white transition resize-none"
+                />
+                <button
+                  type="submit"
+                  disabled={reviewLoading}
+                  className="w-full py-2.5 bg-neutral-900 hover:bg-neutral-850 dark:bg-white dark:hover:bg-neutral-100 text-white dark:text-black rounded-full text-xs font-bold transition cursor-pointer"
+                >
+                  {reviewLoading ? 'Submitting...' : userState.hasReviewed ? 'Update Review' : 'Submit Review'}
+                </button>
+                {userState.hasReviewed && (
+                  <button
+                    type="button"
+                    onClick={handleReviewDelete}
+                    disabled={reviewLoading}
+                    className="w-full text-[10px] text-red-500 font-bold uppercase tracking-wider mt-1 hover:underline cursor-pointer bg-transparent border-0"
+                  >
+                    Delete Review
+                  </button>
+                )}
+              </form>
+            ) : (
+              <button
+                onClick={() => router.push('/login')}
+                className="w-full py-2.5 border border-neutral-200 dark:border-neutral-800 text-neutral-900 dark:text-white rounded-full text-xs font-bold hover:bg-neutral-50 dark:hover:bg-neutral-900 transition cursor-pointer"
+              >
+                Log In to Review
               </button>
             )}
           </div>
+        </div>
 
-          <form onSubmit={handleReviewSubmit} className="space-y-4">
-            <div className="flex items-center gap-3">
-              <span className="text-xs text-gray-400">Your Rating:</span>
-              <div className="flex gap-1.5">
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <button
-                    key={star}
-                    type="button"
-                    onClick={() => setRating(star)}
-                    className={`text-xl focus:outline-none transition ${
-                      rating >= star ? 'text-yellow-400' : 'text-gray-600 hover:text-gray-400'
-                    }`}
-                  >
-                    
-                  </button>
-                ))}
-              </div>
-            </div>
+        {/* Reviews Stream */}
+        <div className="lg:col-span-8">
+           {book.reviews.length > 0 ? (
+             <div className="divide-y divide-neutral-100 dark:divide-neutral-900">
+               {book.reviews.map((rev) => (
+                 <div key={rev.id} className="py-6 first:pt-0 last:pb-0">
+                   <div className="flex items-start justify-between gap-4 mb-3">
+                     <div className="flex items-center gap-3">
+                       <img
+                         src={rev.reviewer.profilePhoto || `https://api.dicebear.com/7.x/initials/svg?seed=${rev.reviewer.name}`}
+                         alt={rev.reviewer.name}
+                         className="w-8 h-8 rounded-full object-cover bg-neutral-100"
+                       />
+                       <div>
+                         <span className="block text-xs font-bold text-neutral-950 dark:text-neutral-50">{rev.reviewer.name}</span>
+                         <span className="block text-[10px] text-neutral-400">Member</span>
+                       </div>
+                     </div>
+                     <span className="text-[10px] text-neutral-400 font-medium">
+                       {new Date(rev.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                     </span>
+                   </div>
+                   
+                   <div className="flex gap-0.5 mb-3">
+                     {Array.from({ length: 5 }).map((_, i) => (
+                       <Star 
+                         key={i} 
+                         className={`w-3 h-3 ${i < rev.rating ? 'fill-neutral-900 text-neutral-900 dark:fill-white dark:text-white' : 'text-neutral-200 dark:text-neutral-800'}`} 
+                       />
+                     ))}
+                   </div>
 
-            <div className="flex flex-col gap-1">
-              <textarea
-                value={reviewText}
-                onChange={(e) => setReviewText(e.target.value)}
-                placeholder="What did you think of the themes? Share your thoughts..."
-                rows={3}
-                required
-                className="bg-slate-950 border border-white/10 text-white rounded-xl p-3 text-xs outline-none focus:border-violet-600 transition"
-              />
-            </div>
+                   <p className="text-sm text-neutral-600 dark:text-neutral-400 leading-relaxed font-normal">
+                     "{rev.reviewText}"
+                   </p>
+                 </div>
+               ))}
+             </div>
+           ) : (
+             <div className="flex flex-col items-center justify-center h-full py-16 text-center">
+               <p className="text-xs text-neutral-400 font-medium uppercase tracking-wider">No reviews yet</p>
+             </div>
+           )}
+           {book.reviews.length > 4 && (
+             <div className="flex justify-center mt-8">
+               <button className="py-2.5 px-6 border border-neutral-200 dark:border-neutral-800 rounded-full text-[10px] font-bold uppercase tracking-wider hover:bg-neutral-50 dark:hover:bg-neutral-900 transition">
+                 Load More
+               </button>
+             </div>
+           )}
+        </div>
 
-            <button
-              type="submit"
-              disabled={reviewLoading}
-              className="py-2 px-6 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-full text-xs font-semibold hover:shadow-lg transition"
-            >
-              {reviewLoading ? 'Submitting...' : userState.hasReviewed ? 'Update Review' : 'Post Review'}
-            </button>
-          </form>
-        </section>
-      )}
-
-      {/* Reviews feed list */}
-      <section className="space-y-6">
-        <h3 className="font-serif text-xl text-white font-bold border-b border-white/5 pb-2 mb-6">Review Feed</h3>
-        {book.reviews.length > 0 ? (
-          <div className="space-y-4">
-            {book.reviews.map((rev) => (
-              <div key={rev.id} className="bg-slate-900/20 border border-white/5 p-5 rounded-2xl space-y-3">
-                {/* Header */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <img
-                      src={rev.reviewer.profilePhoto || `https://api.dicebear.com/7.x/adventurer/svg?seed=${rev.reviewer.username}`}
-                      alt={rev.reviewer.name}
-                      className="w-7 h-7 rounded-full object-cover border border-white/10"
-                    />
-                    <div>
-                      <span className="block text-xs font-semibold text-white">{rev.reviewer.name}</span>
-                      <span className="block text-[9px] text-gray-500">@{rev.reviewer.username}</span>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col items-end">
-                    <div className="flex text-yellow-400 text-xs">
-                      {Array.from({ length: 5 }).map((_, i) => (
-                        <span key={i}>{i < rev.rating ? '' : ''}</span>
-                      ))}
-                    </div>
-                    <span className="text-[9px] text-gray-600 mt-0.5">
-                      {new Date(rev.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Body */}
-                <p className="text-gray-300 text-xs leading-relaxed pl-1 font-sans">
-                  {rev.reviewText}
-                </p>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-center text-sm text-gray-600 italic py-6">No member reviews yet. Be the first to share your thoughts!</p>
-        )}
-      </section>
+      </div>
 
       {/* Borrow Loan Request Modal */}
-      {loanModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-slate-950 border border-white/10 rounded-2xl p-6 max-w-xs w-full shadow-2xl animate-in fade-in duration-200">
-            <div className="flex justify-between items-center border-b border-white/5 pb-3 mb-5">
-              <h3 className="font-serif text-base text-white font-bold">Borrow Request</h3>
-              <button onClick={() => setLoanModalOpen(false)} className="text-gray-500 hover:text-white"></button>
-            </div>
-
-            <form onSubmit={handleLoanSubmit} className="space-y-4">
-              <p className="text-xs text-gray-400 leading-relaxed">
-                You are requesting to borrow <strong className="text-white">"{book.title}"</strong> from the physical library.
+      <AnimatePresence>
+        {loanModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setLoanModalOpen(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ scale: 0.97, opacity: 0, y: 8 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.97, opacity: 0, y: 8 }}
+              className="relative w-full max-w-sm bg-white dark:bg-[#111112] border border-neutral-100 dark:border-neutral-900 rounded-[28px] p-8 shadow-2xl text-center z-10"
+            >
+              <div className="w-12 h-12 bg-neutral-50 dark:bg-neutral-950 text-neutral-900 dark:text-white rounded-full flex items-center justify-center mx-auto mb-6 border border-neutral-100 dark:border-neutral-900">
+                <BookOpen className="w-5 h-5" />
+              </div>
+              <h3 className="font-serif text-2xl font-bold text-neutral-900 dark:text-white mb-2">Borrow Request</h3>
+              <p className="text-neutral-500 dark:text-neutral-400 text-sm mb-6 leading-relaxed">
+                You are requesting to borrow <strong className="text-neutral-900 dark:text-white font-bold">{book.title}</strong>
               </p>
-              
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">Expected Return Date</label>
-                <input
-                  type="date"
-                  value={expectedReturnDate}
-                  min={new Date().toISOString().split('T')[0]}
-                  onChange={(e) => setExpectedReturnDate(e.target.value)}
-                  required
-                  className="bg-slate-900 border border-white/10 text-white rounded-lg p-2 text-xs focus:outline-none"
-                />
-              </div>
 
-              <div className="flex justify-end gap-2 pt-4 border-t border-white/5">
-                <button
-                  type="button"
-                  onClick={() => setLoanModalOpen(false)}
-                  className="py-1.5 px-4 bg-transparent border border-white/10 text-white hover:bg-white/5 rounded-full text-xs font-semibold"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={loanLoading}
-                  className="py-1.5 px-5 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-full text-xs font-semibold hover:shadow-lg transition"
-                >
-                  {loanLoading ? 'Requesting...' : 'Request Loan'}
-                </button>
-              </div>
-            </form>
+              <form onSubmit={handleLoanSubmit} className="space-y-6 text-left">
+                <div className="flex flex-col gap-2">
+                  <label className="text-[9px] text-neutral-400 uppercase tracking-widest font-bold block ml-1">Expected Return Date</label>
+                  <input
+                    type="date"
+                    value={expectedReturnDate}
+                    min={new Date().toISOString().split('T')[0]}
+                    onChange={(e) => setExpectedReturnDate(e.target.value)}
+                    required
+                    className="w-full bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-900 text-neutral-900 dark:text-white rounded-2xl p-4 text-xs font-semibold outline-none focus:border-neutral-900 dark:focus:border-white transition"
+                  />
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setLoanModalOpen(false)}
+                    className="flex-1 py-3.5 border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-900 text-neutral-900 dark:text-white text-xs font-bold rounded-full transition cursor-pointer text-center uppercase tracking-widest"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={loanLoading}
+                    className="flex-1 py-3.5 bg-black hover:bg-neutral-950 dark:bg-white dark:hover:bg-neutral-100 dark:text-black text-white text-xs font-bold rounded-full transition cursor-pointer text-center uppercase tracking-widest"
+                  >
+                    {loanLoading ? 'Wait...' : 'Confirm'}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
           </div>
-        </div>
-      )}
+        )}
+      </AnimatePresence>
     </div>
   );
 }

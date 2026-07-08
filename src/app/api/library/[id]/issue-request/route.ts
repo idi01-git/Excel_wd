@@ -57,7 +57,7 @@ export async function POST(
           bookId,
           requesterId: session.user.id,
           status: IssueRequestStatus.PENDING,
-          returnDate: new Date(returnDate)
+          dueDate: new Date(returnDate) // User's requested return date
         }
       });
 

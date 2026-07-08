@@ -6,6 +6,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { PublicationStatus } from '@prisma/client';
 import ProfileHeaderActions from '@/components/profile/ProfileHeaderActions';
+import AuthorCatalogue from '@/components/profile/AuthorCatalogue';
 
 export default async function ProfilePage({ params }: { params: Promise<{ username: string }> }) {
   const session = await getServerSession(authOptions);
@@ -15,7 +16,24 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
     where: { username: resolvedParams.username.toLowerCase() },
     include: {
       publications: {
+        include: {
+          _count: { select: { interactions: true, comments: true } }
+        },
         orderBy: { updatedAt: 'desc' }
+      },
+      bookReviews: {
+        include: {
+          book: true
+        },
+        orderBy: { createdAt: 'desc' }
+      },
+      comments: {
+        where: { isDeleted: false },
+        include: {
+          publication: true,
+          editorShelf: true
+        },
+        orderBy: { createdAt: 'desc' }
       }
     }
   });
@@ -25,6 +43,23 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
   }
 
   const isOwnProfile = !!(session?.user && (session.user as any).id === user.id);
+
+  let bookmarks: any[] = [];
+  if (isOwnProfile) {
+    const bookmarkedInteractions = await db.interaction.findMany({
+      where: { userId: user.id, type: 'BOOKMARK' },
+      include: {
+        publication: {
+          include: {
+            author: true,
+            _count: { select: { interactions: true, comments: true } }
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+    bookmarks = bookmarkedInteractions.map(i => i.publication).filter(Boolean);
+  }
 
   const published = user.publications.filter(p => p.status === PublicationStatus.PUBLISHED);
   const drafts = user.publications.filter(p => p.status === PublicationStatus.DRAFT || p.status === PublicationStatus.REJECTED);
@@ -76,59 +111,13 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
 
       {/* Publications segment */}
       <div className="space-y-12">
-        <section>
-          <h2 className="font-serif text-3xl text-black dark:text-white font-bold border-b-2 border-black dark:border-white pb-4 mb-8">
-            {isOwnProfile ? 'My Catalog' : 'Published Works'}
-          </h2>
-
-          {published.length > 0 ? (
-            <div className="flex flex-col gap-10">
-              {published.map(pub => (
-                <article
-                  key={pub.id}
-                  className="group flex flex-col md:flex-row gap-6 md:gap-8 items-start justify-between border-b border-gray-200 dark:border-neutral-800 pb-10 last:border-0"
-                >
-                  <div className="flex flex-col flex-grow order-2 md:order-1">
-                    <div className="mb-3">
-                      <span className="text-[10px] font-bold uppercase tracking-widest text-violet-600 dark:text-cyan-400 bg-violet-50 dark:bg-cyan-950/30 px-2 py-1 rounded">
-                        {pub.category}
-                      </span>
-                    </div>
-                    <h3 className="font-serif text-2xl font-bold text-black dark:text-white mb-3 leading-tight group-hover:text-violet-600 dark:group-hover:text-cyan-400 transition-colors">
-                      <Link href={`/publications/${pub.slug}`}>{pub.title}</Link>
-                    </h3>
-                    <p className="text-gray-600 dark:text-neutral-400 text-sm md:text-base line-clamp-2 mb-4 leading-relaxed">
-                      {'Read the full publication to discover more insights and perspectives.'}
-                    </p>
-                    <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-neutral-500 font-medium uppercase tracking-wide mt-auto">
-                      <span>
-                        {new Date(pub.createdAt).toLocaleDateString(undefined, {
-                          month: 'short',
-                          day: 'numeric',
-                          year: 'numeric'
-                        })}
-                      </span>
-                      <span className="w-1 h-1 rounded-full bg-gray-300 dark:bg-neutral-600"></span>
-                      <span>{pub.readingTime} min read</span>
-                    </div>
-                  </div>
-                  
-                  <Link href={`/publications/${pub.slug}`} className="block relative w-full md:w-48 lg:w-56 aspect-[3/2] overflow-hidden rounded-lg order-1 md:order-2 flex-shrink-0 border border-gray-100 dark:border-neutral-800">
-                    <img
-                      src={pub.coverImage || 'https://images.unsplash.com/photo-1455390582262-044cdead277a?w=800&h=450&fit=crop'}
-                      alt={pub.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition duration-700 ease-out"
-                    />
-                  </Link>
-                </article>
-              ))}
-            </div>
-          ) : (
-            <div className="py-12 text-center border border-dashed border-gray-300 dark:border-neutral-800 rounded-xl">
-              <p className="text-gray-500 dark:text-neutral-500 font-serif italic text-lg">No published works cataloged yet.</p>
-            </div>
-          )}
-        </section>
+        <AuthorCatalogue 
+          initialPublications={published} 
+          bookReviews={user.bookReviews}
+          comments={user.comments}
+          bookmarks={bookmarks}
+          isOwnProfile={isOwnProfile} 
+        />
 
         {/* Private Dashboard Section for Owner */}
         {isOwnProfile && (

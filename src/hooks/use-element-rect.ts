@@ -23,6 +23,10 @@ export interface ElementRectOptions {
    * Whether to use ResizeObserver for more accurate tracking
    */
   useResizeObserver?: boolean
+  /**
+   * Whether to update the rect on scroll events
+   */
+  trackScroll?: boolean
 }
 
 const initialRect: RectState = {
@@ -55,6 +59,7 @@ export function useElementRect({
   enabled = true,
   throttleMs = 100,
   useResizeObserver = true,
+  trackScroll = true,
 }: ElementRectOptions = {}): RectState {
   const [rect, setRect] = useState<RectState>(initialRect)
 
@@ -126,19 +131,23 @@ export function useElementRect({
 
     const handleUpdate = () => updateRect()
 
-    window.addEventListener("scroll", handleUpdate, true)
+    if (trackScroll) {
+      window.addEventListener("scroll", handleUpdate, true)
+    }
     window.addEventListener("resize", handleUpdate, true)
 
     cleanup.push(() => {
-      window.removeEventListener("scroll", handleUpdate)
-      window.removeEventListener("resize", handleUpdate)
+      if (trackScroll) {
+        window.removeEventListener("scroll", handleUpdate, true)
+      }
+      window.removeEventListener("resize", handleUpdate, true)
     })
 
     return () => {
       cleanup.forEach((fn) => fn())
       setRect(initialRect)
     }
-  }, [enabled, getTargetElement, updateRect, useResizeObserver])
+  }, [enabled, getTargetElement, updateRect, useResizeObserver, trackScroll])
 
   return rect
 }

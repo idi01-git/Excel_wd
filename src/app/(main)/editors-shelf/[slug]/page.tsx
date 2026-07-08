@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react';
 import { useParams, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { ArrowLeft } from 'lucide-react';
 import CommentThread from '@/components/discussion/CommentThread';
 import CommentInput from '@/components/discussion/CommentInput';
 
@@ -171,34 +172,43 @@ export default function EditorsShelfDetailPage() {
   }
 
   return (
-    <article className="max-w-3xl mx-auto py-8 text-black">
+    <article className="max-w-3xl mx-auto py-8 text-black dark:text-white">
       {/* Back to Shelf */}
-      <Link href="/editors-shelf" className="text-sm font-semibold text-gray-500 hover:text-black transition mb-6 block">
-        &larr; Back to Editor's Shelf
+      <Link href="/editors-shelf" className="text-sm font-semibold text-gray-500 hover:text-black dark:hover:text-white transition flex items-center gap-1.5 mb-6">
+        <ArrowLeft className="w-4 h-4" />
+        <span>Back to Editor's Shelf</span>
       </Link>
 
       {/* Header */}
       <header className="mb-8">
+        {item.coverImage && (
+          <div 
+            className="relative w-full h-80 rounded-2xl overflow-hidden border border-gray-200/60 dark:border-white/10 shadow-sm mb-6"
+            style={{
+              maskImage: 'linear-gradient(to bottom, black 50%, transparent 100%)',
+              WebkitMaskImage: 'linear-gradient(to bottom, black 50%, transparent 100%)'
+            }}
+          >
+            <img
+              src={item.coverImage}
+              alt={item.title}
+              className="w-full h-full object-cover"
+            />
+          </div>
+        )}
+
         <div className="flex flex-wrap gap-1.5 mb-3">
           {item.genre.map((g) => (
-            <span key={g} className="text-[10px] font-bold text-gray-500 bg-gray-50 border border-gray-200 px-2.5 py-0.5 rounded-full uppercase tracking-wide">
+            <span key={g} className="text-[10px] font-bold text-gray-500 dark:text-neutral-400 bg-gray-50 dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 px-2.5 py-0.5 rounded-full uppercase tracking-wide">
               {g}
             </span>
           ))}
         </div>
         
-        <h1 className="font-serif text-4xl text-black font-bold leading-tight mb-2">
+        <h1 className="font-serif text-4xl text-black dark:text-white font-bold leading-tight mb-2">
           {item.title}
         </h1>
-        <p className="text-gray-400 text-sm mb-6">By {item.author}</p>
-
-        {item.coverImage && (
-          <img
-            src={item.coverImage}
-            alt={item.title}
-            className="w-full h-80 object-cover rounded-2xl border border-gray-200/80 shadow-sm"
-          />
-        )}
+        <p className="text-gray-500 dark:text-neutral-500 text-sm mb-6">By {item.author}</p>
       </header>
 
       {/* Note Description */}

@@ -33,6 +33,7 @@ export function useCursorVisibility({
     enabled: true,
     throttleMs: 100,
     useResizeObserver: true,
+    trackScroll: false,
   })
 
   useEffect(() => {

@@ -153,7 +153,7 @@ export default function NotificationsPage() {
             <Link
               key={n.id}
               href={n.targetUrl}
-              className={`block bg-slate-900/30 border hover:border-white/10 transition duration-300 rounded-xl p-4 flex gap-4 items-center shadow ${
+              className={`flex bg-slate-900/30 border hover:border-white/10 transition duration-300 rounded-xl p-4 gap-4 items-center shadow ${
                 !n.isRead ? 'border-violet-500/20 bg-violet-600/2' : 'border-white/5'
               }`}
             >
@@ -164,7 +164,7 @@ export default function NotificationsPage() {
                   className="w-10 h-10 rounded-full object-cover border border-white/10"
                 />
               )}
-              <div className="flex-grow">
+              <div className="grow">
                 <p className="text-sm text-gray-200 leading-snug">{getNotificationText(n)}</p>
                 <span className="text-[11px] text-gray-500 mt-1 block">
                   {new Date(n.createdAt).toLocaleDateString(undefined, {
@@ -177,7 +177,7 @@ export default function NotificationsPage() {
                 </span>
               </div>
               {!n.isRead && (
-                <span className="h-2 w-2 bg-violet-500 rounded-full flex-shrink-0"></span>
+                <span className="h-2 w-2 bg-violet-500 rounded-full shrink-0"></span>
               )}
             </Link>
           ))

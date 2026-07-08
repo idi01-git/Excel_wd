@@ -109,7 +109,7 @@ function SearchResultsContent() {
                       alt=""
                       className="w-24 h-24 object-cover rounded-xl border border-white/10"
                     />
-                    <div className="flex flex-col flex-grow min-w-0">
+                    <div className="flex flex-col grow min-w-0">
                       <span className="text-[10px] text-violet-400 font-bold uppercase tracking-wider mb-1">{pub.category}</span>
                       <h3 className="font-serif text-base font-bold text-white mb-1.5 truncate">
                         <Link href={`/publications/${pub.slug}`} className="hover:text-cyan-400 transition">{pub.title}</Link>
@@ -145,7 +145,7 @@ function SearchResultsContent() {
                       alt=""
                       className="w-14 h-14 object-cover rounded-full border border-white/10"
                     />
-                    <div className="min-w-0 flex-grow">
+                    <div className="min-w-0 grow">
                       <div className="flex items-center gap-2">
                         <h3 className="font-serif text-base font-bold text-white truncate">{user.name}</h3>
                         <span className="text-[9px] px-1.5 py-0.5 bg-violet-600/20 border border-violet-500/30 text-cyan-400 font-bold rounded uppercase">
@@ -178,7 +178,7 @@ function SearchResultsContent() {
                       alt=""
                       className="w-14 h-14 object-cover rounded-full border border-white/10"
                     />
-                    <div className="min-w-0 flex-grow">
+                    <div className="min-w-0 grow">
                       <h3 className="font-serif text-base font-bold text-white">{alum.name}</h3>
                       <p className="text-xs text-gray-500">
                         {alum.branch} &middot; Batch of {alum.batch}

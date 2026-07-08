@@ -17,6 +17,11 @@ enum Role {
   ADMIN
 }
 
+enum Language {
+  ENGLISH
+  HINDI
+}
+
 enum PublicationCategory {
   ARTICLE
   STORY
@@ -64,6 +69,7 @@ model User {
   eventRegistrations EventRegistration[]
   eventReports       EventReport[]
   bookReviews        BookReview[]
+  bookReviewUpvotes  BookReviewUpvote[]
   issueRequests      IssueRequest[]
   auditLogs          AuditLog[]
 }
@@ -75,6 +81,7 @@ model Publication {
   content        Json                // TipTap JSON state
   coverImage     String?
   category       PublicationCategory
+  language       Language            @default(ENGLISH)
   tags           String[]
   authorId       String
   author         User                @relation(fields: [authorId], references: [id])
@@ -378,6 +385,15 @@ model Book {
   availabilityStatus BookAvailabilityStatus @default(AVAILABLE)
   totalCopies       Int                    @default(1)
   issuedCopies      Int                    @default(0)
+  
+  // Shelf Page & Detail Page Fields
+  amazonLink        String?
+  downloadLink      String?
+  clubReview        String?
+  endorseCount      Int                    @default(0)
+  themeColor        String?
+  editorPickType    String?                // e.g. "WEEK", "MONTH", "MAGAZINE"
+
   createdAt         DateTime               @default(now())
   updatedAt         DateTime               @updatedAt
 
@@ -386,6 +402,7 @@ model Book {
 
   @@index([availabilityStatus])
   @@index([genre])
+  @@index([editorPickType])
 }
 
 model BookReview {
@@ -396,11 +413,25 @@ model BookReview {
   reviewer    User     @relation(fields: [reviewerId], references: [id])
   rating      Int
   reviewText  String
+  upvotesCount Int     @default(0)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  upvotes     BookReviewUpvote[]
+
   @@unique([bookId, reviewerId])
   @@index([bookId])
+}
+
+model BookReviewUpvote {
+  id          String     @id @default(uuid())
+  userId      String
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reviewId    String
+  review      BookReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  createdAt   DateTime   @default(now())
+
+  @@unique([userId, reviewId])
 }
 
 model IssueRequest {
@@ -413,6 +444,8 @@ model IssueRequest {
   requestDate DateTime           @default(now())
   issueDate   DateTime?
   returnDate  DateTime?
+  dueDate     DateTime?          // Expected return date (deadline)
+  lastReminderSent DateTime?     // Last time a reminder email was sent
   adminNote   String?
   createdAt   DateTime           @default(now())
   updatedAt   DateTime           @updatedAt

@@ -352,26 +352,46 @@ export default function PublicationDetailPage() {
     <article className="max-w-3xl mx-auto py-8 text-black">
       {/* Header */}
       <header className="mb-8">
+        {pub.coverImage && (
+          <div 
+            className="relative w-full h-80 rounded-2xl overflow-hidden border border-gray-200/60 dark:border-white/10 shadow-sm mb-6"
+            style={{
+              maskImage: 'linear-gradient(to bottom, black 50%, transparent 100%)',
+              WebkitMaskImage: 'linear-gradient(to bottom, black 50%, transparent 100%)'
+            }}
+          >
+            <img
+              src={pub.coverImage}
+              alt={pub.title}
+              className="w-full h-full object-cover"
+            />
+          </div>
+        )}
+
         <div className="flex items-center gap-2 text-xs uppercase tracking-wider font-semibold text-gray-500 mb-3">
           <span>{pub.category}</span>
           <span>&middot;</span>
           <span>{pub.readingTime} min read</span>
         </div>
-        <h1 className="font-serif text-4xl md:text-5xl text-black font-bold leading-tight mb-6">
+        <h1 className="font-serif text-4xl md:text-5xl text-black dark:text-white font-bold leading-tight mb-6">
           {pub.title}
         </h1>
 
         {/* Author Bio Row */}
-        <div className="flex items-center justify-between py-4 border-y border-gray-200/80 mb-8">
+        <div className="flex items-center justify-between py-4 border-y border-gray-200/80 dark:border-neutral-800 mb-8">
           <div className="flex items-center gap-3">
-            <img
-              src={pub.author.profilePhoto && pub.author.profilePhoto.trim() !== "" ? pub.author.profilePhoto : `https://api.dicebear.com/7.x/initials/svg?seed=${pub.author.name}`}
-              alt={pub.author.name}
-              className="w-10 h-10 rounded-full object-cover border border-gray-200"
-            />
+            <Link href={`/profile/${pub.author.username}`} className="shrink-0 group">
+              <img
+                src={pub.author.profilePhoto && pub.author.profilePhoto.trim() !== "" ? pub.author.profilePhoto : `https://api.dicebear.com/7.x/initials/svg?seed=${pub.author.name}`}
+                alt={pub.author.name}
+                className="w-10 h-10 rounded-full object-cover border border-gray-200 group-hover:border-black dark:group-hover:border-white transition-colors"
+              />
+            </Link>
             <div>
-              <span className="block text-sm font-semibold text-black">{pub.author.name}</span>
-              <span className="block text-[11px] text-gray-400">
+              <Link href={`/profile/${pub.author.username}`} className="block text-sm font-semibold text-black dark:text-white hover:underline hover:text-violet-600 dark:hover:text-cyan-400 transition-colors">
+                {pub.author.name}
+              </Link>
+              <span className="block text-[11px] text-gray-400 dark:text-neutral-500">
                 Published on {new Date(pub.createdAt).toLocaleDateString(undefined, {
                   year: 'numeric',
                   month: 'long',
@@ -381,14 +401,6 @@ export default function PublicationDetailPage() {
             </div>
           </div>
         </div>
-
-        {pub.coverImage && (
-          <img
-            src={pub.coverImage}
-            alt={pub.title}
-            className="w-full h-80 object-cover rounded-2xl border border-gray-200/60 shadow-sm"
-          />
-        )}
       </header>
 
       {/* Content Body */}
