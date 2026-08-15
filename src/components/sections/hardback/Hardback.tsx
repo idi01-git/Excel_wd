@@ -29,6 +29,7 @@ const clamp = (val: number, min: number, max: number) =>
 
 export default function Hardback() {
   const sectionRef = useRef<HTMLElement>(null);
+  const topChromeRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLDivElement>(null);
   const subtitleRef = useRef<HTMLDivElement>(null);
   const activeLineRef = useRef<HTMLDivElement>(null);
@@ -233,6 +234,17 @@ export default function Hardback() {
     gsap.killTweensOf(openProgressRef);
     openProgressRef.current = 0;
 
+    // Smoothly fade out top header chrome with GSAP
+    if (topChromeRef.current) {
+      gsap.killTweensOf(topChromeRef.current);
+      gsap.to(topChromeRef.current, {
+        autoAlpha: 0,
+        y: -24,
+        duration: 0.65,
+        ease: 'power2.inOut',
+      });
+    }
+
     const startOpening = () => {
       setSelectedIndex(index);
       selectedIndexRef.current = index;
@@ -286,6 +298,18 @@ export default function Hardback() {
     panelRevealTweenRef.current = null;
     setShowPanel(false);
 
+    // Smoothly fade top header chrome back in with GSAP
+    if (topChromeRef.current) {
+      gsap.killTweensOf(topChromeRef.current);
+      gsap.to(topChromeRef.current, {
+        autoAlpha: 1,
+        y: 0,
+        duration: 0.85,
+        delay: CLOSE_DURATION * 0.35,
+        ease: 'power3.out',
+      });
+    }
+
     gsap.killTweensOf(openProgressRef);
     gsap.to(openProgressRef, {
       current: 0,
@@ -332,37 +356,37 @@ export default function Hardback() {
       gsap.fromTo(
         panel,
         { autoAlpha: 0 },
-        { autoAlpha: 1, duration: 0.5, ease: 'power2.out' }
+        { autoAlpha: 1, duration: 0.65, ease: 'power2.out' }
       );
 
       const content = panel.querySelector('.buy-panel-content');
       if (content && content.children) {
         gsap.fromTo(
           content.children,
-          { autoAlpha: 0, x: -28, filter: 'blur(5px)' },
+          { autoAlpha: 0, x: -24, filter: 'blur(6px)' },
           {
             autoAlpha: 1,
             x: 0,
             filter: 'blur(0px)',
-            duration: 0.7,
+            duration: 0.75,
             ease: 'power3.out',
-            stagger: { each: 0.06, from: 'start' },
+            stagger: { each: 0.05, from: 'start' },
           }
         );
       }
     } else {
       gsap.killTweensOf(panel);
       gsap.killTweensOf(panel.children);
-      gsap.to(panel, { autoAlpha: 0, duration: 0.35, ease: 'power2.in' });
+      gsap.to(panel, { autoAlpha: 0, duration: 0.45, ease: 'power2.inOut' });
 
       const content = panel.querySelector('.buy-panel-content');
       if (content && content.children) {
         gsap.to(content.children, {
-          x: -20,
+          x: -16,
           autoAlpha: 0,
           filter: 'blur(4px)',
-          duration: 0.3,
-          ease: 'power2.in',
+          duration: 0.4,
+          ease: 'power2.inOut',
           stagger: { each: 0.02, from: 'end' },
         });
       }
@@ -384,10 +408,11 @@ export default function Hardback() {
     };
     let settleTimer: ReturnType<typeof setTimeout> | null = null;
 
-    // Wheel — continuous with idle snap after SETTLE_IDLE_MS
+    // Wheel — always preventDefault, only navigate books
     const onWheel = (e: WheelEvent) => {
-      if (modeRef.current !== 'browsing') return;
       e.preventDefault();
+      if (modeRef.current !== 'browsing') return;
+
       const delta =
         Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
       const slideDelta = delta / WHEEL_PX_PER_SLIDE;
@@ -490,7 +515,7 @@ export default function Hardback() {
       }
     };
 
-    section.addEventListener('wheel', onWheel, { passive: false });
+    window.addEventListener('wheel', onWheel, { passive: false });
     section.addEventListener('pointerdown', onPointerDown);
     section.addEventListener('pointermove', onPointerMove);
     section.addEventListener('pointerup', onPointerUp);
@@ -499,7 +524,7 @@ export default function Hardback() {
 
     return () => {
       if (settleTimer) clearTimeout(settleTimer);
-      section.removeEventListener('wheel', onWheel);
+      window.removeEventListener('wheel', onWheel);
       section.removeEventListener('pointerdown', onPointerDown);
       section.removeEventListener('pointermove', onPointerMove);
       section.removeEventListener('pointerup', onPointerUp);
@@ -605,7 +630,10 @@ export default function Hardback() {
       </div>
 
       {/* 5. Top HTML Chrome: Title, Subtitle & Active Line */}
-      <div className="absolute inset-x-0 top-0 z-20 pointer-events-none flex flex-col items-center justify-start pt-[8vh] md:pt-[10vh] px-6 text-center">
+      <div
+        ref={topChromeRef}
+        className="absolute inset-x-0 top-0 z-20 pointer-events-none flex flex-col items-center justify-start pt-[8vh] md:pt-[10vh] px-6 text-center"
+      >
         <div
           ref={titleRef}
           className="text-[clamp(42px,6.2vw,100px)] leading-[0.96] tracking-[-0.02em] font-medium"
@@ -636,8 +664,7 @@ export default function Hardback() {
             fontWeight: 400,
           }}
         >
-          Twelve books on building, growing, and lasting — pulled from the shelf,
-          the lamp's on.
+          {BOOKS.length} Excelsior’s picks on building, growing, and lasting — pulled from the shelf, the lamp's on.
         </div>
 
         <div

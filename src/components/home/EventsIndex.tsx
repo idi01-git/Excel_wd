@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react';
 import Link from 'next/link';
-import { motion, useMotionValue, useSpring } from 'motion/react';
+import { motion, useMotionValue, useSpring, useTransform, AnimatePresence } from 'motion/react';
 import { ArrowUpRight } from 'lucide-react';
 import { Eyebrow, RevealWords, FadeUp } from './primitives';
 
@@ -58,10 +58,15 @@ export default function EventsIndex() {
   const listRef = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState<number | null>(null);
 
+  // Mouse physics with velocity-driven tilt
   const mx = useMotionValue(0);
   const my = useMotionValue(0);
-  const px = useSpring(mx, { stiffness: 140, damping: 18, mass: 0.4 });
-  const py = useSpring(my, { stiffness: 140, damping: 18, mass: 0.4 });
+  const px = useSpring(mx, { stiffness: 220, damping: 28, mass: 0.5 });
+  const py = useSpring(my, { stiffness: 220, damping: 28, mass: 0.5 });
+
+  // Subtle dynamic rotation tilt based on cursor position
+  const rotateSpring = useTransform(px, [0, 1000], [-6, 6]);
+  const smoothRotate = useSpring(rotateSpring, { stiffness: 200, damping: 24 });
 
   const handleMove = (e: React.MouseEvent) => {
     const rect = listRef.current?.getBoundingClientRect();
@@ -71,7 +76,7 @@ export default function EventsIndex() {
   };
 
   return (
-    <section className="relative w-full border-t border-border bg-background px-6 pt-20 pb-24 md:px-10 md:pt-28 md:pb-32">
+    <section className="relative w-full bg-background px-6 pt-10 pb-20 md:px-10 md:pt-14 md:pb-24">
       <div className="mx-auto max-w-7xl">
         {/* Header */}
         <div className="mb-14 grid grid-cols-1 gap-8 md:mb-20 md:grid-cols-12 md:items-end">
@@ -101,7 +106,7 @@ export default function EventsIndex() {
                 Full programme
                 <ArrowUpRight
                   size={14}
-                  className="transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
+                  className="transform-gpu transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
                 />
               </Link>
             </FadeUp>
@@ -117,85 +122,147 @@ export default function EventsIndex() {
         >
           {/* Floating preview (desktop, fine pointer only) */}
           <motion.div
-            style={{ x: px, y: py }}
-            className="pointer-events-none absolute left-0 top-0 z-20 hidden lg:block"
+            style={{ x: px, y: py, rotate: smoothRotate }}
+            className="pointer-events-none absolute left-0 top-0 z-30 hidden lg:block will-change-transform"
             aria-hidden
           >
-            <motion.div
-              animate={{
-                opacity: active !== null ? 1 : 0,
-                scale: active !== null ? 1 : 0.85,
-                rotate: active !== null ? -4 : 0,
-              }}
-              transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-              className="relative -ml-[130px] -mt-[190px] h-[380px] w-[260px] overflow-hidden rounded-2xl shadow-2xl shadow-black/30"
-            >
-              {EVENTS.map((event, i) => (
-                <img
-                  key={event.index}
-                  src={event.image}
-                  alt=""
-                  className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-500 ${
-                    active === i ? 'opacity-100' : 'opacity-0'
-                  }`}
-                />
-              ))}
-              <div className="absolute inset-0 rounded-2xl ring-1 ring-inset ring-white/20" />
-            </motion.div>
+            <AnimatePresence>
+              {active !== null && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.88, y: 15 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.88, y: 15 }}
+                  transition={{ type: 'spring', stiffness: 320, damping: 25, mass: 0.6 }}
+                  className="relative -ml-[130px] -mt-[190px] h-[380px] w-[260px] overflow-hidden rounded-2xl shadow-2xl shadow-black/40 border border-white/15"
+                >
+                  {EVENTS.map((event, i) => (
+                    <motion.img
+                      key={event.index}
+                      src={event.image}
+                      alt=""
+                      animate={{
+                        opacity: active === i ? 1 : 0,
+                        scale: active === i ? 1 : 1.06,
+                      }}
+                      transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+                      className="absolute inset-0 h-full w-full object-cover"
+                    />
+                  ))}
+                  <div className="absolute inset-0 rounded-2xl ring-1 ring-inset ring-white/20" />
+                </motion.div>
+              )}
+            </AnimatePresence>
           </motion.div>
 
-          <div className="border-t border-border">
-            {EVENTS.map((event, i) => (
-              <FadeUp key={event.index} delay={i * 0.05} y={20}>
-                <Link
-                  href="/events"
-                  onMouseEnter={() => setActive(i)}
-                  className="group relative grid grid-cols-[3rem_1fr_auto] items-center gap-x-4 border-b border-border py-6 transition-colors duration-300 hover:bg-foreground/[0.03] md:grid-cols-[5rem_1fr_auto] md:gap-x-8 md:py-8"
-                >
-                  <span className="font-mono text-[11px] tracking-[0.2em] text-muted-foreground transition-colors duration-300 group-hover:text-foreground">
-                    /{event.index}
-                  </span>
+          {/* List items */}
+          <div className="relative border-t border-border">
+            {EVENTS.map((event, i) => {
+              const isHovered = active === i;
 
-                  <div className="min-w-0">
-                    <h3 className="font-display text-2xl font-medium leading-tight tracking-[-0.02em] text-foreground transition-transform duration-500 ease-out group-hover:translate-x-3 sm:text-3xl md:text-5xl">
-                      {event.title}
-                    </h3>
-                    {/* Mobile thumbnail */}
-                    <div className="mt-3 overflow-hidden rounded-lg md:hidden">
-                      <img
-                        src={event.image}
-                        alt={event.title}
-                        loading="lazy"
-                        className="aspect-[16/9] w-full object-cover"
-                      />
-                    </div>
-                  </div>
+              return (
+                <FadeUp key={event.index} delay={i * 0.04} y={15}>
+                  <Link
+                    href="/events"
+                    onMouseEnter={() => setActive(i)}
+                    onMouseLeave={() => {
+                      if (active === i) setActive(null);
+                    }}
+                    className="group relative block outline-none"
+                  >
+                    <motion.div
+                      animate={{
+                        backgroundColor: isHovered
+                          ? 'rgba(var(--foreground), 0.03)'
+                          : 'rgba(var(--foreground), 0)',
+                      }}
+                      transition={{ duration: 0.3, ease: 'easeOut' }}
+                      className="relative grid grid-cols-[3rem_1fr_auto] items-center gap-x-4 border-b border-border py-6 md:grid-cols-[5rem_1fr_auto] md:gap-x-8 md:py-8 transition-colors"
+                    >
+                      {/* Index Number */}
+                      <motion.span
+                        animate={{
+                          color: isHovered ? 'var(--foreground)' : 'var(--muted-foreground)',
+                          x: isHovered ? 3 : 0,
+                        }}
+                        transition={{ type: 'spring', stiffness: 350, damping: 24 }}
+                        className="font-mono text-[11px] tracking-[0.2em]"
+                      >
+                        /{event.index}
+                      </motion.span>
 
-                  <div className="flex items-center gap-5 text-right">
-                    <div className="hidden font-mono text-[10px] uppercase leading-relaxed tracking-[0.18em] text-muted-foreground sm:block">
-                      <div>{event.kind}</div>
-                      <div>
-                        {event.date} · {event.venue}
+                      {/* Title & Mobile Preview */}
+                      <div className="min-w-0">
+                        <motion.h3
+                          animate={{
+                            x: isHovered ? 14 : 0,
+                          }}
+                          transition={{ type: 'spring', stiffness: 320, damping: 24, mass: 0.6 }}
+                          className="font-display text-2xl font-medium leading-tight tracking-[-0.02em] text-foreground sm:text-3xl md:text-5xl"
+                        >
+                          {event.title}
+                        </motion.h3>
+
+                        {/* Mobile thumbnail */}
+                        <div className="mt-3 overflow-hidden rounded-lg md:hidden">
+                          <img
+                            src={event.image}
+                            alt={event.title}
+                            loading="lazy"
+                            className="aspect-[16/9] w-full object-cover"
+                          />
+                        </div>
                       </div>
-                    </div>
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-border text-foreground transition-all duration-300 group-hover:border-foreground group-hover:bg-foreground group-hover:text-background md:h-12 md:w-12">
-                      <ArrowUpRight
-                        size={16}
-                        className="transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
-                      />
-                    </span>
-                  </div>
-                </Link>
-              </FadeUp>
-            ))}
-          </div>
 
-          <FadeUp delay={0.1}>
-            <div className="flex items-center justify-between pt-6 font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
-              <span>Archive · 40+ editions</span>
-              <span className="hidden sm:block">Hover to preview</span>
-            </div>
-          </FadeUp>
+                      {/* Category & Interactive Action Circle */}
+                      <div className="flex items-center gap-5 text-right">
+                        <div className="hidden font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground sm:block">
+                          <motion.span
+                            animate={{
+                              color: isHovered ? 'var(--foreground)' : 'var(--muted-foreground)',
+                              x: isHovered ? -3 : 0,
+                            }}
+                            transition={{ type: 'spring', stiffness: 320, damping: 24 }}
+                            className="inline-block"
+                          >
+                            {event.kind}
+                          </motion.span>
+                        </div>
+
+                        {/* Interactive Circle with Smooth Spring Animation */}
+                        <motion.span
+                          animate={{
+                            scale: isHovered ? 1.12 : 1.0,
+                            backgroundColor: isHovered
+                              ? 'var(--foreground)'
+                              : 'transparent',
+                            color: isHovered
+                              ? 'var(--background)'
+                              : 'var(--foreground)',
+                            borderColor: isHovered
+                              ? 'var(--foreground)'
+                              : 'var(--border)',
+                          }}
+                          transition={{ type: 'spring', stiffness: 340, damping: 22 }}
+                          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border md:h-12 md:w-12 shadow-sm"
+                        >
+                          <motion.div
+                            animate={{
+                              rotate: isHovered ? 45 : 0,
+                              scale: isHovered ? 1.1 : 1.0,
+                            }}
+                            transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                            className="flex items-center justify-center pointer-events-none"
+                          >
+                            <ArrowUpRight size={16} strokeWidth={1.75} />
+                          </motion.div>
+                        </motion.span>
+                      </div>
+                    </motion.div>
+                  </Link>
+                </FadeUp>
+              );
+            })}
+          </div>
         </div>
       </div>
     </section>

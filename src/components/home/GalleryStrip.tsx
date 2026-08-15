@@ -54,7 +54,7 @@ export default function GalleryStrip() {
   return (
     <section
       ref={sectionRef}
-      className="relative w-full border-t border-border bg-background px-6 py-24 md:px-10 md:py-32"
+      className="relative w-full bg-background px-6 pt-8 pb-20 md:px-10 md:pt-12 md:pb-28"
     >
       <div className="mx-auto max-w-7xl">
         {/* Header */}
@@ -77,7 +77,7 @@ export default function GalleryStrip() {
               Enter the archive
               <ArrowUpRight
                 size={14}
-                className="transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
+                className="transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
               />
             </Link>
           </FadeUp>
@@ -115,13 +115,16 @@ function ParallaxTile({
   );
 
   return (
-    <motion.figure style={{ y }} className={`group ${tile.span}`}>
+    <motion.figure
+      style={{ y, willChange: 'transform' }}
+      className={`group ${tile.span}`}
+    >
       <div className="overflow-hidden rounded-2xl border border-border">
         <img
           src={tile.src}
           alt={tile.caption}
           loading="lazy"
-          className={`${tile.ratio} w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.06]`}
+          className={`${tile.ratio} w-full transform-gpu object-cover transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-[1.06]`}
         />
       </div>
       <figcaption className="mt-3 flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">

@@ -1,10 +1,29 @@
 import * as THREE from 'three';
 import { BookData } from './hardback-data';
 
-export const SERIF_STACK = `"Playfair Display", "Cormorant Garamond", Georgia, "Times New Roman", serif`;
-export const SANS_STACK = `"Helvetica Neue", Helvetica, Arial, sans-serif`;
-export const PAGE_EDGE_COLOR = '#e8d8a8';
-export const INNER_CREAM_COLOR = '#f3ead2';
+export const SERIF_STACK = `"Rozha One", "Martel", "Noto Serif Devanagari", "Playfair Display", "Lora", "Cormorant Garamond", Georgia, serif`;
+export const SANS_STACK = `"Noto Sans Devanagari", "Outfit", "Inter", "Helvetica Neue", Arial, sans-serif`;
+export const MONO_STACK = `"JetBrains Mono", "SF Mono", monospace`;
+export const PAGE_EDGE_COLOR = '#ecdcb0';
+export const INNER_CREAM_COLOR = '#f6edd6';
+
+/**
+ * Deterministic pseudo-random generator seeded by a string (e.g. book ID)
+ */
+function seeded(seed: string) {
+  let state = 2166136261;
+  for (let i = 0; i < seed.length; i++) {
+    state ^= seed.charCodeAt(i);
+    state = Math.imul(state, 16777619);
+  }
+  return () => {
+    state += 0x6d2b79f5;
+    let value = state;
+    value = Math.imul(value ^ (value >>> 15), value | 1);
+    value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+    return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
+  };
+}
 
 /**
  * Word wrap helper for canvas 2D context
@@ -52,103 +71,488 @@ export function fitFontSize(
 }
 
 /**
- * Procedural Spine Texture (200 x 1024)
- * Title rotated +90° so it reads top-to-bottom
+ * Render fine woven cloth linen weave texture onto canvas
+ */
+function drawClothWeave(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  intensity = 0.07
+) {
+  ctx.save();
+  // Micro horizontal threads
+  ctx.fillStyle = `rgba(255, 255, 255, ${intensity * 0.7})`;
+  for (let y = 0; y < height; y += 4) {
+    ctx.fillRect(0, y, width, 1.2);
+  }
+  // Micro vertical threads
+  ctx.fillStyle = `rgba(0, 0, 0, ${intensity * 0.9})`;
+  for (let x = 0; x < width; x += 4) {
+    ctx.fillRect(x, 0, 1.2, height);
+  }
+  // Organic cloth grain speckles
+  ctx.fillStyle = `rgba(255, 255, 255, ${intensity * 0.5})`;
+  for (let i = 0; i < 400; i++) {
+    const rx = (Math.sin(i * 997) * 0.5 + 0.5) * width;
+    const ry = (Math.cos(i * 353) * 0.5 + 0.5) * height;
+    ctx.fillRect(rx, ry, 1, 1);
+  }
+  ctx.restore();
+}
+
+/**
+ * Line drawing helper for procedural motifs
+ */
+function strokeLine(
+  ctx: CanvasRenderingContext2D,
+  points: Array<[number, number]>,
+  width = 3
+) {
+  if (points.length < 2) return;
+  ctx.beginPath();
+  ctx.moveTo(points[0][0], points[0][1]);
+  for (let i = 1; i < points.length; i++) {
+    ctx.lineTo(points[i][0], points[i][1]);
+  }
+  ctx.lineWidth = width;
+  ctx.stroke();
+}
+
+/**
+ * Draw Complete-Shelf procedural foil motifs onto cover
+ */
+export function drawMotif(
+  ctx: CanvasRenderingContext2D,
+  book: BookData,
+  width: number,
+  height: number
+) {
+  const motif = book.motif || 'lattice';
+  const foil = book.foilColor || book.coverTextColor || '#e7b55f';
+  const random = seeded(book.id + (book.motif || ''));
+
+  ctx.save();
+  ctx.strokeStyle = foil;
+  ctx.fillStyle = foil;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  const centerY = height * 0.46;
+
+  switch (motif) {
+    case 'orbit': {
+      ctx.globalAlpha = 0.85;
+      const cx = width / 2;
+      const cy = centerY;
+      for (let r = 40; r <= 160; r += 32) {
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, r * 1.3, r * 0.75, Math.PI / 4, 0, Math.PI * 2);
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+      }
+      ctx.beginPath();
+      ctx.arc(cx, cy, 14, 0, Math.PI * 2);
+      ctx.fill();
+      for (let i = 0; i < 8; i++) {
+        const ang = (i / 8) * Math.PI * 2 + random();
+        const dist = 70 + (i % 3) * 45;
+        ctx.beginPath();
+        ctx.arc(cx + Math.cos(ang) * dist * 1.2, cy + Math.sin(ang) * dist * 0.7, 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      break;
+    }
+    case 'network': {
+      const nodes: Array<[number, number]> = [];
+      for (let i = 0; i < 20; i++) {
+        nodes.push([
+          width * 0.2 + random() * (width * 0.6),
+          centerY - 130 + random() * 260,
+        ]);
+      }
+      ctx.globalAlpha = 0.4;
+      nodes.forEach((pt, i) => {
+        nodes.slice(i + 1).forEach((other) => {
+          const dist = Math.hypot(pt[0] - other[0], pt[1] - other[1]);
+          if (dist < 150) strokeLine(ctx, [pt, other], 2);
+        });
+      });
+      ctx.globalAlpha = 0.95;
+      nodes.forEach(([x, y]) => {
+        ctx.beginPath();
+        ctx.arc(x, y, 5, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      break;
+    }
+    case 'continuum': {
+      ctx.globalAlpha = 0.85;
+      const cx = width / 2;
+      const cy = centerY;
+      for (let r = 24; r < 170; r += 20) {
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.lineWidth = 2.2;
+        ctx.stroke();
+      }
+      strokeLine(ctx, [[cx - 180, cy], [cx + 180, cy]], 1.5);
+      strokeLine(ctx, [[cx, cy - 180], [cx, cy + 180]], 1.5);
+      break;
+    }
+    case 'steps': {
+      ctx.globalAlpha = 0.8;
+      const startX = width * 0.22;
+      const stepW = (width * 0.56) / 7;
+      for (let i = 0; i < 7; i++) {
+        const x = startX + i * stepW;
+        const h = 40 + i * 28;
+        ctx.fillRect(x, centerY + 100 - h, stepW - 6, h);
+      }
+      break;
+    }
+    case 'runner': {
+      ctx.globalAlpha = 0.88;
+      for (let i = 0; i < 9; i++) {
+        const y = centerY - 120 + i * 30;
+        const offset = Math.sin(i * 0.7) * 45;
+        strokeLine(
+          ctx,
+          [
+            [width * 0.2 + offset, y],
+            [width * 0.8 + offset, y],
+          ],
+          3
+        );
+      }
+      break;
+    }
+    case 'fracture': {
+      ctx.globalAlpha = 0.85;
+      const cx = width / 2;
+      const cy = centerY;
+      for (let i = 0; i < 14; i++) {
+        const a1 = (i / 14) * Math.PI * 2;
+        const a2 = a1 + (random() - 0.5) * 0.4;
+        const r1 = 30 + random() * 40;
+        const r2 = 120 + random() * 60;
+        strokeLine(
+          ctx,
+          [
+            [cx + Math.cos(a1) * r1, cy + Math.sin(a1) * r1],
+            [cx + Math.cos(a2) * r2, cy + Math.sin(a2) * r2],
+          ],
+          2.5
+        );
+      }
+      break;
+    }
+    case 'wave': {
+      ctx.globalAlpha = 0.82;
+      for (let wave = 0; wave < 8; wave++) {
+        const yBase = centerY - 100 + wave * 28;
+        const points: Array<[number, number]> = [];
+        for (let x = width * 0.18; x <= width * 0.82; x += 12) {
+          const y = yBase + Math.sin((x / width) * Math.PI * 4 + wave * 0.6) * 16;
+          points.push([x, y]);
+        }
+        strokeLine(ctx, points, 2.5);
+      }
+      break;
+    }
+    case 'schematic': {
+      ctx.globalAlpha = 0.8;
+      const boxSize = 220;
+      const left = width / 2 - boxSize / 2;
+      const top = centerY - boxSize / 2;
+      ctx.strokeRect(left, top, boxSize, boxSize);
+      ctx.strokeRect(left + 25, top + 25, boxSize - 50, boxSize - 50);
+      strokeLine(ctx, [[left, top], [left + boxSize, top + boxSize]], 1.5);
+      strokeLine(ctx, [[left + boxSize, top], [left, top + boxSize]], 1.5);
+      ctx.beginPath();
+      ctx.arc(width / 2, centerY, 30, 0, Math.PI * 2);
+      ctx.fill();
+      break;
+    }
+    case 'windows': {
+      ctx.globalAlpha = 0.85;
+      const cols = 4;
+      const rows = 4;
+      const cellW = (width * 0.55) / cols;
+      const cellH = 45;
+      const startX = width / 2 - (cols * cellW) / 2;
+      const startY = centerY - (rows * cellH) / 2;
+      for (let c = 0; c < cols; c++) {
+        for (let r = 0; r < rows; r++) {
+          if ((c + r) % 2 === 0) {
+            ctx.fillRect(startX + c * cellW + 4, startY + r * cellH + 4, cellW - 8, cellH - 8);
+          } else {
+            ctx.strokeRect(startX + c * cellW + 4, startY + r * cellH + 4, cellW - 8, cellH - 8);
+          }
+        }
+      }
+      break;
+    }
+    case 'circuit': {
+      ctx.globalAlpha = 0.85;
+      for (let i = 0; i < 7; i++) {
+        const y = centerY - 90 + i * 30;
+        const x1 = width * 0.2;
+        const xMid = width * 0.4 + (i % 3) * 40;
+        const x2 = width * 0.8;
+        strokeLine(
+          ctx,
+          [
+            [x1, y],
+            [xMid, y],
+            [xMid + 25, y - 20],
+            [x2, y - 20],
+          ],
+          2.5
+        );
+        ctx.beginPath();
+        ctx.arc(x2, y - 20, 5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      break;
+    }
+    case 'branches': {
+      ctx.globalAlpha = 0.85;
+      const startY = centerY + 120;
+      const endY = centerY - 120;
+      const cx = width / 2;
+      strokeLine(ctx, [[cx, startY], [cx, endY]], 4);
+      for (let i = 0; i < 6; i++) {
+        const branchY = startY - 35 - i * 32;
+        const dir = i % 2 === 0 ? 1 : -1;
+        strokeLine(
+          ctx,
+          [
+            [cx, branchY],
+            [cx + dir * 65, branchY - 25],
+            [cx + dir * 90, branchY - 25],
+          ],
+          2.5
+        );
+      }
+      break;
+    }
+    case 'lattice':
+    default: {
+      const nodes: Array<[number, number]> = [];
+      for (let i = 0; i < 22; i++) {
+        nodes.push([
+          width * 0.18 + random() * (width * 0.64),
+          centerY - 130 + random() * 260,
+        ]);
+      }
+      ctx.globalAlpha = 0.35;
+      nodes.forEach((pt, i) => {
+        nodes.slice(i + 1).forEach((other) => {
+          const dist = Math.hypot(pt[0] - other[0], pt[1] - other[1]);
+          if (dist < 130) strokeLine(ctx, [pt, other], 2);
+        });
+      });
+      ctx.globalAlpha = 0.95;
+      nodes.forEach(([x, y], idx) => {
+        ctx.beginPath();
+        ctx.arc(x, y, idx % 4 === 0 ? 8 : 4, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      break;
+    }
+  }
+
+  ctx.restore();
+}
+
+/**
+ * Procedural Spine Texture (240 x 1024)
+ * Top-to-bottom vertical title with foil stamped accents, raised bands & imprint
  */
 export function makeSpineTexture(book: BookData): THREE.CanvasTexture {
-  const W = 200;
+  const W = 240;
   const H = 1024;
   const canvas = document.createElement('canvas');
   canvas.width = W;
   canvas.height = H;
   const ctx = canvas.getContext('2d')!;
 
-  // Background
+  // Background cloth color
   ctx.fillStyle = book.spineColor;
   ctx.fillRect(0, 0, W, H);
 
-  // Two horizontal accent bands at head + tail (~15% alpha of text colour)
-  const accent = book.spineTextColor.startsWith('#')
-    ? book.spineTextColor + '26'
-    : 'rgba(243, 236, 216, 0.15)';
-  ctx.fillStyle = accent;
-  ctx.fillRect(0, 26, W, 2);
-  ctx.fillRect(0, H - 28, W, 2);
+  // Woven cloth texture
+  drawClothWeave(ctx, W, H, 0.08);
 
+  const foil = book.foilColor || book.spineTextColor || '#f3ecd8';
+
+  // Headband / tailband gilded stripes
+  ctx.fillStyle = foil;
+  ctx.globalAlpha = 0.9;
+  ctx.fillRect(16, 28, W - 32, 3);
+  ctx.fillRect(16, 36, W - 32, 1.5);
+  ctx.fillRect(16, H - 38, W - 32, 1.5);
+  ctx.fillRect(16, H - 30, W - 32, 3);
+  ctx.globalAlpha = 1;
+
+  // Spine Hub Band Shading
+  const hubTops = [120, 280, 480, 680, 880];
+  hubTops.forEach((top) => {
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+    ctx.fillRect(10, top, W - 20, 2);
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+    ctx.fillRect(10, top + 2, W - 20, 4);
+  });
+
+  // Vertical text
   ctx.save();
   ctx.translate(W / 2, H / 2);
-  ctx.rotate(Math.PI / 2); // rotate text +90°
+  ctx.rotate(Math.PI / 2);
 
-  ctx.fillStyle = book.spineTextColor;
+  ctx.fillStyle = foil;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
 
-  // Title fits within H-200px margin
+  // Title
   const titleSize = fitFontSize(
     ctx,
     book.title.toUpperCase(),
-    (s) => `600 ${s}px ${SERIF_STACK}`,
-    H - 200,
-    72,
-    32
+    (s) => `700 ${s}px ${SERIF_STACK}`,
+    H - 260,
+    64,
+    28
   );
-  ctx.font = `600 ${titleSize}px ${SERIF_STACK}`;
-  ctx.fillText(book.title.toUpperCase(), 0, -10);
+  ctx.font = `700 ${titleSize}px ${SERIF_STACK}`;
+  ctx.fillText(book.title.toUpperCase(), 0, -12);
 
-  // Author below — sans, smaller
-  const authorSize = Math.max(18, Math.min(28, titleSize * 0.42));
-  ctx.font = `500 ${authorSize}px ${SANS_STACK}`;
-  ctx.fillText(book.author.toUpperCase(), 0, titleSize * 0.7 + authorSize * 0.6);
+  // Author below title
+  const authorSize = Math.max(16, Math.min(24, titleSize * 0.44));
+  ctx.font = `600 ${authorSize}px ${SANS_STACK}`;
+  ctx.globalAlpha = 0.85;
+  ctx.fillText(book.author.toUpperCase(), 0, titleSize * 0.7 + authorSize * 0.5);
+  ctx.globalAlpha = 1;
 
   ctx.restore();
 
+  // Bottom publisher monogram
+  ctx.fillStyle = foil;
+  ctx.font = `700 18px ${MONO_STACK}`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.globalAlpha = 0.8;
+  ctx.fillText('EXC', W / 2, H - 75);
+  ctx.globalAlpha = 1;
+
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
-  tex.anisotropy = 4;
+  tex.anisotropy = 8;
   tex.needsUpdate = true;
   return tex;
 }
 
 /**
- * Procedural Cover Texture (640 x 960)
+ * Procedural Front Cover Texture (720 x 1080)
+ * Tactile clothbound board with central foil-stamped motif, debossed frame, and refined typography
  */
 export function makeCoverTexture(book: BookData): THREE.CanvasTexture {
-  const W = 640;
-  const H = 960;
+  const W = 720;
+  const H = 1080;
   const canvas = document.createElement('canvas');
   canvas.width = W;
   canvas.height = H;
   const ctx = canvas.getContext('2d')!;
+  const foil = book.foilColor || book.coverTextColor || '#e7b55f';
 
-  // Background
+  // Draw initial procedural cover layout
+  renderProceduralCoverContent(ctx, book, W, H, foil);
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 8;
+  tex.needsUpdate = true;
+
+  // If a real coverImage is provided, asynchronously load and composite with cloth grain
+  if (book.coverImage) {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      ctx.clearRect(0, 0, W, H);
+      // Cover fit calculations
+      const imgAspect = img.naturalWidth / img.naturalHeight;
+      const canvasAspect = W / H;
+      let drawW = W;
+      let drawH = H;
+      let offsetX = 0;
+      let offsetY = 0;
+
+      if (imgAspect > canvasAspect) {
+        drawW = H * imgAspect;
+        offsetX = (W - drawW) / 2;
+      } else {
+        drawH = W / imgAspect;
+        offsetY = (H - drawH) / 2;
+      }
+
+      ctx.drawImage(img, offsetX, offsetY, drawW, drawH);
+      // Overlay subtle tactile linen weave texture
+      drawClothWeave(ctx, W, H, 0.05);
+      // Subtle debossed outer frame
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(18, 18, W - 36, H - 36);
+      tex.needsUpdate = true;
+    };
+    img.src = book.coverImage;
+  }
+
+  return tex;
+}
+
+function renderProceduralCoverContent(
+  ctx: CanvasRenderingContext2D,
+  book: BookData,
+  W: number,
+  H: number,
+  foil: string
+) {
+  // Board Base Color
   ctx.fillStyle = book.coverColor;
   ctx.fillRect(0, 0, W, H);
 
-  // Hairline frame, 28px inset, ~20% alpha of text colour
-  const strokeColor = book.coverTextColor.startsWith('#')
-    ? book.coverTextColor + '33'
-    : 'rgba(243, 236, 216, 0.2)';
-  ctx.strokeStyle = strokeColor;
+  // Woven Linen Cloth Weave
+  drawClothWeave(ctx, W, H, 0.09);
+
+  // Outer Hairline Border (Debossed Foil)
+  ctx.strokeStyle = foil;
+  ctx.globalAlpha = 0.55;
   ctx.lineWidth = 2;
-  ctx.strokeRect(28, 28, W - 56, H - 56);
+  ctx.strokeRect(36, 36, W - 72, H - 72);
 
-  ctx.fillStyle = book.coverTextColor;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-
-  // Eyebrow — small caps, 70% alpha
-  ctx.font = `500 22px ${SANS_STACK}`;
-  ctx.globalAlpha = 0.7;
-  ctx.fillText('THE COLLECTION', W / 2, 86);
+  // Inner Fine Border
+  ctx.globalAlpha = 0.3;
+  ctx.lineWidth = 1;
+  ctx.strokeRect(44, 44, W - 88, H - 88);
   ctx.globalAlpha = 1;
 
-  // Title — wrap up to 3 lines, fit to W-130 width
-  const titleAvailable = W - 130;
-  const titleStartSize = book.title.length > 18 ? 72 : 92;
+  // Header / Eyebrow
+  ctx.fillStyle = foil;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font = `600 20px ${MONO_STACK}`;
+  ctx.globalAlpha = 0.75;
+  ctx.fillText('EXCELSIOR EDITIONS', W / 2, 88);
+  ctx.globalAlpha = 1;
+
+  // Draw Central Procedural Foil Motif
+  drawMotif(ctx, book, W, H);
+
+  // Title Block (Lower half of cover)
+  const titleAvailable = W - 140;
+  const titleStartSize = book.title.length > 20 ? 60 : 76;
   const titleFont = (s: number) => `700 ${s}px ${SERIF_STACK}`;
   let lines: string[] = [];
   let titleSize = titleStartSize;
-  for (let s = titleStartSize; s >= 36; s -= 4) {
+  for (let s = titleStartSize; s >= 34; s -= 4) {
     ctx.font = titleFont(s);
     const candidate = wrapLines(ctx, book.title, titleAvailable);
     if (candidate.length <= 3) {
@@ -158,33 +562,86 @@ export function makeCoverTexture(book: BookData): THREE.CanvasTexture {
     }
   }
   if (lines.length === 0) {
-    titleSize = 36;
+    titleSize = 34;
     ctx.font = titleFont(titleSize);
     lines = wrapLines(ctx, book.title, titleAvailable);
   }
+
   ctx.font = titleFont(titleSize);
-  const lineHeight = titleSize * 1.08;
+  const lineHeight = titleSize * 1.12;
   const totalH = lineHeight * lines.length;
-  const startY = H / 2 - totalH / 2 + lineHeight / 2;
-  lines.forEach((line, i) => ctx.fillText(line, W / 2, startY + i * lineHeight));
+  const startY = H - 240 - totalH / 2;
 
-  // Hairline divider above author at 50% alpha
-  ctx.strokeStyle = book.coverTextColor;
-  ctx.globalAlpha = 0.5;
-  ctx.lineWidth = 1;
+  ctx.fillStyle = foil;
+  ctx.globalAlpha = 0.95;
+  lines.forEach((line, i) => {
+    ctx.fillText(line, W / 2, startY + i * lineHeight);
+  });
+
+  // Foil Accent Divider
+  ctx.strokeStyle = foil;
+  ctx.globalAlpha = 0.6;
+  ctx.lineWidth = 1.5;
   ctx.beginPath();
-  ctx.moveTo(W / 2 - 60, H - 170);
-  ctx.lineTo(W / 2 + 60, H - 170);
+  ctx.moveTo(W / 2 - 50, H - 150);
+  ctx.lineTo(W / 2 + 50, H - 150);
   ctx.stroke();
-  ctx.globalAlpha = 1;
 
-  // Author at the foot
-  ctx.font = `500 26px ${SANS_STACK}`;
-  ctx.fillText(book.author.toUpperCase(), W / 2, H - 130);
+  // Author at Footer
+  ctx.font = `600 24px ${SANS_STACK}`;
+  ctx.globalAlpha = 0.85;
+  ctx.fillText(book.author.toUpperCase(), W / 2, H - 110);
+  ctx.globalAlpha = 1;
+}
+
+/**
+ * Procedural Back Cover Texture (720 x 1080)
+ * Clothbound back board with stamped foil imprint badge
+ */
+export function makeBackCoverTexture(book: BookData): THREE.CanvasTexture {
+  const W = 720;
+  const H = 1080;
+  const canvas = document.createElement('canvas');
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext('2d')!;
+
+  ctx.fillStyle = book.coverColor;
+  ctx.fillRect(0, 0, W, H);
+
+  drawClothWeave(ctx, W, H, 0.09);
+
+  const foil = book.foilColor || book.coverTextColor || '#e7b55f';
+
+  // Hairline border
+  ctx.strokeStyle = foil;
+  ctx.globalAlpha = 0.45;
+  ctx.lineWidth = 2;
+  ctx.strokeRect(36, 36, W - 72, H - 72);
+
+  // Center Imprint Badge
+  ctx.fillStyle = foil;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  ctx.beginPath();
+  ctx.arc(W / 2, H / 2 - 20, 48, 0, Math.PI * 2);
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  ctx.font = `700 24px ${SERIF_STACK}`;
+  ctx.globalAlpha = 0.9;
+  ctx.fillText('EXC', W / 2, H / 2 - 20);
+
+  ctx.font = `600 16px ${MONO_STACK}`;
+  ctx.globalAlpha = 0.7;
+  ctx.fillText('THE COMPLETE SHELF', W / 2, H / 2 + 50);
+  ctx.fillText('CURATED EDITION', W / 2, H / 2 + 74);
+  ctx.globalAlpha = 1;
 
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
-  tex.anisotropy = 4;
+  tex.anisotropy = 8;
   tex.needsUpdate = true;
   return tex;
 }
@@ -199,12 +656,11 @@ export function makeImageCoverTexture(book: BookData): THREE.Texture {
     book.coverImage!,
     (t) => {
       t.colorSpace = THREE.SRGBColorSpace;
-      t.anisotropy = 4;
+      t.anisotropy = 8;
       t.needsUpdate = true;
     },
     undefined,
     () => {
-      // On error — silently fall back to the procedural cover
       const fallback = makeCoverTexture(book);
       tex.image = fallback.image as unknown as HTMLImageElement;
       tex.colorSpace = THREE.SRGBColorSpace;
@@ -217,7 +673,6 @@ export function makeImageCoverTexture(book: BookData): THREE.Texture {
 
 /**
  * Inside Page Texture (640 x 960) — Excerpt Page
- * Visible on the +Z face of the page block when open
  */
 export function makeInsidePageTexture(book: BookData): THREE.CanvasTexture {
   const W = 640;
@@ -227,23 +682,23 @@ export function makeInsidePageTexture(book: BookData): THREE.CanvasTexture {
   canvas.height = H;
   const ctx = canvas.getContext('2d')!;
 
-  ctx.fillStyle = '#f7efd9'; // cream paper
+  ctx.fillStyle = '#f7efd9';
   ctx.fillRect(0, 0, W, H);
 
-  // Subtle paper grain — ~280 single-pixel dark dots
+  // Subtle paper grain
   ctx.fillStyle = 'rgba(20, 14, 4, 0.025)';
-  for (let i = 0; i < 280; i++) {
+  for (let i = 0; i < 300; i++) {
     ctx.fillRect(Math.random() * W, Math.random() * H, 1, 1);
   }
 
-  // "—" mark, 60px serif
+  // Opening ornament
   ctx.fillStyle = '#3a2a14';
-  ctx.font = `500 60px ${SERIF_STACK}`;
+  ctx.font = `500 52px ${SERIF_STACK}`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText('—', W / 2, 220);
+  ctx.fillText('— § —', W / 2, 210);
 
-  // Excerpt — italic, wrap up to 6 lines, fit 22–42px
+  // Excerpt
   ctx.fillStyle = '#1a1208';
   const excerptAvailable = W - 140;
   const excerptFont = (s: number) => `italic 500 ${s}px ${SERIF_STACK}`;
@@ -264,20 +719,18 @@ export function makeInsidePageTexture(book: BookData): THREE.CanvasTexture {
   const startY = H / 2 - totalH / 2 + lineHeight / 2;
   excerptLines.forEach((line, i) => ctx.fillText(line, W / 2, startY + i * lineHeight));
 
-  // Foot meta-line — small caps title · author
+  // Foot meta
   ctx.fillStyle = '#3a2a14';
-  ctx.font = `500 18px ${SANS_STACK}`;
+  ctx.font = `600 16px ${MONO_STACK}`;
   ctx.globalAlpha = 0.75;
   ctx.fillText(
-    `${book.title.toUpperCase()}  ·  ${book.author.toUpperCase()}`,
+    `${book.title}  ·  ${book.author}`,
     W / 2,
     H - 96
   );
   ctx.globalAlpha = 1;
 
-  // Page number "· 1 ·"
-  ctx.fillStyle = '#3a2a14';
-  ctx.font = `500 16px ${SANS_STACK}`;
+  ctx.font = `500 15px ${SANS_STACK}`;
   ctx.globalAlpha = 0.5;
   ctx.fillText('· 1 ·', W / 2, H - 56);
   ctx.globalAlpha = 1;
@@ -291,7 +744,6 @@ export function makeInsidePageTexture(book: BookData): THREE.CanvasTexture {
 
 /**
  * Inside Cover (frontispiece) Texture (640 x 960)
- * Visible on the back face (-Z) of the hinged front cover
  */
 export function makeInsideCoverTexture(book: BookData): THREE.CanvasTexture {
   const W = 640;
@@ -301,10 +753,10 @@ export function makeInsideCoverTexture(book: BookData): THREE.CanvasTexture {
   canvas.height = H;
   const ctx = canvas.getContext('2d')!;
 
-  ctx.fillStyle = '#f3ead2'; // tinted endpaper
+  ctx.fillStyle = '#f3ead2';
   ctx.fillRect(0, 0, W, H);
 
-  ctx.strokeStyle = 'rgba(58, 42, 20, 0.32)';
+  ctx.strokeStyle = 'rgba(58, 42, 20, 0.3)';
   ctx.lineWidth = 1;
   ctx.strokeRect(40, 40, W - 80, H - 80);
 
@@ -312,15 +764,15 @@ export function makeInsideCoverTexture(book: BookData): THREE.CanvasTexture {
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
 
-  ctx.font = `500 18px ${SANS_STACK}`;
-  ctx.globalAlpha = 0.7;
-  ctx.fillText('FROM THE LIBRARY OF', W / 2, H / 2 - 96);
+  ctx.font = `600 15px ${MONO_STACK}`;
+  ctx.globalAlpha = 0.75;
+  ctx.fillText('FROM THE SHELF OF EXCELSIOR', W / 2, H / 2 - 96);
   ctx.globalAlpha = 1;
 
-  ctx.font = `600 36px ${SERIF_STACK}`;
+  ctx.font = `700 36px ${SERIF_STACK}`;
   ctx.fillText(book.title, W / 2, H / 2);
 
-  ctx.font = `500 22px ${SANS_STACK}`;
+  ctx.font = `600 20px ${SANS_STACK}`;
   ctx.globalAlpha = 0.85;
   ctx.fillText(book.author, W / 2, H / 2 + 64);
   ctx.globalAlpha = 1;

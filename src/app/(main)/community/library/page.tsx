@@ -56,15 +56,15 @@ const BookCard = forwardRef<HTMLDivElement, { book: BookItem }>(
     const my = useMotionValue(0);
     const hov = useMotionValue(0);
 
-    const sx = useSpring(mx,  { stiffness: 160, damping: 26, mass: 0.5 });
-    const sy = useSpring(my,  { stiffness: 160, damping: 26, mass: 0.5 });
-    const sh = useSpring(hov, { stiffness: 160, damping: 26 });
+    const sx = useSpring(mx,  { stiffness: 150, damping: 28, mass: 0.5 });
+    const sy = useSpring(my,  { stiffness: 150, damping: 28, mass: 0.5 });
+    const sh = useSpring(hov, { stiffness: 150, damping: 28 });
 
     const rotX  = useTransform(sy, [-0.5, 0.5], [6, -6]);
     const rotY  = useTransform(sx, [-0.5, 0.5], [-6, 6]);
     const lift  = useTransform(sh, [0, 1], [0, -8]);
     const shade = useTransform(sh, [0, 1],
-      ['0 4px 16px rgba(0,0,0,0.1)', '0 20px 48px rgba(0,0,0,0.28)']
+      ['0 4px 16px rgba(0,0,0,0.1)', '0 20px 48px rgba(0,0,0,0.25)']
     );
     const coverZoom = useTransform(sh, [0, 1], [1, 1.05]);
     const dim = useTransform(sh, [0, 1], [0, 0.15]);
@@ -79,10 +79,10 @@ const BookCard = forwardRef<HTMLDivElement, { book: BookItem }>(
     return (
       <motion.div
         ref={ref}
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.95 }}
-        transition={{ duration: 0.2 }}
+        initial={{ opacity: 0, y: 20, scale: 0.95 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.9 }}
+        transition={{ type: "spring", stiffness: 260, damping: 25, mass: 1 }}
         className="h-full"
       >
         <Link href={`/community/library/${book.id}`} className="block h-full outline-none">
@@ -92,7 +92,7 @@ const BookCard = forwardRef<HTMLDivElement, { book: BookItem }>(
             onPointerEnter={() => hov.set(1)}
             onPointerLeave={() => { hov.set(0); mx.set(0); my.set(0); }}
             style={{ rotateX: rotX, rotateY: rotY, y: lift, boxShadow: shade, transformStyle: 'preserve-3d' }}
-            className="relative w-full aspect-[2/3] rounded-3xl overflow-hidden will-change-transform select-none bg-neutral-900 border border-neutral-800/40"
+            className="relative w-full aspect-[2/3] rounded-3xl overflow-hidden will-change-transform select-none bg-neutral-900"
           >
             {/* Edge to Edge Cover */}
             <motion.img
@@ -108,7 +108,7 @@ const BookCard = forwardRef<HTMLDivElement, { book: BookItem }>(
             {/* Subtle darkening on hover */}
             <motion.div style={{ opacity: dim }} className="absolute inset-0 bg-black pointer-events-none" />
 
-            {/* Always-visible info block: Title, Author, Rating */}
+            {/* Always-visible info block */}
             <div className="absolute bottom-0 inset-x-0 p-5 flex flex-col justify-end">
               
               {/* Title */}
@@ -510,9 +510,9 @@ export default function LibraryCatalogPage() {
 
           {/* Book Catalog Grid */}
           {initialLoading ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5 sm:gap-6">
               {Array.from({ length: 8 }).map((_, i) => (
-                <div key={i} className="rounded-3xl bg-neutral-50 dark:bg-neutral-950/60 animate-pulse overflow-hidden border border-neutral-100 dark:border-neutral-900">
+                <div key={i} className="rounded-2xl bg-neutral-50 dark:bg-neutral-950/60 animate-pulse overflow-hidden border border-neutral-100 dark:border-neutral-900">
                   <div className="aspect-[2/3] bg-neutral-100 dark:bg-neutral-900" />
                   <div className="p-4 space-y-2">
                     <div className="h-2.5 w-1/3 rounded bg-neutral-200 dark:bg-neutral-800" />
@@ -523,7 +523,7 @@ export default function LibraryCatalogPage() {
               ))}
             </div>
           ) : displayedBooks.length > 0 ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5 sm:gap-6">
               <AnimatePresence mode="popLayout">
                 {displayedBooks.map((book) => (
                   <BookCard key={book.id} book={book} />

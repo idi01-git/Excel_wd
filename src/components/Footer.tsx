@@ -30,7 +30,7 @@ export default function Footer() {
     <footer className="relative mt-auto bg-foreground text-background">
       {/* Marquee */}
       <div className="overflow-hidden border-b border-background/15 py-4">
-        <div className="animate-marquee flex w-max items-center whitespace-nowrap">
+        <div className="animate-marquee flex w-max items-center whitespace-nowrap will-change-transform">
           {[0, 1].map((copy) => (
             <div
               key={copy}

@@ -12,6 +12,7 @@ import {
 import {
   makeSpineTexture,
   makeCoverTexture,
+  makeBackCoverTexture,
   makeImageCoverTexture,
   makeInsidePageTexture,
   makeInsideCoverTexture,
@@ -50,12 +51,14 @@ export const Book: React.FC<BookProps> = ({
     const coverTex = book.coverImage
       ? makeImageCoverTexture(book)
       : makeCoverTexture(book);
+    const backCoverTex = makeBackCoverTexture(book);
     const insidePageTex = makeInsidePageTexture(book);
     const insideCoverTex = makeInsideCoverTexture(book);
 
     return {
       spineTex,
       coverTex,
+      backCoverTex,
       insidePageTex,
       insideCoverTex,
     };
@@ -66,6 +69,7 @@ export const Book: React.FC<BookProps> = ({
     return () => {
       textures.spineTex.dispose();
       textures.coverTex.dispose();
+      textures.backCoverTex.dispose();
       textures.insidePageTex.dispose();
       textures.insideCoverTex.dispose();
     };
@@ -75,12 +79,12 @@ export const Book: React.FC<BookProps> = ({
   const materials = useMemo(() => {
     // 1. Back Cover Materials
     const backCoverMats: THREE.MeshStandardMaterial[] = [
-      new THREE.MeshStandardMaterial({ color: PAGE_EDGE_COLOR, roughness: 0.85, transparent: true, depthWrite: true }), // +X
+      new THREE.MeshStandardMaterial({ color: book.coverColor, roughness: 0.7, transparent: true, depthWrite: true }), // +X
       new THREE.MeshStandardMaterial({ color: book.spineColor, roughness: 0.6, transparent: true, depthWrite: true }),  // -X
-      new THREE.MeshStandardMaterial({ color: PAGE_EDGE_COLOR, roughness: 0.85, transparent: true, depthWrite: true }), // +Y
-      new THREE.MeshStandardMaterial({ color: PAGE_EDGE_COLOR, roughness: 0.85, transparent: true, depthWrite: true }), // -Y
+      new THREE.MeshStandardMaterial({ color: book.coverColor, roughness: 0.7, transparent: true, depthWrite: true }), // +Y
+      new THREE.MeshStandardMaterial({ color: book.coverColor, roughness: 0.7, transparent: true, depthWrite: true }), // -Y
       new THREE.MeshStandardMaterial({ color: INNER_CREAM_COLOR, roughness: 0.7, transparent: true, depthWrite: true }),// +Z
-      new THREE.MeshStandardMaterial({ color: book.coverColor, roughness: 0.55, transparent: true, depthWrite: true }), // -Z
+      new THREE.MeshStandardMaterial({ map: textures.backCoverTex, roughness: 0.58, metalness: 0.08, transparent: true, depthWrite: true }), // -Z (foil badge back)
     ];
 
     // 2. Page Block Materials
@@ -95,11 +99,11 @@ export const Book: React.FC<BookProps> = ({
 
     // 3. Front Cover Materials
     const frontCoverMats: THREE.MeshStandardMaterial[] = [
-      new THREE.MeshStandardMaterial({ color: PAGE_EDGE_COLOR, roughness: 0.85, transparent: true, depthWrite: true }), // +X
+      new THREE.MeshStandardMaterial({ color: book.coverColor, roughness: 0.7, transparent: true, depthWrite: true }), // +X
       new THREE.MeshStandardMaterial({ color: book.spineColor, roughness: 0.6, transparent: true, depthWrite: true }),  // -X
-      new THREE.MeshStandardMaterial({ color: PAGE_EDGE_COLOR, roughness: 0.85, transparent: true, depthWrite: true }), // +Y
-      new THREE.MeshStandardMaterial({ color: PAGE_EDGE_COLOR, roughness: 0.85, transparent: true, depthWrite: true }), // -Y
-      new THREE.MeshStandardMaterial({ map: textures.coverTex, roughness: 0.55, transparent: true, depthWrite: true }), // +Z (cover front)
+      new THREE.MeshStandardMaterial({ color: book.coverColor, roughness: 0.7, transparent: true, depthWrite: true }), // +Y
+      new THREE.MeshStandardMaterial({ color: book.coverColor, roughness: 0.7, transparent: true, depthWrite: true }), // -Y
+      new THREE.MeshStandardMaterial({ map: textures.coverTex, roughness: 0.55, metalness: 0.1, transparent: true, depthWrite: true }), // +Z (cover front)
       new THREE.MeshStandardMaterial({ map: textures.insideCoverTex, roughness: 0.85, transparent: true, depthWrite: true }), // -Z (inside frontispiece)
     ];
 

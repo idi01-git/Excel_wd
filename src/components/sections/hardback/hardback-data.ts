@@ -13,6 +13,8 @@ export interface BookData {
   coverColor: string; // hex; procedural cover bg + back face
   coverTextColor: string; // hex; procedural cover title colour
   coverImage?: string; // optional CDN URL — overrides procedural
+  motif?: string; // procedural foil motif (lattice, orbit, circuit, etc.)
+  foilColor?: string; // metallic foil stamp color (gold, bronze, silver)
   synopsis: string; // 1–2 sentences for buy panel
   excerpt: string; // famous quote, ≤22 words, printed on inside page
   retailers: Retailer[]; // displayed in buy panel
@@ -70,46 +72,50 @@ export const SPINE_WRAP_T = 0.06;
 export const PAGE_INSET = 0.025;
 
 // ── Background Images (Dual Theme Crossfade) ────────────────────────────────
-export const BG_IMAGE_DARK =
-  "https://pub-dc2abe5caae44240a6d1913566a75e0f.r2.dev/sections/hardback/books-bg.png";
-export const BG_IMAGE_LIGHT =
-  "https://pub-dc2abe5caae44240a6d1913566a75e0f.r2.dev/sections/hardback/books-bg-day.png";
+export const BG_IMAGE_DARK = "/images/night%20shelf.png";
+export const BG_IMAGE_LIGHT = "/images/Day%20shelf%202.png";
 
 // ── The 12-Book Curated Reference Collection ────────────────────────────────
 export const BOOKS: BookData[] = [
   {
-    id: "zero-to-one",
-    title: "Zero to One",
-    author: "Peter Thiel",
-    spineColor: "#0d0d0d",
+    id: "nirmala",
+    title: "निर्मला",
+    author: "मुंशी प्रेमचंद",
+    spineColor: "#182b5e",
     spineTextColor: "#f3ecd8",
-    coverColor: "#0d0d0d",
+    coverColor: "#1c3370",
     coverTextColor: "#f3ecd8",
+    coverImage: "/images/image.png",
+    motif: "lattice",
+    foilColor: "#e7b55f",
     synopsis:
-      "Notes on startups, or how to build the future. Peter Thiel's Stanford lectures distilled into a manual for monopoly thinking — going from zero to one, not one to n.",
-    excerpt: "What important truth do very few people agree with you on?",
+      "मुंशी प्रेमचंद का एक कालजयी सामाजिक उपन्यास। 1920 के दशक के भारत में बेमेल विवाह, दहेज प्रथा और नारी के आत्मसम्मान का मार्मिक चित्रण।",
+    excerpt: "जब मनुष्य पर विपत्ति आती है, तो उसकी बुद्धि भी भ्रष्ट हो जाती है।",
     retailers: [
-      { name: "Amazon", price: "$15.99", url: "https://www.amazon.com/dp/0804139296" },
-      { name: "Bookshop", price: "$16.74", url: "https://bookshop.org" },
+      { name: "Amazon", price: "₹199", url: "https://www.amazon.in" },
+      { name: "Bookshop", price: "₹240", url: "https://bookshop.org" },
     ],
     width: 1.95,
     height: 3.05,
-    spineThickness: 0.34,
+    spineThickness: 0.38,
   },
   {
-    id: "lean-startup",
-    title: "The Lean Startup",
-    author: "Eric Ries",
-    spineColor: "#274034",
-    spineTextColor: "#f3ecd8",
-    coverColor: "#fbf6e8",
-    coverTextColor: "#1a1a1a",
+    id: "gunaho-ka-devta",
+    title: "गुनाहों का देवता",
+    author: "धर्मवीर भारती",
+    spineColor: "#ece0ca",
+    spineTextColor: "#8b1e1a",
+    coverColor: "#f3ebe0",
+    coverTextColor: "#8b1e1a",
+    coverImage: "/images/gunaho%20ka%20devta.png",
+    motif: "continuum",
+    foilColor: "#8b1e1a",
     synopsis:
-      "How today's entrepreneurs use continuous innovation to create radically successful businesses. The build-measure-learn loop, MVPs, and pivots — the playbook a generation grew up on.",
-    excerpt: "The only way to win is to learn faster than anyone else.",
+      "धर्मवीर भारती का कालजयी और भावुक उपन्यास। चंदर और सुधा के अनूठे, पवित्र और आत्मबलिदान से भरे प्रेम की अमर गाथा।",
+    excerpt: "किसी से ज़िन्दगी भर स्नेह रखने, प्रेम करने का गुनाह... स्नेह और प्रेम जब अपनी पराकाष्ठा पर पहुँचने लगे तो उसका त्याग करने का गुनाह...",
     retailers: [
-      { name: "Amazon", price: "$17.49", url: "https://www.amazon.com/dp/0307887898" },
-      { name: "Bookshop", price: "$18.20", url: "https://bookshop.org" },
+      { name: "Amazon", price: "₹225", url: "https://www.amazon.in" },
+      { name: "Bookshop", price: "₹260", url: "https://bookshop.org" },
     ],
     width: 2.0,
     height: 3.15,
@@ -121,8 +127,10 @@ export const BOOKS: BookData[] = [
     author: "Jim Collins",
     spineColor: "#6d1f1f",
     spineTextColor: "#f3ecd8",
-    coverColor: "#f5ede0",
-    coverTextColor: "#6d1f1f",
+    coverColor: "#571616",
+    coverTextColor: "#f3ecd8",
+    motif: "continuum",
+    foilColor: "#c8a44a",
     synopsis:
       "Why some companies make the leap and others don't. A five-year study of 1,435 firms identifies the disciplines — Level 5 leaders, the hedgehog concept, the flywheel — that turn good companies into enduring great ones.",
     excerpt: "Good is the enemy of great.",
@@ -138,10 +146,12 @@ export const BOOKS: BookData[] = [
     id: "atomic-habits",
     title: "Atomic Habits",
     author: "James Clear",
-    spineColor: "#cdb55b",
+    spineColor: "#b8932a",
     spineTextColor: "#1a1a1a",
-    coverColor: "#fbf6e8",
-    coverTextColor: "#1a1a1a",
+    coverColor: "#222018",
+    coverTextColor: "#e8d27a",
+    motif: "steps",
+    foilColor: "#e8d27a",
     synopsis:
       "Tiny changes, remarkable results. A practical, evidence-based framework for compounding small habits into outsized outcomes — built around four laws that shape every behaviour you'll ever form.",
     excerpt: "You do not rise to the level of your goals. You fall to the level of your systems.",
@@ -159,8 +169,10 @@ export const BOOKS: BookData[] = [
     author: "Phil Knight",
     spineColor: "#a8501f",
     spineTextColor: "#f3ecd8",
-    coverColor: "#0d0d0d",
+    coverColor: "#8f3e12",
     coverTextColor: "#f3ecd8",
+    motif: "runner",
+    foilColor: "#f4a261",
     synopsis:
       "A memoir by the creator of Nike. From a $50 loan from his father to one of the world's most iconic brands, detailing the messy, honest struggle behind extraordinary ambition.",
     excerpt:
@@ -179,8 +191,10 @@ export const BOOKS: BookData[] = [
     author: "Ben Horowitz",
     spineColor: "#1a1a1a",
     spineTextColor: "#cf9b3a",
-    coverColor: "#1a1a1a",
+    coverColor: "#151515",
     coverTextColor: "#cf9b3a",
+    motif: "fracture",
+    foilColor: "#d4af37",
     synopsis:
       "Building a business when there are no easy answers. Ben Horowitz on layoffs, demotions, betrayals, and the crushing weight of decisions no MBA prepares you for.",
     excerpt: "There is no recipe for the hard things. There is no recipe for really complex, dynamic situations.",
@@ -198,8 +212,10 @@ export const BOOKS: BookData[] = [
     author: "Tim Ferriss",
     spineColor: "#b8932a",
     spineTextColor: "#1a1a1a",
-    coverColor: "#fbf6e8",
-    coverTextColor: "#1a1a1a",
+    coverColor: "#1f1d19",
+    coverTextColor: "#f3ecd8",
+    motif: "wave",
+    foilColor: "#d4af37",
     synopsis:
       "Escape 9–5, live anywhere, and join the new rich. Tim Ferriss's manifesto for trading time-for-money for systems-for-freedom and lifestyle design.",
     excerpt: "What we fear doing most is usually what we most need to do.",
@@ -217,8 +233,10 @@ export const BOOKS: BookData[] = [
     author: "Ray Dalio",
     spineColor: "#1c2a44",
     spineTextColor: "#f3ecd8",
-    coverColor: "#f3ecd8",
-    coverTextColor: "#1c2a44",
+    coverColor: "#131d2e",
+    coverTextColor: "#f3ecd8",
+    motif: "schematic",
+    foilColor: "#c5a059",
     synopsis:
       "Life and work principles from the founder of Bridgewater. Radical transparency, idea meritocracy, and an algorithmic approach to decision-making.",
     excerpt: "Pain plus reflection equals progress.",
@@ -234,10 +252,12 @@ export const BOOKS: BookData[] = [
     id: "rework",
     title: "Rework",
     author: "Jason Fried",
-    spineColor: "#f0e7d0",
-    spineTextColor: "#1a1a1a",
-    coverColor: "#f0e7d0",
-    coverTextColor: "#1a1a1a",
+    spineColor: "#333333",
+    spineTextColor: "#f3ecd8",
+    coverColor: "#222222",
+    coverTextColor: "#f3ecd8",
+    motif: "windows",
+    foilColor: "#cccccc",
     synopsis:
       "Change the way you work forever. Short, blunt essays on the nonsense of business orthodoxy — from planning fallacy to unnecessary meetings.",
     excerpt: "Planning is guessing. Workaholism is stupid. Meetings are toxic.",
@@ -255,8 +275,10 @@ export const BOOKS: BookData[] = [
     author: "Clayton Christensen",
     spineColor: "#3f444a",
     spineTextColor: "#f3ecd8",
-    coverColor: "#3f444a",
+    coverColor: "#2c3035",
     coverTextColor: "#f3ecd8",
+    motif: "circuit",
+    foilColor: "#9ec1cf",
     synopsis:
       "When new technologies cause great firms to fail. The seminal theory of disruptive innovation that explains how market leaders are toppled.",
     excerpt:
@@ -275,8 +297,10 @@ export const BOOKS: BookData[] = [
     author: "Simon Sinek",
     spineColor: "#7a3a2a",
     spineTextColor: "#f3ecd8",
-    coverColor: "#7a3a2a",
+    coverColor: "#59281c",
     coverTextColor: "#f3ecd8",
+    motif: "lattice",
+    foilColor: "#e7b55f",
     synopsis:
       "How great leaders inspire everyone to take action. The Golden Circle framework — start with why, then how, then what — that drives movements.",
     excerpt: "People don't buy what you do; they buy why you do it.",
@@ -294,8 +318,10 @@ export const BOOKS: BookData[] = [
     author: "Jim Collins",
     spineColor: "#3a1818",
     spineTextColor: "#cf9b3a",
-    coverColor: "#3a1818",
+    coverColor: "#2a1010",
     coverTextColor: "#cf9b3a",
+    motif: "branches",
+    foilColor: "#cf9b3a",
     synopsis:
       "Successful habits of visionary companies. What makes an enterprise endure and thrive across generations, beating rivals by 15-to-1.",
     excerpt: "Preserve the core, stimulate progress.",

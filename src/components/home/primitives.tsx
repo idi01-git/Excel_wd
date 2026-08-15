@@ -107,11 +107,11 @@ export function FadeUp({
     <motion.div
       ref={ref}
       className={className}
-      initial={reduce ? undefined : { opacity: 0, y, filter: 'blur(6px)' }}
+      initial={reduce ? undefined : { opacity: 0, y }}
       animate={
         reduce || inView
-          ? { opacity: 1, y: 0, filter: 'blur(0px)' }
-          : { opacity: 0, y, filter: 'blur(6px)' }
+          ? { opacity: 1, y: 0 }
+          : { opacity: 0, y }
       }
       transition={{ duration: 0.9, ease: EASE, delay: inView || reduce ? delay : 0 }}
     >

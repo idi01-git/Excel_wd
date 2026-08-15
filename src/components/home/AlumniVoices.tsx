@@ -51,7 +51,7 @@ export default function AlumniVoices() {
   const current = VOICES[index];
 
   return (
-    <section className="relative w-full overflow-hidden border-t border-border bg-background px-6 py-24 md:px-10 md:py-36">
+    <section className="relative w-full overflow-hidden border-y border-border bg-background px-6 pt-16 pb-16 md:px-10 md:pt-24 md:pb-20">
       {/* Ghost numeral */}
       <AnimatePresence mode="wait">
         <motion.span
@@ -77,9 +77,9 @@ export default function AlumniVoices() {
           <AnimatePresence mode="wait">
             <motion.blockquote
               key={index}
-              initial={{ opacity: 0, y: 30, filter: 'blur(10px)' }}
-              animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-              exit={{ opacity: 0, y: -26, filter: 'blur(10px)' }}
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -26 }}
               transition={{ duration: 0.75, ease: EASE }}
             >
               <p className="max-w-5xl font-display text-[clamp(1.7rem,4.6vw,3.9rem)] font-normal leading-[1.15] tracking-[-0.02em] text-foreground">
@@ -102,8 +102,8 @@ export default function AlumniVoices() {
           </AnimatePresence>
         </div>
 
-        {/* Controls */}
-        <div className="mt-14 flex items-center justify-between border-t border-border pt-6 md:mt-20">
+        {/* Controls (Clean without top line) */}
+        <div className="mt-12 flex items-center justify-between md:mt-16">
           <div className="flex items-center gap-4">
             <span className="font-mono text-[11px] tracking-[0.2em] text-foreground">
               {String(index + 1).padStart(2, '0')}
@@ -126,14 +126,14 @@ export default function AlumniVoices() {
             <button
               onClick={() => go(-1)}
               aria-label="Previous testimonial"
-              className="flex h-11 w-11 items-center justify-center rounded-full border border-border text-foreground transition-all duration-300 hover:border-foreground hover:bg-foreground hover:text-background"
+              className="flex h-11 w-11 transform-gpu items-center justify-center rounded-full border border-border text-foreground transition-[border-color,background-color,color,transform] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:border-foreground hover:bg-foreground hover:text-background"
             >
               <ArrowLeft size={15} />
             </button>
             <button
               onClick={() => go(1)}
               aria-label="Next testimonial"
-              className="flex h-11 w-11 items-center justify-center rounded-full border border-border text-foreground transition-all duration-300 hover:border-foreground hover:bg-foreground hover:text-background"
+              className="flex h-11 w-11 transform-gpu items-center justify-center rounded-full border border-border text-foreground transition-[border-color,background-color,color,transform] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:border-foreground hover:bg-foreground hover:text-background"
             >
               <ArrowLeft size={15} className="rotate-180" />
             </button>

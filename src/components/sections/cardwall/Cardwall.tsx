@@ -1586,7 +1586,7 @@ export default function Cardwall() {
             fontSize: "clamp(3.5rem, 13vw, 12rem)",
             lineHeight: 0.95,
             letterSpacing: "-0.04em",
-            transform: "translateY(-4vh)",
+            transform: "translateY(-14vh)",
             perspective: "1200px",
             transformStyle: "preserve-3d",
           }}
@@ -1608,26 +1608,17 @@ export default function Cardwall() {
         </h1>
       </div>
 
-      {/* 20. Tagline + meta block (top 30vh) */}
+      {/* 20. Tagline block */}
       <div
-        className="absolute inset-x-0 top-[30vh] flex flex-col items-center gap-3 px-4 transition-opacity duration-500 pointer-events-none z-10"
+        className="absolute inset-x-0 top-[18vh] md:top-[19vh] flex flex-col items-center px-4 transition-opacity duration-500 pointer-events-none z-10"
         style={{ opacity: detail !== null ? 0 : 1 }}
       >
-        <span
-          data-reveal-meta
-          className="inline-flex items-center gap-2 rounded-full border border-border/60
-                     bg-surface/70 px-3 py-1 text-[10px] uppercase tracking-[0.22em]
-                     text-muted-foreground backdrop-blur-md"
-        >
-          <span className="h-1 w-1 rounded-full bg-foreground/50" />
-          Excelsior Literary Society · Move cursor to explore
-        </span>
         <p
           data-reveal-tagline
-          className="max-w-[46ch] text-center text-[13px] leading-relaxed text-muted-foreground"
+          className="text-center text-sm md:text-base tracking-[0.02em] text-muted-foreground/90 font-medium"
           style={{ fontFamily: "var(--font-playfair), serif", fontStyle: "italic" }}
         >
-          Where ideas are voiced, perspectives challenged, and stories find their light.
+          Appreciate Literature?
         </p>
       </div>
 

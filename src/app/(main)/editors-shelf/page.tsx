@@ -1,6 +1,7 @@
 // src/app/(main)/editors-shelf/page.tsx
 'use client';
 
+import { useEffect } from 'react';
 import dynamic from 'next/dynamic';
 
 // Dynamically import the Hardback 3D experience to guarantee client-side canvas initialization
@@ -19,5 +20,25 @@ const Hardback = dynamic(
 );
 
 export default function EditorsShelfPage() {
+  // Lock ALL scroll on html + body while on the shelf page
+  useEffect(() => {
+    const html = document.documentElement;
+    const body = document.body;
+
+    html.style.overflow = 'hidden';
+    html.style.height = '100dvh';
+    body.style.overflow = 'hidden';
+    body.style.height = '100dvh';
+
+    window.scrollTo(0, 0);
+
+    return () => {
+      html.style.overflow = '';
+      html.style.height = '';
+      body.style.overflow = '';
+      body.style.height = '';
+    };
+  }, []);
+
   return <Hardback />;
 }

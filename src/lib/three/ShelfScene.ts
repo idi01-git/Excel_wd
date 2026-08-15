@@ -196,7 +196,7 @@ export class ShelfScene {
     this.renderer.toneMappingExposure = 1.05;
     this.renderer.setClearColor(CREAM);
     this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.shadowMap.type = THREE.PCFShadowMap;
     this.container.appendChild(this.renderer.domElement);
   }
 
