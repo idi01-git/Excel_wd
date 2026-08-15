@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, BookOpen, Clock, Check, X, Undo2, Calendar, AlertCircle, Loader2, Search, History, Sparkles } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, LayoutGroup } from 'motion/react';
 
 interface RequestItem {
   id: string;
@@ -50,6 +50,12 @@ interface BookLog {
       email: string;
       profilePhoto: string | null;
     };
+    approver?: {
+      name: string | null;
+    } | null;
+    returner?: {
+      name: string | null;
+    } | null;
   }>;
 }
 
@@ -58,11 +64,13 @@ interface TimelineEvent {
   type: 'BOOK_ADDED' | 'REQUESTED' | 'APPROVED' | 'REJECTED' | 'RETURNED';
   date: string;
   user?: { name: string; email: string; profilePhoto: string | null };
+  admin?: { name: string | null } | null;
+  returnerAdmin?: { name: string | null } | null;
   note?: string;
   dueDate?: string | null;
 }
 
-type FilterType = 'all' | 'pending' | 'active';
+type FilterType = 'pending' | 'active' | 'history';
 
 export default function StunningAdminLoansPage() {
   const [requests, setRequests] = useState<RequestItem[]>([]);
@@ -71,7 +79,7 @@ export default function StunningAdminLoansPage() {
   const [actionError, setActionError] = useState('');
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeFilter, setActiveFilter] = useState<FilterType>('all');
+  const [activeFilter, setActiveFilter] = useState<FilterType>('pending');
   const [tableDueDates, setTableDueDates] = useState<Record<string, string>>({});
 
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -81,6 +89,9 @@ export default function StunningAdminLoansPage() {
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
   const [targetRejectReq, setTargetRejectReq] = useState<RequestItem | null>(null);
   const [adminNote, setAdminNote] = useState('');
+  const [approveModalOpen, setApproveModalOpen] = useState(false);
+  const [targetApproveReq, setTargetApproveReq] = useState<RequestItem | null>(null);
+  const [customDueDate, setCustomDueDate] = useState('');
 
   const fetchRequests = async () => {
     try {
@@ -147,6 +158,15 @@ export default function StunningAdminLoansPage() {
     setRejectModalOpen(true);
   };
 
+  const openApproveModal = (req: RequestItem) => {
+    setTargetApproveReq(req);
+    setCustomDueDate(req.dueDate 
+      ? new Date(req.dueDate).toISOString().split('T')[0]
+      : new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+    );
+    setApproveModalOpen(true);
+  };
+
   const handleRejectSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!targetRejectReq) return;
@@ -180,12 +200,12 @@ export default function StunningAdminLoansPage() {
     book.issueRequests.forEach((req) => {
       if (req.requestDate) events.push({ id: `req-${req.id}`, type: 'REQUESTED', date: req.requestDate, user: req.requester, dueDate: req.dueDate });
       if (req.issueDate && (req.status === 'APPROVED' || req.status === 'RETURNED')) {
-        events.push({ id: `app-${req.id}`, type: 'APPROVED', date: req.issueDate, user: req.requester, note: req.adminNote || undefined, dueDate: req.dueDate });
+        events.push({ id: `app-${req.id}`, type: 'APPROVED', date: req.issueDate, user: req.requester, note: req.adminNote || undefined, dueDate: req.dueDate, admin: req.approver });
       } else if (req.status === 'REJECTED') {
-        events.push({ id: `rej-${req.id}`, type: 'REJECTED', date: req.issueDate || req.requestDate, user: req.requester, note: req.adminNote || undefined });
+        events.push({ id: `rej-${req.id}`, type: 'REJECTED', date: req.issueDate || req.requestDate, user: req.requester, note: req.adminNote || undefined, admin: req.approver });
       }
       if (req.returnDate && req.status === 'RETURNED') {
-        events.push({ id: `ret-${req.id}`, type: 'RETURNED', date: req.returnDate, user: req.requester });
+        events.push({ id: `ret-${req.id}`, type: 'RETURNED', date: req.returnDate, user: req.requester, admin: req.approver, returnerAdmin: req.returner });
       }
     });
 
@@ -198,98 +218,109 @@ export default function StunningAdminLoansPage() {
                           req.requester.name.toLowerCase().includes(searchQuery.toLowerCase());
     if (activeFilter === 'pending') return matchesSearch && req.status === 'PENDING';
     if (activeFilter === 'active') return matchesSearch && req.status === 'APPROVED';
+    if (activeFilter === 'history') return matchesSearch && req.status === 'RETURNED';
     return matchesSearch;
   });
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white selection:bg-indigo-500/30 font-sans relative overflow-x-hidden">
+    <div className="min-h-screen bg-white dark:bg-neutral-950 text-black dark:text-white font-sans relative overflow-x-hidden">
       
-      {/* Premium Ambient Background Effects */}
-      <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full bg-indigo-600/10 blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-[-10%] right-[-5%] w-[40%] h-[40%] rounded-full bg-violet-600/10 blur-[100px] pointer-events-none" />
-
       <div className="w-full max-w-6xl mx-auto py-10 px-6 relative z-10">
         
         {/* Navigation */}
         <Link 
           href="/admin/library" 
-          className="inline-flex items-center text-sm font-semibold text-gray-400 hover:text-white transition-colors flex items-center gap-2 mb-8 group"
+          className="inline-flex items-center text-sm font-semibold text-gray-500 dark:text-neutral-400 hover:text-black dark:hover:text-white transition-colors gap-2 mb-8 group"
         >
-          <div className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center group-hover:bg-white/10 transition-all">
+          <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-neutral-900 border border-gray-200 dark:border-neutral-800 flex items-center justify-center group-hover:bg-gray-200 dark:group-hover:bg-neutral-800 transition-all">
             <ArrowLeft className="w-4 h-4" />
           </div>
           <span className="tracking-wide">Back to Library Dashboard</span>
         </Link>
 
-        {/* Spectacular Header */}
+        {/* Header */}
         <div className="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
-            <h1 className="font-serif text-5xl md:text-6xl font-black leading-tight mb-3 text-transparent bg-clip-text bg-gradient-to-r from-white via-white to-gray-400 flex items-center gap-4">
+            <h1 className="font-serif text-5xl md:text-6xl text-black dark:text-white font-bold leading-tight mb-3 flex items-center gap-4">
               Issue Requests
-              <Sparkles className="w-8 h-8 text-indigo-400 hidden md:block" />
             </h1>
-            <p className="text-gray-400 text-base md:text-lg max-w-2xl font-light">
+            <p className="text-gray-500 dark:text-neutral-400 text-base md:text-lg max-w-2xl">
               Manage physical book reservations and track their complete lifecycle.
             </p>
           </motion.div>
         </div>
 
         {actionError && (
-          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="mb-8 p-4 bg-red-500/10 border border-red-500/30 rounded-2xl text-sm text-red-200 flex items-center gap-3 backdrop-blur-md shadow-lg shadow-red-500/5">
-            <AlertCircle className="w-5 h-5 shrink-0 text-red-400" />
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="mb-8 p-4 bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-900/30 rounded-2xl text-sm text-red-600 dark:text-red-400 flex items-center gap-3">
+            <AlertCircle className="w-5 h-5 shrink-0 text-red-500" />
             {actionError}
           </motion.div>
         )}
 
-        {/* Filters and Search Bar - Premium Glassmorphism */}
-        <motion.div 
-          initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 }}
-          className="flex flex-col md:flex-row gap-4 items-center justify-between mb-8 p-2 bg-white/[0.02] border border-white/5 rounded-3xl backdrop-blur-xl shadow-2xl"
-        >
+        {/* Filters and Search Bar */}
+        <div className="flex flex-col md:flex-row gap-4 items-center justify-between border-b border-gray-200 dark:border-neutral-800 pb-6 mb-8">
+          
           <div className="relative w-full md:max-w-md">
-            <Search className="w-5 h-5 text-gray-500 absolute left-5 top-1/2 -translate-y-1/2" />
+            <Search className="w-5 h-5 text-gray-400 dark:text-neutral-500 absolute left-5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               placeholder="Search by book, author, or reader..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-transparent text-white placeholder:text-gray-500 rounded-full pl-13 pr-6 py-4 text-sm outline-none transition focus:bg-white/5 border border-transparent focus:border-white/10"
+              className="w-full bg-gray-50 dark:bg-neutral-900 text-black dark:text-white placeholder:text-gray-400 dark:placeholder:text-neutral-500 rounded-full pl-13 pr-6 py-3 text-sm outline-none transition border border-gray-200 dark:border-neutral-800 focus:border-gray-400 dark:focus:border-neutral-600"
             />
           </div>
 
-          <div className="flex bg-black/40 p-1.5 rounded-full border border-white/5 text-xs font-bold uppercase tracking-wider w-full md:w-auto">
-            {(['all', 'pending', 'active'] as FilterType[]).map((tab) => {
-              const count = tab === 'all' 
-                ? requests.length 
-                : tab === 'pending'
-                  ? requests.filter(r => r.status === 'PENDING').length
-                  : requests.filter(r => r.status === 'APPROVED').length;
+          <div className="flex flex-wrap gap-1.5 bg-gray-50 dark:bg-neutral-900 p-1 border border-gray-200/50 dark:border-neutral-800 rounded-full w-full md:w-auto">
+            <LayoutGroup id="issue-tabs">
+              {(['pending', 'active', 'history'] as FilterType[]).map((tab) => {
+                const count = tab === 'history' 
+                  ? requests.filter(r => r.status === 'RETURNED').length 
+                  : tab === 'pending'
+                    ? requests.filter(r => r.status === 'PENDING').length
+                    : requests.filter(r => r.status === 'APPROVED').length;
 
-              return (
-                <button
-                  key={tab}
-                  onClick={() => setActiveFilter(tab)}
-                  className={`flex-1 md:flex-initial md:px-8 py-3 rounded-full text-center transition-all duration-300 cursor-pointer ${
-                    activeFilter === tab 
-                      ? 'bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow-lg shadow-indigo-500/25' 
-                      : 'text-gray-500 hover:text-white hover:bg-white/5'
-                  }`}
-                >
-                  {tab} <span className="ml-1 opacity-70">({count})</span>
-                </button>
-              );
-            })}
+                const labels = {
+                  history: "History",
+                  pending: "Pending",
+                  active: "Active"
+                };
+
+                return (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveFilter(tab)}
+                    className={`relative py-2 px-6 rounded-full text-xs font-semibold uppercase tracking-wide transition-all outline-none flex-1 md:flex-initial text-center ${
+                      activeFilter === tab
+                        ? "text-white dark:text-black"
+                        : "text-gray-500 dark:text-neutral-400 hover:text-black dark:hover:text-white hover:bg-gray-100/50 dark:hover:bg-neutral-800/50"
+                    }`}
+                  >
+                    {activeFilter === tab && (
+                      <motion.div
+                        layoutId="active-tab-pill"
+                        className="absolute inset-0 bg-black dark:bg-white rounded-full shadow-sm"
+                        transition={{ type: "spring", stiffness: 260, damping: 25, mass: 1 }}
+                      />
+                    )}
+                    <span className="relative z-10 flex items-center justify-center gap-1.5">
+                      {labels[tab]} <span className="opacity-60">({count})</span>
+                    </span>
+                  </button>
+                );
+              })}
+            </LayoutGroup>
           </div>
-        </motion.div>
+        </div>
 
         {/* Requests List */}
         {loading ? (
           <div className="py-20 flex justify-center">
-            <Loader2 className="w-10 h-10 animate-spin text-indigo-500" />
+            <Loader2 className="w-10 h-10 animate-spin text-gray-400 dark:text-neutral-600" />
           </div>
         ) : filteredRequests.length > 0 ? (
-          <div className="grid gap-4">
-            <AnimatePresence>
+          <div className="flex flex-col gap-6">
+            <AnimatePresence mode="popLayout">
               {filteredRequests.map((req, index) => {
                 const isPending = req.status === 'PENDING';
                 const isApproved = req.status === 'APPROVED';
@@ -298,117 +329,119 @@ export default function StunningAdminLoansPage() {
                 return (
                   <motion.div 
                     layout
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
+                    initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.95 }}
-                    transition={{ delay: index * 0.05 }}
+                    transition={{ type: "spring", stiffness: 260, damping: 25, mass: 1, delay: index * 0.05 }}
                     key={req.id} 
-                    className="group relative bg-white/[0.03] border border-white/10 hover:border-indigo-500/30 rounded-3xl p-5 md:p-6 transition-all duration-300 hover:bg-white/[0.05] shadow-lg overflow-hidden flex flex-col md:flex-row md:items-center gap-6"
+                    className="group flex flex-col lg:flex-row lg:items-center gap-6 p-5 lg:p-6 bg-white dark:bg-neutral-900 border border-gray-200 dark:border-neutral-800 rounded-2xl hover:border-gray-300 dark:hover:border-neutral-700 hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] dark:hover:shadow-[0_8px_30px_rgb(255,255,255,0.02)] transition-all duration-300"
                   >
-                    {/* Glowing highlight on hover */}
-                    <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/0 via-indigo-500/0 to-indigo-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
-
                     {/* Book Info */}
-                    <div className="flex items-center gap-5 md:w-1/3 shrink-0">
-                      <div className="w-16 h-24 shrink-0 bg-black/50 rounded-xl overflow-hidden border border-white/10 shadow-2xl relative group-hover:shadow-indigo-500/20 transition-all duration-500">
+                    <div className="flex items-center gap-5 lg:w-1/3 shrink-0">
+                      <div className="w-16 h-24 shrink-0 bg-gray-100 dark:bg-neutral-800 rounded-xl overflow-hidden border border-gray-200 dark:border-neutral-700">
                         {req.book.coverImage ? (
-                          <img src={req.book.coverImage} alt="" className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700" />
+                          <img src={req.book.coverImage} alt="" className="w-full h-full object-cover group-hover:scale-105 transition duration-700 ease-out" />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center">
-                            <BookOpen className="w-6 h-6 text-gray-600" />
+                            <BookOpen className="w-6 h-6 text-gray-400" />
                           </div>
                         )}
                       </div>
                       <div className="min-w-0">
                         <button 
                           onClick={() => fetchBookLogs(req.book.id)}
-                          className="text-white font-bold text-lg block truncate hover:text-indigo-400 transition-colors text-left"
+                          className="font-serif text-lg font-bold text-black dark:text-white truncate hover:text-violet-600 dark:hover:text-cyan-400 transition-colors text-left"
                         >
                           {req.book.title}
                         </button>
-                        <span className="text-gray-400 text-sm font-medium block mt-1">
+                        <span className="text-gray-500 dark:text-neutral-400 text-sm font-medium block mt-1">
                           by {req.book.author}
                         </span>
                         
                         {/* Status Badge */}
                         <div className="mt-3">
-                          {isPending && <span className="inline-flex px-3 py-1 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-full text-[10px] font-bold uppercase tracking-widest shadow-[0_0_15px_rgba(245,158,11,0.15)]">Pending Approval</span>}
-                          {isApproved && <span className="inline-flex px-3 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full text-[10px] font-bold uppercase tracking-widest shadow-[0_0_15px_rgba(16,185,129,0.15)]">Active Loan</span>}
-                          {req.status === 'RETURNED' && <span className="inline-flex px-3 py-1 bg-white/5 text-gray-400 border border-white/10 rounded-full text-[10px] font-bold uppercase tracking-widest">Returned</span>}
-                          {req.status === 'REJECTED' && <span className="inline-flex px-3 py-1 bg-red-500/10 text-red-400 border border-red-500/20 rounded-full text-[10px] font-bold uppercase tracking-widest">Rejected</span>}
+                          {isPending && <span className="inline-block text-[10px] font-bold uppercase tracking-widest text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 px-2.5 py-1 rounded">Pending Approval</span>}
+                          {isApproved && <span className="inline-block text-[10px] font-bold uppercase tracking-widest text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 px-2.5 py-1 rounded">Active Loan</span>}
+                          {req.status === 'RETURNED' && <span className="inline-block text-[10px] font-bold uppercase tracking-widest text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-neutral-800 px-2.5 py-1 rounded">Returned</span>}
+                          {req.status === 'REJECTED' && <span className="inline-block text-[10px] font-bold uppercase tracking-widest text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/30 px-2.5 py-1 rounded">Rejected</span>}
                         </div>
                       </div>
                     </div>
 
                     {/* Requester Info */}
-                    <div className="flex items-center gap-4 md:w-1/4 shrink-0 bg-black/20 p-4 rounded-2xl border border-white/5">
-                      <div className="w-10 h-10 rounded-full bg-indigo-500/20 flex items-center justify-center overflow-hidden shrink-0 border border-indigo-500/30">
+                    <div className="flex items-center gap-3 lg:w-[28%] shrink-0">
+                      <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 flex items-center justify-center overflow-hidden shrink-0">
                         {req.requester.profilePhoto ? (
                           <img src={req.requester.profilePhoto} alt="" className="w-full h-full object-cover" />
                         ) : (
-                          <span className="font-bold text-sm text-indigo-300">
+                          <span className="font-bold text-sm text-gray-500 dark:text-gray-400">
                             {req.requester.name?.charAt(0)}
                           </span>
                         )}
                       </div>
                       <div className="min-w-0">
-                        <span className="text-[10px] text-gray-500 uppercase tracking-widest font-bold block mb-0.5">Requested By</span>
-                        <strong className="text-white block font-semibold text-sm truncate">{req.requester.name}</strong>
+                        <span className="text-[10px] text-gray-500 dark:text-neutral-500 uppercase tracking-widest font-bold block mb-0.5">
+                          {req.status === 'RETURNED' ? 'Last Returned By' : 'Requested By'}
+                        </span>
+                        <strong className="text-black dark:text-white block font-semibold text-sm truncate">{req.requester.name}</strong>
                       </div>
                     </div>
 
                     {/* Due Date & Actions */}
-                    <div className="flex-1 flex flex-col md:flex-row items-center justify-between gap-6 md:pl-4">
+                    <div className="flex-1 flex flex-row items-center justify-between gap-4 w-full pt-4 lg:pt-0 border-t border-gray-150 dark:border-neutral-800/80 lg:border-t-0 lg:pl-4">
                       
                       {/* Dates */}
-                      <div className="w-full md:w-auto">
+                      <div className="min-w-0">
                         {isPending ? (
-                          <div className="flex flex-col gap-2">
-                            <span className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Return Deadline</span>
-                            <div className="relative">
-                              <Calendar className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                              <input
-                                type="date"
-                                value={tableDueDates[req.id] || ''}
-                                onChange={(e) => setTableDueDates(prev => ({ ...prev, [req.id]: e.target.value }))}
-                                min={new Date().toISOString().split('T')[0]}
-                                className="bg-black/40 border border-white/10 text-white text-sm rounded-xl pl-10 pr-4 py-2.5 outline-none focus:border-indigo-500 focus:bg-white/5 transition shadow-inner w-full md:w-40"
-                              />
-                            </div>
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-[9px] text-gray-400 dark:text-neutral-500 uppercase tracking-widest font-bold">Requested Return</span>
+                            <p className="text-xs font-semibold text-gray-800 dark:text-neutral-200">
+                              {req.dueDate ? new Date(req.dueDate).toLocaleDateString() : 'No requested date'}
+                            </p>
                           </div>
                         ) : (
-                          <div className="flex flex-col gap-1.5">
+                          <div className="flex flex-col gap-1">
                             {req.dueDate && (
-                              <div className={`flex items-center gap-2 text-sm font-medium ${isOverdue ? 'text-red-400' : 'text-gray-300'}`}>
-                                <Clock className={`w-4 h-4 ${isOverdue ? 'text-red-500 animate-pulse' : 'text-indigo-400'}`} />
-                                Due: {new Date(req.dueDate).toLocaleDateString()} {isOverdue && <span className="text-[10px] font-bold bg-red-500/20 px-2 py-0.5 rounded uppercase ml-1">Overdue</span>}
-                              </div>
+                              <p className={`text-xs font-medium ${isOverdue ? 'text-red-500 dark:text-red-400' : 'text-gray-700 dark:text-gray-300'}`}>
+                                <span className={`uppercase tracking-widest text-[9px] font-bold mr-1.5 ${isOverdue ? 'text-red-500' : 'text-gray-400'}`}>Due</span> 
+                                {new Date(req.dueDate).toLocaleDateString()}
+                                {isOverdue && <span className="text-[10px] font-bold bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 px-2 py-0.5 rounded uppercase ml-2">Overdue</span>}
+                              </p>
                             )}
-                            <p className="text-xs text-gray-500 font-medium">Issued: {req.issueDate ? new Date(req.issueDate).toLocaleDateString() : 'N/A'}</p>
+                            <p className="text-xs text-gray-500 dark:text-neutral-500 font-medium">
+                              <span className="uppercase tracking-widest text-[9px] font-bold mr-1.5 text-gray-400">Issued</span> 
+                              {req.issueDate ? new Date(req.issueDate).toLocaleDateString() : 'N/A'}
+                            </p>
+                            {req.status === 'RETURNED' && (
+                              <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+                                <span className="uppercase tracking-widest text-[9px] font-bold mr-1.5 text-emerald-600/70 dark:text-emerald-400/70">Returned</span> 
+                                {req.returnDate ? new Date(req.returnDate).toLocaleDateString() : 'N/A'}
+                              </p>
+                            )}
                           </div>
                         )}
                       </div>
 
                       {/* Action Buttons */}
-                      <div className="flex items-center gap-3 w-full md:w-auto justify-end">
+                      <div className="flex items-center gap-2 shrink-0">
                         {actionLoading === req.id ? (
-                          <div className="px-6 py-3 bg-white/5 rounded-full border border-white/10 flex items-center justify-center">
-                            <Loader2 className="w-5 h-5 animate-spin text-indigo-400" />
+                          <div className="w-10 h-10 bg-gray-50 dark:bg-neutral-900 rounded-full border border-gray-200 dark:border-neutral-800 flex items-center justify-center">
+                            <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
                           </div>
                         ) : (
                           <>
                             {isPending && (
                               <>
                                 <button
-                                  onClick={() => handleAction(req.id, 'APPROVE', tableDueDates[req.id])}
-                                  className="flex items-center gap-2 px-5 py-2.5 bg-emerald-500/10 hover:bg-emerald-500 text-emerald-400 hover:text-white border border-emerald-500/30 hover:border-transparent rounded-full transition-all duration-300 shadow-[0_0_15px_rgba(16,185,129,0.1)] hover:shadow-[0_0_25px_rgba(16,185,129,0.4)] cursor-pointer"
+                                  onClick={() => openApproveModal(req)}
+                                  className="w-9 h-9 flex items-center justify-center bg-black hover:bg-gray-900 dark:bg-white dark:hover:bg-gray-100 text-white dark:text-black rounded-full transition-all duration-300 cursor-pointer shadow-sm shrink-0"
+                                  title="Approve Request"
                                 >
-                                  <Check className="w-4 h-4 font-bold" />
-                                  <span className="text-sm font-bold tracking-wide">Approve</span>
+                                  <Check className="w-4 h-4" />
                                 </button>
                                 <button
                                   onClick={() => openRejectModal(req)}
-                                  className="w-10 h-10 flex items-center justify-center bg-red-500/10 hover:bg-red-500 text-red-400 hover:text-white border border-red-500/30 hover:border-transparent rounded-full transition-all duration-300 cursor-pointer"
+                                  className="w-9 h-9 flex items-center justify-center bg-gray-100 hover:bg-gray-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-gray-600 dark:text-gray-300 rounded-full transition-all duration-300 cursor-pointer shrink-0"
                                   title="Reject Request"
                                 >
                                   <X className="w-4 h-4" />
@@ -418,18 +451,18 @@ export default function StunningAdminLoansPage() {
                             {isApproved && (
                               <button
                                 onClick={() => handleAction(req.id, 'RETURN')}
-                                className="flex items-center gap-2 px-5 py-2.5 bg-indigo-500/10 hover:bg-indigo-500 text-indigo-400 hover:text-white border border-indigo-500/30 hover:border-transparent rounded-full transition-all duration-300 shadow-[0_0_15px_rgba(99,102,241,0.1)] hover:shadow-[0_0_25px_rgba(99,102,241,0.4)] cursor-pointer"
+                                className="w-9 h-9 flex items-center justify-center bg-black hover:bg-gray-900 dark:bg-white dark:hover:bg-gray-100 text-white dark:text-black rounded-full transition-all duration-300 cursor-pointer shadow-sm shrink-0"
+                                title="Return Book"
                               >
                                 <Undo2 className="w-4 h-4" />
-                                <span className="text-sm font-bold tracking-wide">Return Book</span>
                               </button>
                             )}
                             
-                            <div className="w-px h-8 bg-white/10 mx-1 hidden md:block"></div>
+                            <div className="w-px h-6 bg-gray-200 dark:bg-neutral-800 mx-1"></div>
 
                             <button
                               onClick={() => fetchBookLogs(req.book.id)}
-                              className="w-10 h-10 flex items-center justify-center bg-white/5 hover:bg-white/15 text-gray-400 hover:text-white border border-white/10 rounded-full transition-all duration-300 cursor-pointer"
+                              className="w-9 h-9 flex items-center justify-center bg-gray-50 hover:bg-gray-100 dark:bg-neutral-900 dark:hover:bg-neutral-850 text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white border border-gray-200 dark:border-neutral-800 rounded-full transition-all duration-300 cursor-pointer"
                               title="View History Timeline"
                             >
                               <History className="w-4 h-4" />
@@ -445,16 +478,16 @@ export default function StunningAdminLoansPage() {
             </AnimatePresence>
           </div>
         ) : (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-32 bg-white/[0.02] border border-dashed border-white/10 rounded-3xl backdrop-blur-sm">
-            <BookOpen className="w-16 h-16 text-gray-600 mx-auto mb-6 opacity-50" />
-            <h3 className="text-2xl font-bold text-white mb-3">No Requests Found</h3>
-            <p className="text-gray-500 max-w-sm mx-auto">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-20 bg-gray-50 dark:bg-neutral-900/50 border border-dashed border-gray-200 dark:border-neutral-800 rounded-2xl">
+            <BookOpen className="w-12 h-12 text-gray-300 dark:text-neutral-700 mx-auto mb-4" />
+            <h3 className="font-serif text-xl font-bold text-black dark:text-white mb-2">No Requests Found</h3>
+            <p className="text-gray-500 dark:text-neutral-500 max-w-sm mx-auto text-sm">
               There are currently no book loan requests matching your filters. 
             </p>
           </motion.div>
         )}
 
-        {/* Spectacular Slide-over Drawer for Timeline */}
+        {/* Drawer for Timeline */}
         <AnimatePresence>
           {drawerOpen && (
             <>
@@ -462,138 +495,191 @@ export default function StunningAdminLoansPage() {
               <motion.div
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                 onClick={() => { setDrawerOpen(false); setDrawerBook(null); }}
-                className="fixed inset-0 bg-black/80 backdrop-blur-md z-40"
+                className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40"
               />
 
               {/* Drawer */}
               <motion.div
                 initial={{ x: '100%', opacity: 0.5 }} animate={{ x: 0, opacity: 1 }} exit={{ x: '100%', opacity: 0 }}
                 transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                className="fixed right-0 top-0 bottom-0 w-full max-w-lg bg-[#0a0a0a]/90 backdrop-blur-3xl border-l border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.5)] z-50 flex flex-col"
+                className="fixed right-0 top-0 bottom-0 w-full max-w-lg bg-white dark:bg-neutral-950 border-l border-gray-200 dark:border-neutral-800 shadow-2xl z-50 flex flex-col"
               >
                 {/* Drawer Header */}
-                <div className="px-8 py-6 border-b border-white/10 flex items-center justify-between bg-white/[0.02]">
-                  <h3 className="font-serif text-2xl text-white font-bold flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center shadow-[0_0_15px_rgba(99,102,241,0.2)]">
-                      <History className="w-5 h-5 text-indigo-400" />
+                <div className="px-8 py-8 border-b border-gray-100 dark:border-neutral-800 flex items-center justify-between bg-gradient-to-br from-white to-gray-50/50 dark:from-neutral-900 dark:to-neutral-950 relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-64 h-64 bg-violet-50 dark:bg-cyan-900/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 opacity-60"></div>
+                  <h3 className="font-serif text-2xl text-black dark:text-white font-bold flex items-center gap-3 relative z-10">
+                    <div className="w-10 h-10 rounded-xl bg-white dark:bg-neutral-800 shadow-sm border border-gray-100 dark:border-neutral-700 flex items-center justify-center">
+                      <History className="w-5 h-5 text-gray-700 dark:text-gray-300" />
                     </div>
                     Journey Log
                   </h3>
                   <button
                     onClick={() => { setDrawerOpen(false); setDrawerBook(null); }}
-                    className="w-10 h-10 flex items-center justify-center rounded-full bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white border border-white/10 transition-colors cursor-pointer"
+                    className="relative z-10 w-10 h-10 flex items-center justify-center rounded-full bg-white dark:bg-neutral-900 hover:bg-gray-50 dark:hover:bg-neutral-800 text-gray-500 border border-gray-200 dark:border-neutral-700 transition-colors shadow-sm cursor-pointer"
                   >
                     <X className="w-5 h-5" />
                   </button>
                 </div>
 
                 {/* Drawer Content */}
-                <div className="p-8 overflow-y-auto flex-1 custom-scrollbar">
+                <div className="p-8 overflow-y-auto flex-1 custom-scrollbar bg-gray-50/30 dark:bg-neutral-950">
                   {drawerLoading ? (
-                    <div className="h-full flex flex-col items-center justify-center gap-4 text-indigo-400">
+                    <div className="h-full flex flex-col items-center justify-center gap-4 text-gray-400">
                       <Loader2 className="w-10 h-10 animate-spin" />
-                      <span className="text-sm font-bold tracking-widest uppercase">Retrieving Data...</span>
+                      <span className="text-[10px] font-bold tracking-widest uppercase">Retrieving Data...</span>
                     </div>
                   ) : drawerBook ? (
-                    <div className="space-y-10">
+                    <div className="space-y-12">
                       {/* Book Overview Card */}
-                      <div className="flex gap-6 p-6 bg-gradient-to-br from-white/5 to-transparent rounded-3xl border border-white/10 items-center relative overflow-hidden">
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 blur-[50px]" />
-                        <div className="w-16 h-24 bg-black/50 rounded-xl overflow-hidden shrink-0 border border-white/20 shadow-xl z-10">
+                      <div className="flex gap-6 items-start relative">
+                        <div className="absolute inset-0 bg-gradient-to-b from-white to-transparent dark:from-neutral-900/50 dark:to-transparent -mx-8 -mt-8 h-40 blur-xl opacity-50 pointer-events-none" />
+                        <div className="w-24 h-32 bg-gray-100 dark:bg-neutral-800 rounded-xl overflow-hidden shrink-0 shadow-[0_8px_30px_rgb(0,0,0,0.12)] relative z-10">
                           {drawerBook.coverImage ? (
                             <img src={drawerBook.coverImage} alt="" className="w-full h-full object-cover" />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center">
-                              <BookOpen className="w-6 h-6 text-gray-500" />
+                              <BookOpen className="w-8 h-8 text-gray-300" />
                             </div>
                           )}
                         </div>
-                        <div className="min-w-0 z-10">
-                          <h4 className="font-bold text-white text-xl truncate mb-1">{drawerBook.title}</h4>
-                          <p className="text-sm text-gray-400 truncate mb-4">by {drawerBook.author}</p>
-                          <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/5 rounded-full border border-white/10 backdrop-blur-sm">
-                            <span className="text-[10px] text-emerald-400 uppercase tracking-widest font-bold">
+                        <div className="min-w-0 pt-2 relative z-10">
+                          <h4 className="font-serif font-bold text-black dark:text-white text-2xl truncate mb-1.5">{drawerBook.title}</h4>
+                          <p className="text-sm text-gray-500 dark:text-neutral-400 truncate mb-5">by {drawerBook.author}</p>
+                          <div className="inline-flex items-center gap-3 px-4 py-2 bg-white dark:bg-neutral-900 rounded-full border border-gray-200 dark:border-neutral-800 shadow-sm">
+                            <span className="text-[10px] text-emerald-600 dark:text-emerald-400 uppercase tracking-widest font-bold">
                               {drawerBook.totalCopies - drawerBook.issuedCopies} Available
                             </span>
-                            <span className="text-gray-600">/</span>
-                            <span className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">
+                            <span className="text-gray-200 dark:text-neutral-700">|</span>
+                            <span className="text-[10px] text-gray-500 dark:text-neutral-500 uppercase tracking-widest font-bold">
                               {drawerBook.totalCopies} Total
                             </span>
                           </div>
                         </div>
                       </div>
 
-                      {/* Visual Timeline Track */}
-                      <div className="relative pl-6">
-                        {/* Glowing Line */}
-                        <div className="absolute left-[27px] top-6 bottom-6 w-0.5 bg-gradient-to-b from-indigo-500/50 via-purple-500/30 to-white/5 rounded-full" />
+                      {/* Vertical Visual Timeline Track (Swiss Editorial Style) */}
+                      <div className="relative ml-2 space-y-6 pb-8 pt-6">
+                        {/* Continuous Vertical Line (Animated Slider) */}
+                        <div className="absolute left-[84px] top-8 bottom-8 w-[1px] bg-neutral-100 dark:bg-neutral-900 z-0">
+                          <motion.div
+                            initial={{ height: 0 }}
+                            animate={{ height: '100%' }}
+                            transition={{ duration: 1.2, ease: [0.22, 1, 0.36, 1] }}
+                            className="w-full bg-neutral-900 dark:bg-neutral-200 origin-top"
+                          />
+                        </div>
 
-                        <div className="space-y-8">
-                          {generateTimeline(drawerBook).map((event, i) => {
-                            const getStyle = (type: string) => {
-                              switch(type) {
-                                case 'BOOK_ADDED': return { color: 'text-indigo-400', bg: 'bg-indigo-500/20', border: 'border-indigo-500/30', glow: 'shadow-[0_0_20px_rgba(99,102,241,0.3)]' };
-                                case 'REQUESTED': return { color: 'text-amber-400', bg: 'bg-amber-500/20', border: 'border-amber-500/30', glow: 'shadow-[0_0_20px_rgba(245,158,11,0.3)]' };
-                                case 'APPROVED': return { color: 'text-emerald-400', bg: 'bg-emerald-500/20', border: 'border-emerald-500/30', glow: 'shadow-[0_0_20px_rgba(16,185,129,0.3)]' };
-                                case 'REJECTED': return { color: 'text-red-400', bg: 'bg-red-500/20', border: 'border-red-500/30', glow: 'shadow-[0_0_20px_rgba(239,68,68,0.3)]' };
-                                case 'RETURNED': return { color: 'text-blue-400', bg: 'bg-blue-500/20', border: 'border-blue-500/30', glow: 'shadow-[0_0_20px_rgba(59,130,246,0.3)]' };
-                                default: return { color: 'text-gray-400', bg: 'bg-white/10', border: 'border-white/20', glow: '' };
-                              }
-                            };
-                            
-                            const style = getStyle(event.type);
+                        {generateTimeline(drawerBook).map((event, i, arr) => {
+                          const isLatest = i === arr.length - 1;
+                          const num = String(i + 1).padStart(2, '0');
+                          const getStyle = (type: string) => {
+                            switch(type) {
+                              case 'BOOK_ADDED': return { color: 'text-violet-600 dark:text-cyan-400', border: 'border-violet-300 dark:border-cyan-800' };
+                              case 'REQUESTED': return { color: 'text-amber-600 dark:text-amber-400', border: 'border-amber-300 dark:border-amber-800' };
+                              case 'APPROVED': return { color: 'text-emerald-600 dark:text-emerald-400', border: 'border-emerald-300 dark:border-emerald-800' };
+                              case 'REJECTED': return { color: 'text-red-650 dark:text-red-400', border: 'border-red-300 dark:border-red-800' };
+                              case 'RETURNED': return { color: 'text-neutral-500 dark:text-neutral-450', border: 'border-neutral-300 dark:border-neutral-700' };
+                              default: return { color: 'text-neutral-450', border: 'border-neutral-200 dark:border-neutral-800' };
+                            }
+                          };
+                          
+                          const style = getStyle(event.type);
 
-                            return (
-                              <motion.div
-                                initial={{ opacity: 0, x: 20 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                transition={{ delay: i * 0.1, duration: 0.4 }}
-                                key={event.id} 
-                                className="relative flex gap-6 group"
+                          return (
+                            <motion.div
+                              initial={{ opacity: 0, y: 15 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ delay: i * 0.1, duration: 0.5 }}
+                              whileHover="hover"
+                              key={event.id} 
+                              className="relative flex items-start group min-h-[90px] pb-6 cursor-pointer"
+                            >
+                              {/* Left: Index Number (Slides left on hover) */}
+                              <div className="w-[68px] text-right pr-5 pt-0.5 shrink-0 select-none">
+                                <motion.span
+                                  variants={{
+                                    hover: { x: -4 }
+                                  }}
+                                  transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                                  className="inline-block font-serif italic font-light text-2xl text-neutral-300 dark:text-neutral-850 group-hover:text-black dark:group-hover:text-white transition-colors duration-350"
+                                >
+                                  {num}
+                                </motion.span>
+                              </div>
+
+                              {/* Middle: Dot Anchor centered on line (Scales up on hover) */}
+                              <div className="absolute left-[79px] top-3 z-10">
+                                <motion.div
+                                  variants={{
+                                    hover: { scale: 1.35 }
+                                  }}
+                                  initial={{ scale: 0 }}
+                                  animate={{ scale: 1 }}
+                                  transition={{ 
+                                    scale: { type: 'spring', stiffness: 300, damping: 20 },
+                                    default: { delay: i * 0.1 + 0.4, type: 'spring', stiffness: 200 }
+                                  }}
+                                  className={`w-2.5 h-2.5 rounded-full border bg-white dark:bg-neutral-950 ${style.border}`}
+                                />
+                                {isLatest && (
+                                  <div className="absolute inset-0 rounded-full animate-ping opacity-25 bg-neutral-400 dark:bg-neutral-700 pointer-events-none" />
+                                )}
+                              </div>
+
+                              {/* Right: Content details (Slides right on hover) */}
+                              <motion.div 
+                                variants={{
+                                  hover: { x: 6 }
+                                }}
+                                transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                                className="pl-12 pr-4 min-w-0 flex-1"
                               >
-                                {/* Glowing Dot */}
-                                <div className={`absolute -left-[20px] top-1.5 w-10 h-10 rounded-full flex items-center justify-center ${style.bg} ${style.border} ${style.glow} border backdrop-blur-sm z-10 shrink-0 transition-transform duration-300 group-hover:scale-110`}>
-                                  <div className={style.color}>
-                                    {event.type === 'BOOK_ADDED' && <BookOpen className="w-4 h-4" />}
-                                    {event.type === 'REQUESTED' && <Clock className="w-4 h-4" />}
-                                    {event.type === 'APPROVED' && <Check className="w-4 h-4" />}
-                                    {event.type === 'REJECTED' && <X className="w-4 h-4" />}
-                                    {event.type === 'RETURNED' && <Undo2 className="w-4 h-4" />}
-                                  </div>
+                                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 mb-1">
+                                  <h5 className="font-serif font-bold text-[17px] text-neutral-950 dark:text-white leading-tight">
+                                    {event.type === 'BOOK_ADDED' && 'Book Cataloged'}
+                                    {event.type === 'REQUESTED' && `Requested by ${event.user?.name}`}
+                                    {event.type === 'APPROVED' && (event.admin?.name ? `Approved by ${event.admin.name}` : `Approved for ${event.user?.name}`)}
+                                    {event.type === 'REJECTED' && (event.admin?.name ? `Rejected by ${event.admin.name}` : 'Request Rejected')}
+                                    {event.type === 'RETURNED' && (event.returnerAdmin?.name ? `Return processed by ${event.returnerAdmin.name}` : `Returned by ${event.user?.name}`)}
+                                  </h5>
+                                  <span className={`text-[9px] font-bold uppercase tracking-widest font-sans select-none shrink-0 ${style.color}`}>
+                                    {event.type.replace('_', ' ')}
+                                  </span>
                                 </div>
 
-                                {/* Event Card */}
-                                <div className="flex-1 ml-6 bg-white/[0.02] hover:bg-white/[0.04] border border-white/5 hover:border-white/10 rounded-2xl p-5 transition-all duration-300">
-                                  <div className="flex flex-col mb-3">
-                                    <h5 className="font-bold text-sm text-white flex items-center gap-2">
-                                      {event.type === 'BOOK_ADDED' && 'Book Cataloged'}
-                                      {event.type === 'REQUESTED' && `Requested by ${event.user?.name}`}
-                                      {event.type === 'APPROVED' && `Approved for ${event.user?.name}`}
-                                      {event.type === 'REJECTED' && 'Request Rejected'}
-                                      {event.type === 'RETURNED' && `Returned by ${event.user?.name}`}
-                                    </h5>
-                                    <span className="text-[10px] text-gray-500 uppercase tracking-widest font-semibold mt-1">
-                                      {new Date(event.date).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                <div className="text-[10px] text-neutral-400 dark:text-neutral-500 uppercase tracking-widest font-bold font-sans mb-2">
+                                  {new Date(event.date).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })} AT {new Date(event.date).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false })}
+                                </div>
+
+                                {event.dueDate && (event.type === 'REQUESTED' || event.type === 'APPROVED') && (
+                                  <div className="inline-flex items-center gap-1.5 mt-1.5 text-xs text-neutral-500 dark:text-neutral-400 font-sans">
+                                    <Clock className="w-3.5 h-3.5 opacity-60" />
+                                    <span>
+                                      {event.type === 'REQUESTED' ? 'Requested Return: ' : 'Deadline: '}
+                                      <strong className="text-neutral-800 dark:text-neutral-250">{new Date(event.dueDate).toLocaleDateString()}</strong>
                                     </span>
                                   </div>
+                                )}
 
-                                  {event.dueDate && (event.type === 'REQUESTED' || event.type === 'APPROVED') && (
-                                    <div className="inline-flex items-center gap-2 mt-2 px-3 py-1.5 bg-black/30 rounded-lg border border-white/5 text-xs text-gray-300">
-                                      <Clock className="w-3.5 h-3.5 text-gray-400" />
-                                      {event.type === 'REQUESTED' ? 'Requested Return:' : 'Deadline:'} <strong className="text-white">{new Date(event.dueDate).toLocaleDateString()}</strong>
-                                    </div>
-                                  )}
-
-                                  {event.note && (
-                                    <div className="mt-4 p-3 bg-red-500/5 rounded-xl border-l-2 border-l-red-500 border-y border-r border-red-500/10 text-sm text-gray-400 italic">
-                                      "{event.note}"
-                                    </div>
-                                  )}
-                                </div>
+                                {event.note && (
+                                  <div className="mt-3 pl-4 border-l border-neutral-200 dark:border-neutral-800 text-sm text-neutral-600 dark:text-neutral-400 italic font-serif">
+                                    "{event.note}"
+                                  </div>
+                                )}
                               </motion.div>
-                            );
-                          })}
-                        </div>
+
+                              {/* Hover Underline Reveal (Spring scale reveal) */}
+                              <motion.div 
+                                variants={{
+                                  hover: { scaleX: 1 }
+                                }}
+                                initial={{ scaleX: 0 }}
+                                transition={{ type: 'spring', stiffness: 200, damping: 25 }}
+                                className="absolute bottom-0 left-[112px] right-4 h-[1px] bg-neutral-200/50 dark:bg-neutral-800/30 origin-left"
+                              />
+                            </motion.div>
+                          );
+                        })}
                       </div>
                     </div>
                   ) : (
@@ -607,34 +693,128 @@ export default function StunningAdminLoansPage() {
           )}
         </AnimatePresence>
 
-        {/* Stunning Rejection Modal */}
+        {/* Approve Confirmation Modal */}
         <AnimatePresence>
-          {rejectModalOpen && targetRejectReq && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-lg p-4">
+          {approveModalOpen && targetApproveReq && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
               <motion.div 
                 initial={{ opacity: 0, scale: 0.9, y: 20 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                className="bg-[#0a0a0a] border border-white/10 rounded-3xl p-8 max-w-sm w-full shadow-2xl relative overflow-hidden"
+                className="bg-white dark:bg-neutral-950 border border-gray-200 dark:border-neutral-800 rounded-3xl p-8 max-w-sm w-full shadow-2xl relative overflow-hidden"
               >
-                <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-red-500 to-rose-500" />
-                
-                <div className="flex justify-between items-center pb-6 mb-6 border-b border-white/5">
-                  <h3 className="font-serif text-2xl text-white font-bold flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center text-red-500">
+                <div className="flex justify-between items-center pb-6 mb-6 border-b border-gray-100 dark:border-neutral-800">
+                  <h3 className="font-serif text-2xl text-black dark:text-white font-bold flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+                      <Check className="w-5 h-5" />
+                    </div>
+                    Approve Loan
+                  </h3>
+                  <button onClick={() => setApproveModalOpen(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-white transition cursor-pointer">
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="space-y-6">
+                  <div className="bg-gray-50 dark:bg-neutral-900 p-4 rounded-2xl border border-gray-200 dark:border-neutral-800 text-sm text-gray-500 dark:text-gray-400 space-y-2">
+                    <p>Book: <strong className="text-black dark:text-white block truncate">{targetApproveReq.book.title}</strong></p>
+                    <p>Reader: <strong className="text-black dark:text-white block">{targetApproveReq.requester.name}</strong></p>
+                    {targetApproveReq.dueDate && (
+                      <p>Requested Return: <strong className="text-black dark:text-white block">{new Date(targetApproveReq.dueDate).toLocaleDateString()}</strong></p>
+                    )}
+                  </div>
+
+                  <div className="flex flex-col gap-2">
+                    <label className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Return Deadline</label>
+                    <div className="relative">
+                      <Calendar className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="date"
+                        value={customDueDate}
+                        onChange={(e) => setCustomDueDate(e.target.value)}
+                        min={new Date().toISOString().split('T')[0]}
+                        className="bg-white dark:bg-neutral-950 border border-gray-200 dark:border-neutral-800 text-black dark:text-white rounded-xl pl-10 pr-4 py-3 outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition w-full"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {targetApproveReq.dueDate && (
+                      <button
+                        type="button"
+                        onClick={() => setCustomDueDate(new Date(targetApproveReq.dueDate!).toISOString().split('T')[0])}
+                        className="text-[11px] font-semibold px-3 py-1.5 bg-gray-150 hover:bg-gray-200 dark:bg-neutral-800 dark:hover:bg-neutral-750 text-gray-700 dark:text-gray-300 rounded-lg transition cursor-pointer"
+                      >
+                        Accept Requested Date
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setCustomDueDate(new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0])}
+                      className="text-[11px] font-semibold px-3 py-1.5 bg-gray-100 hover:bg-gray-150 dark:bg-neutral-900 dark:hover:bg-neutral-850 text-gray-700 dark:text-gray-300 rounded-lg transition cursor-pointer"
+                    >
+                      14 Days
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCustomDueDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0])}
+                      className="text-[11px] font-semibold px-3 py-1.5 bg-gray-100 hover:bg-gray-150 dark:bg-neutral-900 dark:hover:bg-neutral-850 text-gray-700 dark:text-gray-300 rounded-lg transition cursor-pointer"
+                    >
+                      30 Days
+                    </button>
+                  </div>
+
+                  <div className="flex justify-end gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setApproveModalOpen(false)}
+                      className="py-2.5 px-6 bg-gray-150 hover:bg-gray-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-black dark:text-white rounded-full text-xs font-semibold cursor-pointer transition"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleAction(targetApproveReq.id, 'APPROVE', customDueDate);
+                        setApproveModalOpen(false);
+                      }}
+                      className="py-2.5 px-6 bg-black hover:bg-gray-900 dark:bg-white dark:hover:bg-gray-100 text-white dark:text-black rounded-full text-xs font-bold transition cursor-pointer"
+                    >
+                      Confirm Approve
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+
+        {/* Rejection Modal */}
+        <AnimatePresence>
+          {rejectModalOpen && targetRejectReq && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                className="bg-white dark:bg-neutral-950 border border-gray-200 dark:border-neutral-800 rounded-3xl p-8 max-w-sm w-full shadow-2xl relative overflow-hidden"
+              >
+                <div className="flex justify-between items-center pb-6 mb-6 border-b border-gray-100 dark:border-neutral-800">
+                  <h3 className="font-serif text-2xl text-black dark:text-white font-bold flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center text-red-600 dark:text-red-400">
                       <X className="w-5 h-5" />
                     </div>
                     Reject Loan
                   </h3>
-                  <button onClick={() => setRejectModalOpen(false)} className="text-gray-500 hover:text-white transition cursor-pointer">
+                  <button onClick={() => setRejectModalOpen(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-white transition cursor-pointer">
                     <X className="w-5 h-5" />
                   </button>
                 </div>
 
                 <form onSubmit={handleRejectSubmit} className="space-y-6">
-                  <div className="bg-white/5 p-4 rounded-2xl border border-white/5 text-sm text-gray-400 space-y-2">
-                    <p>Book: <strong className="text-white block truncate">{targetRejectReq.book.title}</strong></p>
-                    <p>Reader: <strong className="text-white block">{targetRejectReq.requester.name}</strong></p>
+                  <div className="bg-gray-50 dark:bg-neutral-900 p-4 rounded-2xl border border-gray-200 dark:border-neutral-800 text-sm text-gray-500 dark:text-gray-400 space-y-2">
+                    <p>Book: <strong className="text-black dark:text-white block truncate">{targetRejectReq.book.title}</strong></p>
+                    <p>Reader: <strong className="text-black dark:text-white block">{targetRejectReq.requester.name}</strong></p>
                   </div>
 
                   <div className="flex flex-col gap-2">
@@ -645,7 +825,7 @@ export default function StunningAdminLoansPage() {
                       onChange={(e) => setAdminNote(e.target.value)}
                       placeholder="e.g. Out of stock, reserved"
                       required
-                      className="bg-black/50 border border-white/10 text-white rounded-xl p-3 outline-none focus:border-red-500 focus:bg-red-500/5 transition w-full shadow-inner"
+                      className="bg-white dark:bg-neutral-950 border border-gray-200 dark:border-neutral-800 text-black dark:text-white rounded-xl p-3 outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition w-full"
                     />
                   </div>
 
@@ -653,13 +833,13 @@ export default function StunningAdminLoansPage() {
                     <button
                       type="button"
                       onClick={() => setRejectModalOpen(false)}
-                      className="py-2.5 px-6 bg-white/5 hover:bg-white/10 text-white rounded-full text-xs font-semibold border border-white/10 cursor-pointer transition"
+                      className="py-2.5 px-6 bg-gray-100 hover:bg-gray-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-black dark:text-white rounded-full text-xs font-semibold cursor-pointer transition"
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
-                      className="py-2.5 px-6 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white rounded-full text-xs font-bold shadow-[0_0_15px_rgba(225,29,72,0.3)] transition cursor-pointer"
+                      className="py-2.5 px-6 bg-red-600 hover:bg-red-700 text-white rounded-full text-xs font-bold transition cursor-pointer"
                     >
                       Confirm Reject
                     </button>
@@ -673,8 +853,8 @@ export default function StunningAdminLoansPage() {
         <style dangerouslySetInnerHTML={{__html: `
           .custom-scrollbar::-webkit-scrollbar { width: 6px; }
           .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-          .custom-scrollbar::-webkit-scrollbar-thumb { background-color: rgba(255, 255, 255, 0.1); border-radius: 20px; }
-          .custom-scrollbar::-webkit-scrollbar-thumb:hover { background-color: rgba(255, 255, 255, 0.2); }
+          .custom-scrollbar::-webkit-scrollbar-thumb { background-color: rgba(156, 163, 175, 0.3); border-radius: 20px; }
+          .custom-scrollbar::-webkit-scrollbar-thumb:hover { background-color: rgba(156, 163, 175, 0.5); }
         `}} />
       </div>
     </div>

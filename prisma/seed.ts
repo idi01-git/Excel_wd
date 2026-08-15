@@ -1,6 +1,7 @@
 // prisma/seed.ts
 import { PrismaClient, Role, PublicationCategory, PublicationStatus, GalleryItemType, AchievementCategory } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
+import { LIBRARY_BOOKS } from './books-data';
 
 const prisma = new PrismaClient();
 
@@ -67,7 +68,7 @@ async function main() {
 
   console.log('Seeded 4 users: admin, moderator, author, member');
 
-  // 2. Seed some publications
+  // 2. Seed Publications (varying categories and statuses)
   await prisma.publication.upsert({
     where: { slug: 'silent-architecture-of-memory' },
     update: {},
@@ -93,7 +94,56 @@ async function main() {
     }
   });
 
-  console.log('Seeded default publications');
+  await prisma.publication.upsert({
+    where: { slug: 'echoes-of-the-monsoon' },
+    update: {},
+    create: {
+      title: 'Echoes of the Monsoon',
+      slug: 'echoes-of-the-monsoon',
+      category: PublicationCategory.POEM,
+      status: PublicationStatus.PUBLISHED,
+      authorId: member.id,
+      readingTime: 2,
+      tags: ['Nature', 'Nostalgia', 'Poetry'],
+      coverImage: 'https://images.unsplash.com/photo-1534274988757-a28bf1a57c17?w=800&h=450&fit=crop',
+      content: {
+        type: 'doc',
+        content: [
+          {
+            type: 'paragraph',
+            content: [{ type: 'text', text: 'The sky bruised purple, weeping ink upon the parched clay. We danced in the downpour, writing poems on dry leaves, washing away the seasons of waiting.' }]
+          }
+        ]
+      },
+      publishedAt: new Date()
+    }
+  });
+
+  await prisma.publication.upsert({
+    where: { slug: 'neon-dreamers' },
+    update: {},
+    create: {
+      title: 'Neon Dreamers',
+      slug: 'neon-dreamers',
+      category: PublicationCategory.STORY,
+      status: PublicationStatus.PENDING,
+      authorId: author.id,
+      readingTime: 12,
+      tags: ['Sci-Fi', 'Cyberpunk', 'Short Story'],
+      coverImage: 'https://images.unsplash.com/photo-1515621061946-eff1c2a352bd?w=800&h=450&fit=crop',
+      content: {
+        type: 'doc',
+        content: [
+          {
+            type: 'paragraph',
+            content: [{ type: 'text', text: 'Under the holographic rain, Kael interface-jacked the core network. He could feel the pulse of a million minds, locked inside the grid, dreaming of synthetic green pastures.' }]
+          }
+        ]
+      }
+    }
+  });
+
+  console.log('Seeded publications (Published & Pending)');
 
   // 3. Seed Editor's Shelf
   await prisma.editorShelfItem.upsert({
@@ -124,36 +174,188 @@ async function main() {
 
   console.log('Seeded Editor\'s Shelf items');
 
-  // 4. Seed Alumni Profiles
-  await prisma.alumniProfile.upsert({
-    where: { id: 'alumni-1' },
-    update: {},
-    create: {
+  // 4. Seed Alumni Profiles (Seeding 15 profiles to test pagination threshold of 12!)
+  const alumniProfilesData = [
+    {
       id: 'alumni-1',
       name: 'Sarah Jenkins',
-      photo: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150&h=150&fit=crop',
+      photo: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=200&h=200&fit=crop',
       batch: '2018-2022',
       branch: 'Computer Science',
       currentPosition: 'Technical Writer at Google',
-      message: 'Excelsior gave me a voice and a family. Never stop writing, even when your code compiles. The bridge between language and logic is where magic happens.'
-    }
-  });
-
-  await prisma.alumniProfile.upsert({
-    where: { id: 'alumni-2' },
-    update: {},
-    create: {
+      excelsiorPosition: 'Editor-in-Chief',
+      message: 'Excelsior gave me a voice and a family. Never stop writing, even when your code compiles. The bridge between language and logic is where magic happens.',
+      email: 'sarah.j@google.com',
+      linkedin: 'https://linkedin.com'
+    },
+    {
       id: 'alumni-2',
       name: 'David Kojo',
-      photo: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&h=150&fit=crop',
+      photo: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200&h=200&fit=crop',
       batch: '2016-2020',
       branch: 'Electrical Engineering',
       currentPosition: 'Editor at Penguin Random House',
-      message: 'Find your cadence. In the club, we learned to critique without crushing. Take that empathy into the publishing industry.'
+      excelsiorPosition: 'Senior Reviewer',
+      message: 'Find your cadence. In the club, we learned to critique without crushing. Take that empathy into the publishing industry.',
+      email: 'kojo.david@penguin.com',
+      instagram: 'https://instagram.com'
+    },
+    {
+      id: 'alumni-3',
+      name: 'Priya Sharma',
+      photo: 'https://images.unsplash.com/photo-1534751516642-a131ffd107fd?w=200&h=200&fit=crop',
+      batch: '2019-2023',
+      branch: 'Information Technology',
+      currentPosition: 'Frontend Engineer at Vercel',
+      excelsiorPosition: 'Design Lead',
+      message: 'Excelsior is where my love for typography and layouts began. Making magazines look editorial was the sandbox for what I do now.',
+      linkedin: 'https://linkedin.com'
+    },
+    {
+      id: 'alumni-4',
+      name: 'Marcus Vance',
+      photo: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=200&h=200&fit=crop',
+      batch: '2015-2019',
+      branch: 'Mechanical Engineering',
+      currentPosition: 'Automotive Journalist at TopGear',
+      excelsiorPosition: 'Core Member',
+      message: 'I was an engineer who loved engines and poetry. Excelsior taught me that storytelling belongs everywhere, even under a car chassis.',
+      email: 'marcus.vance@topgear.com'
+    },
+    {
+      id: 'alumni-5',
+      name: 'Elena Rostova',
+      photo: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200&h=200&fit=crop',
+      batch: '2017-2021',
+      branch: 'Civil Engineering',
+      currentPosition: 'Architectural Consultant',
+      excelsiorPosition: 'PR Lead',
+      message: 'Structure, space, and syntax. Whether laying brick or writing copy, proportions matter. Excelsior set that foundation for me.',
+      instagram: 'https://instagram.com'
+    },
+    {
+      id: 'alumni-6',
+      name: 'Alex Chen',
+      photo: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=200&h=200&fit=crop',
+      batch: '2020-2024',
+      branch: 'Computer Science',
+      currentPosition: 'AI Researcher at OpenAI',
+      excelsiorPosition: 'Web Coordinator',
+      message: 'Large language models process text, but human language holds the soul. Keep the poetry alive in the machine age.',
+      linkedin: 'https://linkedin.com',
+      email: 'alex.chen@openai.com'
+    },
+    {
+      id: 'alumni-7',
+      name: 'Fatima Al-Sayed',
+      photo: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=200&h=200&fit=crop',
+      batch: '2018-2022',
+      branch: 'Chemical Engineering',
+      currentPosition: 'Technical Consultant at McKinsey',
+      excelsiorPosition: 'Treasurer',
+      message: 'Formulas tell part of the truth, stories tell the rest. Balancing spreadsheets and editing anthologies was a wild but necessary ride.',
+      linkedin: 'https://linkedin.com'
+    },
+    {
+      id: 'alumni-8',
+      name: 'Kenji Takahashi',
+      photo: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=200&h=200&fit=crop',
+      batch: '2016-2020',
+      branch: 'Electronics & Communication',
+      currentPosition: 'Hardware Designer at Sony',
+      excelsiorPosition: 'Slam Coordinator',
+      message: 'We measured wavelengths in lab and vocal resonance at slam nights. They’re just different frequencies of the same human expression.',
+      instagram: 'https://instagram.com'
+    },
+    {
+      id: 'alumni-9',
+      name: 'Sophie Dubois',
+      photo: 'https://images.unsplash.com/photo-1567532939604-b6b5b0db2604?w=200&h=200&fit=crop',
+      batch: '2019-2023',
+      branch: 'Computer Science',
+      currentPosition: 'Product Manager at Figma',
+      excelsiorPosition: 'Editorial Board',
+      message: 'Figma boards and magazine drafts aren’t that different. It’s all about collaboration, iterations, and pushing constraints.',
+      linkedin: 'https://linkedin.com'
+    },
+    {
+      id: 'alumni-10',
+      name: 'Carlos Mendez',
+      photo: 'https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=200&h=200&fit=crop',
+      batch: '2015-2019',
+      branch: 'Mechanical Engineering',
+      currentPosition: 'Creative Director at Vogue',
+      excelsiorPosition: 'Art Director',
+      message: 'An engineer finding a home at Vogue makes total sense if you knew the grid systems we obsessed over at Excelsior.',
+      instagram: 'https://instagram.com'
+    },
+    {
+      id: 'alumni-11',
+      name: 'Amara Okafor',
+      photo: 'https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=200&h=200&fit=crop',
+      batch: '2017-2021',
+      branch: 'Information Technology',
+      currentPosition: 'Cybersecurity Analyst at Crowdstrike',
+      excelsiorPosition: 'Moderator',
+      message: 'Spotting syntax errors in code prepares you well for editing comma splices. Protect your system, protect your style.',
+      email: 'amara.o@crowdstrike.com'
+    },
+    {
+      id: 'alumni-12',
+      name: 'Liam O\'Connor',
+      photo: 'https://images.unsplash.com/photo-1500048993953-d23a436266cf?w=200&h=200&fit=crop',
+      batch: '2020-2024',
+      branch: 'Computer Science',
+      currentPosition: 'Graduate Assistant at Stanford',
+      excelsiorPosition: 'Poetry Mentor',
+      message: 'Academic papers are precise, poetry is expansive. You need both to avoid getting intellectually claustrophobic.',
+      linkedin: 'https://linkedin.com'
+    },
+    {
+      id: 'alumni-13',
+      name: 'Zara Patel',
+      photo: 'https://images.unsplash.com/photo-1587614382346-4ec70e388b28?w=200&h=200&fit=crop',
+      batch: '2018-2022',
+      branch: 'Civil Engineering',
+      currentPosition: 'Structural Engineer',
+      excelsiorPosition: 'Anthology Editor',
+      message: 'Magazines require structural integrity, too. A weak spine ruins a book just like a bridge.',
+      instagram: 'https://instagram.com',
+      linkedin: 'https://linkedin.com'
+    },
+    {
+      id: 'alumni-14',
+      name: 'Nikita Smirnov',
+      photo: 'https://images.unsplash.com/photo-1489980508314-941910ded1f4?w=200&h=200&fit=crop',
+      batch: '2016-2020',
+      branch: 'Electrical Engineering',
+      currentPosition: 'Sound Designer at Ubisoft',
+      excelsiorPosition: 'Audio Coordinator',
+      message: 'Designing sonic spaces for open-world games started with mixing audio for our podcasts and slam stages.',
+      email: 'nikita.smir@ubisoft.com'
+    },
+    {
+      id: 'alumni-15',
+      name: 'Chloe Lefevre',
+      photo: 'https://images.unsplash.com/photo-1554151228-14d9def656e4?w=200&h=200&fit=crop',
+      batch: '2019-2023',
+      branch: 'Chemical Engineering',
+      currentPosition: 'Fragrance Chemist at Estée Lauder',
+      excelsiorPosition: 'Anthology Contributor',
+      message: 'Blending volatile chemicals to create perfumes is a lot like blending words to evoke memory.',
+      instagram: 'https://instagram.com'
     }
-  });
+  ];
 
-  console.log('Seeded Alumni Profiles');
+  for (const alum of alumniProfilesData) {
+    await prisma.alumniProfile.upsert({
+      where: { id: alum.id },
+      update: {},
+      create: alum
+    });
+  }
+
+  console.log('Seeded 15 Alumni Profiles (to test pagination)');
 
   // 5. Seed Gallery Items
   await prisma.galleryItem.createMany({
@@ -223,13 +425,17 @@ async function main() {
       title: 'Excelsior Poetry Slam 2026',
       slug: 'excelsior-poetry-slam-2026',
       description: 'Prepare your verses! The annual poetry slam tournament is back. This year we have exciting cash prizes and a renowned panel of judges. Open to all students.',
-      posterImage: 'https://images.unsplash.com/photo-1518156677180-95a2893f3e9f?w=800&fit=crop',
+      posterImage: 'https://images.unsplash.com/photo-1518156677180-95a2893f3e9f?w=800&h=800&fit=crop',
+      coverImage: 'https://images.unsplash.com/photo-1518156677180-95a2893f3e9f?w=1600&h=900&fit=crop',
       date: new Date('2026-08-15T15:00:00.000Z'),
       time: '3:00 PM - 6:00 PM',
       venue: 'Main Auditorium, Campus Hub',
       status: 'UPCOMING',
       isCompetition: true,
-      maxCapacity: 100
+      maxCapacity: 100,
+      rulebookUrl: 'https://excelsior.club/docs/poetry-slam-2026-rules.pdf',
+      socialLink: 'https://instagram.com/excelsior_club',
+      downloadUrl: 'https://images.unsplash.com/photo-1518156677180-95a2893f3e9f?w=1200&fit=crop'
     }
   });
 
@@ -238,7 +444,8 @@ async function main() {
       title: 'Creative Writing Workshop 2026',
       slug: 'creative-writing-workshop-2026',
       description: 'A hands-on session on world-building, narrative arcs, and character development mentored by verified author John Author.',
-      posterImage: 'https://images.unsplash.com/photo-1455390582262-044cdead277a?w=800&fit=crop',
+      posterImage: 'https://images.unsplash.com/photo-1455390582262-044cdead277a?w=800&h=800&fit=crop',
+      coverImage: 'https://images.unsplash.com/photo-1455390582262-044cdead277a?w=1600&h=900&fit=crop',
       date: new Date('2026-05-10T10:00:00.000Z'),
       time: '10:00 AM - 1:00 PM',
       venue: 'Seminar Hall B, Library Block',
@@ -297,61 +504,53 @@ async function main() {
     ]
   });
 
-  // Seed Books
-  const book1 = await prisma.book.create({
-    data: {
-      title: 'One Hundred Years of Solitude',
-      author: 'Gabriel García Márquez',
-      description: 'The multi-generational story of the Buendía family, whose patriarch, José Arcadio Buendía, founded the town of Macondo.',
-      coverImage: 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?w=300&h=450&fit=crop',
-      genre: ['Fiction', 'Magical Realism'],
-      isbn: '9780060883287',
-      pageCount: 417,
-      publishedYear: 1967,
-      totalCopies: 3,
-      issuedCopies: 0,
-      availabilityStatus: 'AVAILABLE'
-    }
-  });
+  // Seed All 60 Library Books (30 Hindi + 30 English)
+  const createdBooks = [];
+  for (const book of LIBRARY_BOOKS) {
+    const created = await prisma.book.create({
+      data: {
+        title: book.title,
+        author: book.author,
+        language: book.language,
+        description: book.description,
+        genre: book.genre,
+        coverImage: book.coverImage,
+        pageCount: book.pageCount,
+        publishedYear: book.publishedYear,
+        isbn: book.isbn,
+        themeColor: book.themeColor,
+        editorPickType: book.editorPickType,
+        totalCopies: 2,
+        issuedCopies: 0,
+        availabilityStatus: 'AVAILABLE',
+      }
+    });
+    createdBooks.push(created);
+  }
 
-  const book2 = await prisma.book.create({
-    data: {
-      title: 'Ficciones',
-      author: 'Jorge Luis Borges',
-      description: 'A collection of library labyrinths, philosophical paradoxes, and mystery mirrors.',
-      coverImage: 'https://images.unsplash.com/photo-1512820790803-83ca734da794?w=300&h=450&fit=crop',
-      genre: ['Fiction', 'Philosophy'],
-      isbn: '9780871401434',
-      pageCount: 174,
-      publishedYear: 1944,
-      totalCopies: 1,
-      issuedCopies: 1,
-      availabilityStatus: 'ISSUED'
-    }
-  });
+  // Seed sample reviews & issue requests on seeded books
+  if (createdBooks.length >= 2) {
+    await prisma.bookReview.create({
+      data: {
+        bookId: createdBooks[0].id,
+        reviewerId: member.id,
+        rating: 5,
+        reviewText: 'An absolute masterpiece. Deeply moving and timeless!'
+      }
+    });
 
-  // Seed Review
-  await prisma.bookReview.create({
-    data: {
-      bookId: book1.id,
-      reviewerId: member.id,
-      rating: 5,
-      reviewText: 'An absolute masterpiece of magical realism. Macondo lives forever!'
-    }
-  });
+    await prisma.issueRequest.create({
+      data: {
+        bookId: createdBooks[1].id,
+        requesterId: member.id,
+        status: 'APPROVED',
+        issueDate: new Date(),
+        returnDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
+      }
+    });
+  }
 
-  // Seed Issue Request
-  await prisma.issueRequest.create({
-    data: {
-      bookId: book2.id,
-      requesterId: member.id,
-      status: 'APPROVED',
-      issueDate: new Date(),
-      returnDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000) // 14 days later
-    }
-  });
-
-  console.log('Seeded Events and Library Data Successfully!');
+  console.log(`Seeded ${createdBooks.length} Library Books, Events, and sample reviews successfully!`);
 }
 
 main()

@@ -13,6 +13,7 @@ import {
   List,
   LayoutGrid,
   Bookmark,
+  type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import React, { useState, useEffect, useRef } from "react";
@@ -205,7 +206,7 @@ function usePreviewInteractions(params: {
 }
 
 function LocalInteractionButton({ icon, count, activeColor, withConfetti, withFill, active = false, disabled = false, onInteract }: {
-  icon: React.ElementType;
+  icon: LucideIcon;
   count?: number;
   activeColor: string;
   withConfetti?: boolean;
@@ -549,7 +550,7 @@ function UnifiedPublicationItem({ pub, engagement, view }: { pub: PublicationIte
 // ─── Tab button ───────────────────────────────────────────────────────────────
 
 function Tab({ active, onClick, icon: Icon, label }: {
-  active: boolean; onClick: () => void; icon: React.ElementType; label: string;
+  active: boolean; onClick: () => void; icon: LucideIcon; label: string;
 }) {
   return (
     <button

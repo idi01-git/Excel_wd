@@ -27,6 +27,7 @@ import {
   Newspaper,
   PenTool,
   Feather,
+  type LucideIcon,
 } from 'lucide-react';
 import NotificationBell from '@/components/navigation/NotificationBell';
 import GlobalSearchBar from '@/components/navigation/GlobalSearchBar';
@@ -46,7 +47,7 @@ interface NavSubItem {
   label: string;
   href: string;
   description?: string;
-  icon: React.ElementType;
+  icon: LucideIcon;
 }
 
 // ─── Dropdown link item ───────────────────────────────────────────────────────
@@ -57,7 +58,7 @@ function DropdownLink({ item, onClick }: { item: NavSubItem; onClick?: () => voi
     <Link
       href={item.href}
       onClick={onClick}
-      className="flex items-start gap-3.5 p-3 rounded-xl group hover:bg-gray-50 transition-all duration-200"
+      className="flex items-start gap-3.5 p-3 rounded-xl group hover:bg-gray-50 dark:hover:bg-white/5 transition-all duration-200"
     >
       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gray-50 dark:bg-white/5 group-hover:bg-white dark:group-hover:bg-white/10 border border-gray-100 dark:border-white/10 group-hover:border-gray-200/80 dark:group-hover:border-white/20 text-gray-500 dark:text-neutral-400 group-hover:text-black dark:group-hover:text-white transition-all duration-200 shadow-[0_1px_2px_rgba(0,0,0,0.02)] group-hover:shadow-md group-hover:shadow-black/5 dark:shadow-none">
         <Icon size={16} strokeWidth={1.8} />
@@ -90,9 +91,7 @@ export default function Navbar() {
   const showModLink = currentUser?.role === 'MODERATOR' || currentUser?.role === 'ADMIN';
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMobileOpen(false);
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setDropdownOpen(false);
   }, [pathname]);
 
@@ -104,12 +103,14 @@ export default function Navbar() {
   }, [dropdownOpen]);
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 8);
+    const onScroll = () => setScrolled(window.scrollY > 15);
     window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
   const isActive = (path: string) => pathname === path || pathname.startsWith(path + '/');
+  const isHome = pathname === '/';
 
   // ── Nav link pill styles ──
   const navLinkClass = (active: boolean) =>
@@ -121,6 +122,7 @@ export default function Navbar() {
 
   // ── Dropdown data ──
   const publicationsItems: NavSubItem[] = [
+    { label: 'All Publications', href: '/publications', icon: BookOpenIcon, description: 'Explore all articles, poems and essays' },
     { label: 'Articles', href: '/publications?category=Articles', icon: Newspaper, description: 'Analysis, thought pieces & reviews' },
     { label: 'Stories', href: '/publications?category=Stories', icon: PenTool, description: 'Fiction, short stories & tales' },
     { label: 'Poems', href: '/publications?category=Poems', icon: Feather, description: 'Verse, lyrical prose & rhymes' },
@@ -129,6 +131,7 @@ export default function Navbar() {
 
   const communityItems: NavSubItem[] = [
     { label: 'Members', href: '/community/members', icon: UsersIcon, description: 'Meet current active members' },
+    { label: 'Achievements', href: '/community/achievements', icon: TrophyIcon, description: 'Celebrating club & member milestones' },
     { label: 'Alumni Network', href: '/community/alumni', icon: GraduationCapIcon, description: 'Connect with senior graduates' },
     { label: 'Club Gallery', href: '/community/gallery', icon: ImageIcon, description: 'Event posters & capture memories' },
     { label: 'Goodreads Library', href: '/community/library', icon: LibraryIcon, description: 'Physical book catalog & issue logs' },
@@ -141,18 +144,24 @@ export default function Navbar() {
 
   return (
     <header
-      className={`sticky top-0 z-50 w-full transition-all duration-300 ${
-        scrolled
-          ? 'bg-white/80 dark:bg-[#000000]/80 backdrop-blur-xl border-b border-gray-200/40 dark:border-white/10 shadow-[0_2px_8px_rgba(0,0,0,0.02)] dark:shadow-none'
-          : 'bg-white/70 dark:bg-[#000000]/70 backdrop-blur-md border-b border-gray-200/20 dark:border-white/5'
+      className={`w-full transition-all duration-300 z-50 ${
+        isHome
+          ? 'fixed top-0 left-0 right-0'
+          : 'sticky top-0 bg-white/80 dark:bg-[#000000]/80 backdrop-blur-xl border-b border-gray-200/40 dark:border-white/10'
+      } ${
+        isHome && scrolled
+          ? 'bg-white/85 dark:bg-[#000000]/85 backdrop-blur-xl border-b border-gray-200/40 dark:border-white/10 shadow-[0_2px_8px_rgba(0,0,0,0.02)] dark:shadow-none'
+          : isHome
+            ? 'bg-transparent border-b border-transparent'
+            : ''
       }`}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
 
-          {/* ── Beautiful Serif Text Logo ── */}
-          <Link href="/" className="flex items-center shrink-0">
-            <span className="font-serif text-2xl font-bold tracking-tight lowercase text-black dark:text-white hover:text-gray-700 dark:hover:text-neutral-300 transition-colors">
+          {/* ── Brand Logo ── */}
+          <Link href="/" className="flex items-center gap-2.5 group shrink-0">
+            <span className="font-serif text-2xl font-bold tracking-tight lowercase transition-colors text-black dark:text-white hover:text-gray-700 dark:hover:text-neutral-300">
               excelsior
             </span>
           </Link>
@@ -251,28 +260,34 @@ export default function Navbar() {
               <motion.div layout transition={{ type: "spring", stiffness: 350, damping: 30 }} className="relative" onClick={(e) => e.stopPropagation()}>
                 <button
                   onClick={() => setDropdownOpen((v) => !v)}
-                  className="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-full border border-gray-200 hover:border-gray-300 hover:bg-gray-50/50 transition-all duration-200"
+                  className="flex items-center gap-2 p-1 pl-2 pr-2.5 rounded-full border transition-all duration-200 text-xs font-semibold shadow-xs bg-gray-50/80 dark:bg-white/5 hover:bg-gray-100/80 dark:hover:bg-white/10 border-gray-200/60 dark:border-white/10 text-gray-800 dark:text-neutral-200"
+                  aria-expanded={dropdownOpen}
+                  aria-haspopup="true"
                 >
-                  <img
-                    src={currentUser.profilePhoto || `https://api.dicebear.com/7.x/adventurer/svg?seed=${currentUser.username}`}
-                    alt={currentUser.name || 'User'}
-                    className="w-6 h-6 rounded-full object-cover border border-gray-200 dark:border-white/10"
-                  />
-                  <span className="text-[13px] font-semibold text-gray-700 dark:text-neutral-200 max-w-[80px] truncate">{currentUser.name}</span>
-                  <ChevronDownIcon
-                    size={12}
-                    className={`text-gray-400 transition-transform duration-200 ${dropdownOpen ? 'rotate-180' : ''}`}
-                  />
+                  {currentUser.image ? (
+                    <img
+                      src={currentUser.image}
+                      alt={currentUser.name ?? 'Avatar'}
+                      className="w-5 h-5 rounded-full object-cover shrink-0"
+                    />
+                  ) : (
+                    <div className="w-5 h-5 rounded-full bg-black dark:bg-white text-white dark:text-black flex items-center justify-center text-[10px] font-bold shrink-0">
+                      {(currentUser.name ?? currentUser.username ?? 'U')[0].toUpperCase()}
+                    </div>
+                  )}
+                  <span className="max-w-[90px] truncate">{currentUser.name ?? currentUser.username}</span>
+                  <ChevronDownIcon size={12} className={`text-gray-400 dark:text-neutral-500 transition-transform duration-200 ${dropdownOpen ? 'rotate-180' : ''}`} />
                 </button>
 
+                {/* Profile menu dropdown panel */}
                 <AnimatePresence>
                   {dropdownOpen && (
                     <motion.div
-                      initial={{ opacity: 0, y: -6, scale: 0.97 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: -4, scale: 0.97 }}
+                      initial={{ opacity: 0, scale: 0.95, y: -4 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.95, y: -4 }}
                       transition={{ duration: 0.15, ease: 'easeOut' }}
-                      className="absolute right-0 mt-2 w-56 bg-white dark:bg-neutral-900 border border-gray-200/80 dark:border-white/10 rounded-2xl shadow-2xl shadow-gray-200/60 dark:shadow-none py-1.5 z-[200]"
+                      className="absolute right-0 mt-2 w-56 p-1.5 bg-white dark:bg-neutral-900 border border-gray-200/60 dark:border-white/10 rounded-2xl shadow-xl shadow-gray-200/60 dark:shadow-none z-50 origin-top-right space-y-0.5"
                     >
                       {/* User info */}
                       <div className="px-3 py-2 border-b border-gray-100 dark:border-white/5 mb-1">
@@ -283,7 +298,7 @@ export default function Navbar() {
                         </span>
                       </div>
 
-                      {/* Workspace link is here now */}
+                      {/* Workspace link */}
                       <DropdownMenuLink href="/workspace" icon={PenLineIcon} label="Writer Workspace" />
                       <DropdownMenuLink href="/profile" icon={UserIcon} label="My Profile" />
                       <DropdownMenuLink href="/profile/issue-requests" icon={BookMarkedIcon} label="My Book Loans" />
@@ -312,7 +327,7 @@ export default function Navbar() {
                 </AnimatePresence>
               </motion.div>
             ) : (
-              /* Logged out — Premium Join CTA (No Login Button) */
+              /* Logged out — Join CTA */
               <motion.div layout transition={{ type: "spring", stiffness: 350, damping: 30 }}>
                 <Link
                   href="/register"
@@ -331,7 +346,7 @@ export default function Navbar() {
             {currentUser && <NotificationBell />}
             <button
               onClick={() => setMobileOpen((v) => !v)}
-              className="p-2 rounded-lg text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-colors"
+              className="p-2 rounded-lg text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-neutral-400 dark:hover:text-white dark:hover:bg-white/10 transition-colors"
               aria-label="Toggle menu"
             >
               {mobileOpen ? <XIcon size={20} /> : <MenuIcon size={20} />}
@@ -403,7 +418,7 @@ export default function Navbar() {
 
 // ─── Helper components ────────────────────────────────────────────────────────
 
-function DropdownMenuLink({ href, icon: Icon, label }: { href: string; icon: React.ElementType; label: string }) {
+function DropdownMenuLink({ href, icon: Icon, label }: { href: string; icon: LucideIcon; label: string }) {
   return (
     <Link
       href={href}
@@ -423,7 +438,7 @@ function MobileLink({
 }: {
   href: string;
   label: string;
-  icon: React.ElementType;
+  icon: LucideIcon;
   active: boolean;
 }) {
   return (

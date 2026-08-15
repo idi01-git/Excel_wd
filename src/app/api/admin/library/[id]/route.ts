@@ -23,6 +23,7 @@ export async function PUT(
     const {
       title,
       author,
+      language,
       coverImage,
       description,
       genre,
@@ -31,7 +32,8 @@ export async function PUT(
       publishedYear,
       totalCopies,
       availabilityStatus,
-      amazonLink
+      amazonLink,
+      downloadLink
     } = await req.json();
 
     const book = await db.book.findUnique({
@@ -50,12 +52,14 @@ export async function PUT(
 
     const parsedTotalCopies = totalCopies ? parseInt(totalCopies) : book.totalCopies;
     const status = availabilityStatus || book.availabilityStatus;
+    const bookLanguage = language === 'HINDI' ? 'HINDI' : language === 'ENGLISH' ? 'ENGLISH' : book.language;
 
     const updated = await db.book.update({
       where: { id },
       data: {
         title: title || book.title,
         author: author || book.author,
+        language: bookLanguage,
         coverImage: coverImage !== undefined ? coverImage : book.coverImage,
         description: description || book.description,
         genre: genresArray,
@@ -64,7 +68,8 @@ export async function PUT(
         publishedYear: publishedYear ? parseInt(publishedYear) : book.publishedYear,
         totalCopies: parsedTotalCopies,
         availabilityStatus: status,
-        amazonLink: amazonLink !== undefined ? amazonLink : book.amazonLink
+        amazonLink: amazonLink !== undefined ? amazonLink : book.amazonLink,
+        downloadLink: downloadLink !== undefined ? downloadLink : book.downloadLink
       }
     });
 

@@ -39,13 +39,22 @@ export async function GET(req: Request) {
       }
     });
 
-    // Pre-resolve dynamic URLs for each notification
     const resolvedNotifications = await Promise.all(
       notifications.map(async (n) => {
         let targetUrl = '/';
+        let bookTitle: string | undefined = undefined;
 
         try {
-          if (n.entityType === 'PUBLICATION') {
+          if (n.entityType === 'BOOK') {
+            const book = await db.book.findUnique({
+              where: { id: n.entityId },
+              select: { title: true }
+            });
+            if (book) {
+              targetUrl = `/library`;
+              bookTitle = book.title;
+            }
+          } else if (n.entityType === 'PUBLICATION') {
             const pub = await db.publication.findUnique({
               where: { id: n.entityId },
               select: { slug: true }
@@ -83,7 +92,8 @@ export async function GET(req: Request) {
 
         return {
           ...n,
-          targetUrl
+          targetUrl,
+          bookTitle
         };
       })
     );

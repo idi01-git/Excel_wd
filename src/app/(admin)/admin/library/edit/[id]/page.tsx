@@ -15,6 +15,7 @@ export default function AdminEditBookPage() {
   const [initialLoading, setInitialLoading] = useState(true);
   const [title, setTitle] = useState('');
   const [author, setAuthor] = useState('');
+  const [language, setLanguage] = useState<'ENGLISH' | 'HINDI'>('ENGLISH');
   const [coverImage, setCoverImage] = useState('');
   const [coverUploading, setCoverUploading] = useState(false);
   const [coverInputType, setCoverInputType] = useState<'upload' | 'url'>('upload');
@@ -26,6 +27,7 @@ export default function AdminEditBookPage() {
   const [publishedYear, setPublishedYear] = useState('');
   const [totalCopies, setTotalCopies] = useState('1');
   const [amazonLink, setAmazonLink] = useState('');
+  const [downloadLink, setDownloadLink] = useState('');
   const [availabilityStatus, setAvailabilityStatus] = useState('AVAILABLE');
 
   // Custom feedback states
@@ -42,6 +44,7 @@ export default function AdminEditBookPage() {
         if (data.success && data.book) {
           setTitle(data.book.title || '');
           setAuthor(data.book.author || '');
+          setLanguage(data.book.language === 'HINDI' ? 'HINDI' : 'ENGLISH');
           setCoverImage(data.book.coverImage || '');
           setDescription(data.book.description || '');
           setGenre(data.book.genre || []);
@@ -50,6 +53,7 @@ export default function AdminEditBookPage() {
           setPublishedYear(data.book.publishedYear ? String(data.book.publishedYear) : '');
           setTotalCopies(data.book.totalCopies ? String(data.book.totalCopies) : '1');
           setAmazonLink(data.book.amazonLink || '');
+          setDownloadLink(data.book.downloadLink || '');
           setAvailabilityStatus(data.book.availabilityStatus || 'AVAILABLE');
         } else {
           setErrorMsg('Failed to load book data');
@@ -119,8 +123,16 @@ export default function AdminEditBookPage() {
   };
 
   const LIBRARY_GENRES = [
-    'Fiction', 'Philosophy', 'Postmodernism',
-    'Magical Realism', 'Poetry', 'Drama', 'Short Stories'
+    'Thriller',
+    'Satire',
+    'Psychology',
+    'Fiction',
+    'Poetry',
+    'Drama',
+    'Philosophy',
+    'Politics',
+    'Spirituality',
+    'Self-Help'
   ];
 
   const toggleGenre = (g: string) => {
@@ -145,6 +157,7 @@ export default function AdminEditBookPage() {
         body: JSON.stringify({
           title,
           author,
+          language,
           coverImage,
           description,
           genre,
@@ -153,6 +166,7 @@ export default function AdminEditBookPage() {
           publishedYear,
           totalCopies,
           amazonLink,
+          downloadLink,
           availabilityStatus
         })
       });
@@ -215,16 +229,46 @@ export default function AdminEditBookPage() {
           />
         </div>
 
-        <div className="flex flex-col gap-1.5">
-          <label className="text-[10px] text-gray-450 dark:text-neutral-500 uppercase tracking-widest font-bold block">Author *</label>
-          <input
-            type="text"
-            value={author}
-            onChange={(e) => setAuthor(e.target.value)}
-            required
-            placeholder="e.g. Gabriel García Márquez"
-            className="bg-gray-50 dark:bg-neutral-950 border border-gray-200 dark:border-neutral-800 text-gray-900 dark:text-white rounded-xl p-3 text-sm outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/10 transition"
-          />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[10px] text-gray-450 dark:text-neutral-500 uppercase tracking-widest font-bold block">Author *</label>
+            <input
+              type="text"
+              value={author}
+              onChange={(e) => setAuthor(e.target.value)}
+              required
+              placeholder="e.g. Gabriel García Márquez or मुंशी प्रेमचंद"
+              className="bg-gray-50 dark:bg-neutral-950 border border-gray-200 dark:border-neutral-800 text-gray-900 dark:text-white rounded-xl p-3 text-sm outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/10 transition"
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[10px] text-gray-450 dark:text-neutral-500 uppercase tracking-widest font-bold block">Language *</label>
+            <div className="flex gap-3 h-[46px] items-center">
+              <button
+                type="button"
+                onClick={() => setLanguage('ENGLISH')}
+                className={`flex-1 h-full rounded-xl text-xs font-semibold border transition cursor-pointer ${
+                  language === 'ENGLISH'
+                    ? 'bg-violet-600 text-white border-violet-600 shadow-sm'
+                    : 'bg-gray-50 dark:bg-neutral-950 border-gray-200 dark:border-neutral-800 text-gray-600 dark:text-neutral-400 hover:border-gray-300'
+                }`}
+              >
+                English
+              </button>
+              <button
+                type="button"
+                onClick={() => setLanguage('HINDI')}
+                className={`flex-1 h-full rounded-xl text-xs font-semibold border transition cursor-pointer ${
+                  language === 'HINDI'
+                    ? 'bg-amber-600 text-white border-amber-600 shadow-sm'
+                    : 'bg-gray-50 dark:bg-neutral-950 border-gray-200 dark:border-neutral-800 text-gray-600 dark:text-neutral-400 hover:border-gray-300'
+                }`}
+              >
+                हिन्दी (Hindi)
+              </button>
+            </div>
+          </div>
         </div>
 
         <div className="flex flex-col gap-4 p-5 bg-gray-50/50 dark:bg-neutral-900/20 border border-gray-200/60 dark:border-white/5 rounded-2xl">
@@ -460,10 +504,14 @@ export default function AdminEditBookPage() {
         <div className="pt-4 border-t border-gray-200/80 dark:border-white/5">
            <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-4">Additional Metadata (Optional)</h3>
            
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
              <div className="flex flex-col gap-1.5">
                <label className="text-[10px] text-gray-455 dark:text-neutral-500 uppercase tracking-widest font-bold block">Amazon Link</label>
                <input type="url" value={amazonLink} onChange={e => setAmazonLink(e.target.value)} placeholder="e.g. https://amazon.com/..." className="bg-gray-50 dark:bg-neutral-950 border border-gray-200 dark:border-neutral-800 text-gray-900 dark:text-white rounded-xl p-3 text-sm outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/10 transition" />
+             </div>
+             <div className="flex flex-col gap-1.5">
+               <label className="text-[10px] text-gray-455 dark:text-neutral-500 uppercase tracking-widest font-bold block">Download Link</label>
+               <input type="url" value={downloadLink} onChange={e => setDownloadLink(e.target.value)} placeholder="e.g. https://drive.google.com/..." className="bg-gray-50 dark:bg-neutral-950 border border-gray-200 dark:border-neutral-800 text-gray-900 dark:text-white rounded-xl p-3 text-sm outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/10 transition" />
              </div>
              <div className="flex flex-col gap-1.5">
                <label className="text-[10px] text-gray-455 dark:text-neutral-500 uppercase tracking-widest font-bold block">Status</label>

@@ -7,9 +7,10 @@ import { useRouter } from 'next/navigation';
 
 interface FollowButtonProps {
   targetUserId: string;
+  variant?: 'default' | 'editorial';
 }
 
-export default function FollowButton({ targetUserId }: FollowButtonProps) {
+export default function FollowButton({ targetUserId, variant = 'default' }: FollowButtonProps) {
   const { data: session } = useSession();
   const router = useRouter();
   const [following, setFollowing] = useState<boolean>(false);
@@ -71,6 +72,28 @@ export default function FollowButton({ targetUserId }: FollowButtonProps) {
 
   if (isSelf || !currentUser) return null;
 
+  if (variant === 'editorial') {
+    return (
+      <button
+        onClick={handleFollowToggle}
+        disabled={loading}
+        className={`px-[10px] py-[5px] rounded-[4px] text-[13px] font-sans font-medium transition duration-200 border-none outline-none ${
+          following
+            ? 'bg-neutral-800 text-white hover:bg-neutral-700'
+            : 'bg-[#EFEFEF] dark:bg-neutral-800 text-[#444] dark:text-neutral-200 hover:bg-[#E5E5E5] dark:hover:bg-neutral-700'
+        }`}
+      >
+        {loading ? (
+          <span className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin inline-block"></span>
+        ) : following ? (
+          'Following'
+        ) : (
+          'Follow'
+        )}
+      </button>
+    );
+  }
+
   return (
     <button
       onClick={handleFollowToggle}
@@ -95,3 +118,4 @@ export default function FollowButton({ targetUserId }: FollowButtonProps) {
     </button>
   );
 }
+

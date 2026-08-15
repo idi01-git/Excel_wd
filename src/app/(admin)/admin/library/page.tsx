@@ -9,6 +9,7 @@ interface BookItem {
   id: string;
   title: string;
   author: string;
+  language?: 'ENGLISH' | 'HINDI';
   totalCopies: number;
   issuedCopies: number;
   availabilityStatus: string;
@@ -121,9 +122,18 @@ export default function AdminLibraryListPage() {
                     <BookOpen className="w-5 h-5 stroke-1.5" />
                   </div>
                   <div className="min-w-0">
-                    <strong className="text-gray-900 dark:text-white font-semibold text-sm block truncate">
-                      {book.title}
-                    </strong>
+                    <div className="flex items-center gap-2">
+                      <strong className="text-gray-900 dark:text-white font-semibold text-sm block truncate">
+                        {book.title}
+                      </strong>
+                      <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase ${
+                        book.language === 'HINDI'
+                          ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300'
+                          : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300'
+                      }`}>
+                        {book.language === 'HINDI' ? 'Hindi' : 'English'}
+                      </span>
+                    </div>
                     <span className="text-gray-500 dark:text-neutral-500 text-[10px] font-medium block mt-0.5">
                       By {book.author}
                     </span>

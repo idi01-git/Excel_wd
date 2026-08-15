@@ -25,6 +25,7 @@ interface BookDetail {
   id: string;
   title: string;
   author: string;
+  language?: 'ENGLISH' | 'HINDI';
   coverImage?: string | null;
   description: string;
   genre: string[];
@@ -259,6 +260,14 @@ export default function BookDetailPage() {
 
           {/* Integrated Metadata Info Row (No breaking symmetry) */}
           <div className="flex flex-wrap items-center gap-y-2 gap-x-3 text-xs font-semibold text-neutral-400 dark:text-neutral-500 mb-8 pb-6 border-b border-neutral-100 dark:border-neutral-900">
+            <span className={`px-2.5 py-0.5 rounded text-[10px] uppercase tracking-wider font-bold ${
+              book.language === 'HINDI'
+                ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700/50'
+                : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300'
+            }`}>
+              {book.language === 'HINDI' ? 'हिन्दी (Hindi)' : 'English'}
+            </span>
+            <span className="w-1 h-1 rounded-full bg-neutral-300 dark:bg-neutral-800" />
             <span>ISBN {book.isbn || 'N/A'}</span>
             <span className="w-1 h-1 rounded-full bg-neutral-300 dark:bg-neutral-800" />
             <span>{book.pageCount ? `${book.pageCount} pages` : 'Unknown length'}</span>

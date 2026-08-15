@@ -13,7 +13,7 @@ export default function ThemeToggle() {
   }, []);
 
   if (!mounted) {
-    return <div className="w-8 h-8 rounded-full bg-gray-100 animate-pulse" />;
+    return <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-white/10 animate-pulse" />;
   }
 
   const isDark = resolvedTheme === 'dark';
@@ -65,7 +65,7 @@ export default function ThemeToggle() {
   return (
     <button
       onClick={toggleTheme}
-      className="relative flex items-center justify-center w-8 h-8 rounded-full border border-transparent hover:bg-gray-100 hover:border-gray-200 text-gray-500 hover:text-black transition-all duration-200"
+      className="relative flex items-center justify-center w-8 h-8 rounded-full border border-transparent hover:bg-gray-100 hover:border-gray-200 text-gray-500 hover:text-black dark:text-neutral-400 dark:hover:bg-white/10 dark:hover:border-white/20 dark:hover:text-white transition-all duration-200"
       aria-label="Toggle Theme"
     >
       {isDark ? <SunIcon size={15} strokeWidth={2.2} /> : <MoonIcon size={15} strokeWidth={2.2} />}

@@ -11,15 +11,35 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    await db.notification.updateMany({
-      where: {
-        recipientId: session.user.id,
-        isRead: false
-      },
-      data: {
-        isRead: true
-      }
-    });
+    let id: string | undefined;
+    try {
+      const body = await req.json();
+      id = body.id;
+    } catch (e) {
+      // Body might be empty, ignore
+    }
+
+    if (id) {
+      await db.notification.update({
+        where: {
+          id,
+          recipientId: session.user.id
+        },
+        data: {
+          isRead: true
+        }
+      });
+    } else {
+      await db.notification.updateMany({
+        where: {
+          recipientId: session.user.id,
+          isRead: false
+        },
+        data: {
+          isRead: true
+        }
+      });
+    }
 
     return NextResponse.json({ success: true });
   } catch (error: any) {

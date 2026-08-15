@@ -43,6 +43,20 @@ export async function PATCH(
         if (request.status !== IssueRequestStatus.PENDING) {
           throw new Error('Only PENDING requests can be approved');
         }
+
+        // Check if there are available copies in stock
+        const currentBook = await tx.book.findUnique({
+          where: { id: request.bookId }
+        });
+
+        if (!currentBook) {
+          throw new Error('This book does not exist in the catalog.');
+        }
+
+        if (currentBook.issuedCopies >= currentBook.totalCopies) {
+          throw new Error(`Cannot approve: All ${currentBook.totalCopies} copies of "${currentBook.title}" are currently checked out.`);
+        }
+
         targetStatus = IssueRequestStatus.APPROVED;
         issueDate = new Date();
 
@@ -97,7 +111,9 @@ export async function PATCH(
           issueDate,
           returnDate,
           dueDate: action === 'APPROVE' && dueDate ? new Date(dueDate) : undefined,
-          adminNote: adminNote || request.adminNote
+          adminNote: adminNote || request.adminNote,
+          approverId: action === 'APPROVE' ? session.user.id : undefined,
+          returnerId: action === 'RETURN' ? session.user.id : undefined
         }
       });
 
@@ -112,7 +128,8 @@ export async function PATCH(
         'ISSUE_REQUEST_APPROVED',
         session.user.id,
         'BOOK',
-        request.bookId
+        request.bookId,
+        adminNote || request.adminNote
       );
     } else if (action === 'REJECT') {
       await createNotification(
@@ -120,7 +137,8 @@ export async function PATCH(
         'ISSUE_REQUEST_REJECTED',
         session.user.id,
         'BOOK',
-        request.bookId
+        request.bookId,
+        adminNote || request.adminNote
       );
     }
 

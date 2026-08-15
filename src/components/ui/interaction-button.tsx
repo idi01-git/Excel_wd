@@ -2,10 +2,11 @@
 
 import { motion } from "motion/react";
 import { cn } from "@/lib/utils";
+import type { LucideIcon } from "lucide-react";
 import React, { useEffect, useRef, useState } from "react";
 
 interface InteractionButtonProps {
-  icon: React.ElementType;
+  icon: LucideIcon;
   count?: number;
   label?: string;
   active: boolean;

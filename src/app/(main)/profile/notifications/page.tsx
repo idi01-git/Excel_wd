@@ -19,6 +19,8 @@ interface NotificationItem {
     username: string;
     profilePhoto?: string | null;
   } | null;
+  bookTitle?: string;
+  message?: string | null;
 }
 
 export default function NotificationsPage() {
@@ -76,11 +78,15 @@ export default function NotificationsPage() {
       case 'MENTION':
         return `${actorName} mentioned you in a comment`;
       case 'SUBMISSION_APPROVED':
-        return `🎉 Your publication has been approved by the editorial team and is now live!`;
+        return `Your publication has been approved by the editorial team and is now live.`;
       case 'SUBMISSION_REJECTED':
-        return `️ Your submission requires revisions. Click to review feedback notes.`;
+        return `Your submission requires revisions.`;
       case 'NEW_FOLLOWED_POST':
         return `${actorName} published a new piece`;
+      case 'ISSUE_REQUEST_APPROVED':
+        return `Your loan request for "${n.bookTitle || 'a book'}" has been approved.`;
+      case 'ISSUE_REQUEST_REJECTED':
+        return `Your loan request for "${n.bookTitle || 'a book'}" was rejected.`;
       default:
         return 'New update available';
     }
@@ -88,11 +94,12 @@ export default function NotificationsPage() {
 
   if (status === 'loading' || loading) {
     return (
-      <div className="max-w-3xl mx-auto py-12 animate-pulse">
-        <div className="h-8 bg-slate-900/60 rounded w-1/4 mb-10"></div>
-        <div className="space-y-4">
+      <div className="max-w-4xl mx-auto py-8 animate-pulse">
+        <div className="h-12 bg-gray-200 dark:bg-neutral-800 rounded w-1/3 mb-4"></div>
+        <div className="h-4 bg-gray-100 dark:bg-neutral-900 rounded w-1/4 mb-12"></div>
+        <div className="space-y-6">
           {[1, 2, 3].map(n => (
-            <div key={n} className="h-16 bg-slate-900/60 rounded-xl" />
+            <div key={n} className="h-20 bg-gray-50 dark:bg-neutral-800/50 rounded-lg" />
           ))}
         </div>
       </div>
@@ -105,17 +112,17 @@ export default function NotificationsPage() {
   });
 
   return (
-    <div className="max-w-3xl mx-auto py-4">
-      {/* Header */}
-      <div className="flex justify-between items-center border-b border-white/5 pb-5 mb-8">
-        <div>
-          <h1 className="font-serif text-3xl text-white font-bold mb-1">Notifications</h1>
-          <p className="text-gray-400 text-sm">Keep up with comments, mentions, likes, and followers.</p>
+    <div className="max-w-4xl mx-auto py-8">
+      {/* Editorial Header */}
+      <div className="flex flex-col md:flex-row gap-6 items-start md:items-end justify-between mb-8 border-b border-gray-200/80 dark:border-neutral-800 pb-8">
+        <div className="flex-grow max-w-2xl">
+          <h1 className="font-serif text-4xl md:text-5xl text-black dark:text-white font-bold leading-tight">Notifications</h1>
+          <p className="text-gray-500 dark:text-neutral-500 text-sm font-medium mt-3">Keep up with comments, mentions, likes, and platform updates.</p>
         </div>
         {notifications.some(n => !n.isRead) && (
           <button
             onClick={handleMarkAllRead}
-            className="py-2 px-4 bg-white/5 border border-white/10 text-white hover:bg-violet-600 hover:border-violet-500 rounded-full text-xs font-semibold transition"
+            className="flex-shrink-0 text-[10px] font-bold uppercase tracking-wider text-black dark:text-white border border-gray-200 dark:border-neutral-700 py-2 px-4 rounded hover:bg-gray-50 dark:hover:bg-neutral-800 transition-colors"
           >
             Mark all read
           </button>
@@ -123,23 +130,23 @@ export default function NotificationsPage() {
       </div>
 
       {/* Filter Tabs */}
-      <div className="flex gap-2 border-b border-white/5 pb-3 mb-6">
+      <div className="flex gap-8 border-b border-gray-200 dark:border-neutral-800 mb-8">
         <button
           onClick={() => setFilter('all')}
-          className={`py-1.5 px-4 text-xs uppercase tracking-wider font-semibold border-b-2 transition ${
+          className={`pb-3 text-xs uppercase tracking-widest font-bold border-b-2 -mb-[1.5px] transition-colors ${
             filter === 'all'
-              ? 'text-white border-violet-500'
-              : 'text-gray-500 border-transparent hover:text-gray-300'
+              ? 'text-black dark:text-white border-black dark:border-white'
+              : 'text-gray-400 dark:text-neutral-500 border-transparent hover:text-gray-800 dark:hover:text-neutral-300'
           }`}
         >
           All Updates
         </button>
         <button
           onClick={() => setFilter('unread')}
-          className={`py-1.5 px-4 text-xs uppercase tracking-wider font-semibold border-b-2 transition ${
+          className={`pb-3 text-xs uppercase tracking-widest font-bold border-b-2 -mb-[1.5px] transition-colors ${
             filter === 'unread'
-              ? 'text-white border-violet-500'
-              : 'text-gray-500 border-transparent hover:text-gray-300'
+              ? 'text-black dark:text-white border-black dark:border-white'
+              : 'text-gray-400 dark:text-neutral-500 border-transparent hover:text-gray-800 dark:hover:text-neutral-300'
           }`}
         >
           Unread ({notifications.filter(n => !n.isRead).length})
@@ -147,42 +154,60 @@ export default function NotificationsPage() {
       </div>
 
       {/* Feed List */}
-      <div className="space-y-3">
+      <div>
         {filteredList.length > 0 ? (
-          filteredList.map((n) => (
-            <Link
-              key={n.id}
-              href={n.targetUrl}
-              className={`flex bg-slate-900/30 border hover:border-white/10 transition duration-300 rounded-xl p-4 gap-4 items-center shadow ${
-                !n.isRead ? 'border-violet-500/20 bg-violet-600/2' : 'border-white/5'
-              }`}
-            >
-              {n.actor?.profilePhoto && (
-                <img
-                  src={n.actor.profilePhoto}
-                  alt=""
-                  className="w-10 h-10 rounded-full object-cover border border-white/10"
-                />
-              )}
-              <div className="grow">
-                <p className="text-sm text-gray-200 leading-snug">{getNotificationText(n)}</p>
-                <span className="text-[11px] text-gray-500 mt-1 block">
-                  {new Date(n.createdAt).toLocaleDateString(undefined, {
-                    month: 'long',
-                    day: 'numeric',
-                    year: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                  })}
-                </span>
-              </div>
-              {!n.isRead && (
-                <span className="h-2 w-2 bg-violet-500 rounded-full shrink-0"></span>
-              )}
-            </Link>
-          ))
+          <ul className="divide-y divide-gray-100 dark:divide-neutral-800 border-y border-gray-100 dark:border-neutral-800">
+            {filteredList.map((n) => (
+              <li key={n.id}>
+                <Link
+                  href={n.targetUrl}
+                  className={`flex items-start gap-4 py-5 px-2 transition-colors group ${
+                    !n.isRead ? 'bg-gray-50 dark:bg-neutral-900/50' : 'hover:bg-gray-50/50 dark:hover:bg-neutral-800/30'
+                  }`}
+                >
+                  {n.actor?.profilePhoto ? (
+                    <img
+                      src={n.actor.profilePhoto}
+                      alt=""
+                      className="w-10 h-10 rounded-full object-cover border border-gray-200 dark:border-neutral-700 mt-0.5"
+                    />
+                  ) : (
+                    <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-neutral-800 flex items-center justify-center mt-0.5">
+                      <span className="text-gray-500 dark:text-neutral-400 text-sm font-bold">
+                        {n.actor?.name?.charAt(0) || 'E'}
+                      </span>
+                    </div>
+                  )}
+                  
+                  <div className="grow pr-4">
+                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100 group-hover:text-black dark:group-hover:text-white transition-colors">
+                      {getNotificationText(n)}
+                    </p>
+                    {n.message && (
+                      <div className="mt-2.5 p-3 rounded-lg bg-gray-100 dark:bg-neutral-800 border border-gray-200/50 dark:border-neutral-700/50 text-xs text-gray-700 dark:text-neutral-300 font-medium">
+                        <span className="font-bold text-gray-900 dark:text-neutral-200 block mb-1">Editor&apos;s Note:</span>
+                        {n.message}
+                      </div>
+                    )}
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400 dark:text-neutral-500 mt-2.5 block">
+                      {new Date(n.createdAt).toLocaleDateString(undefined, {
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </span>
+                  </div>
+                  
+                  {!n.isRead && (
+                    <span className="h-2 w-2 bg-violet-600 dark:bg-cyan-500 rounded-full shrink-0 mt-2"></span>
+                  )}
+                </Link>
+              </li>
+            ))}
+          </ul>
         ) : (
-          <div className="p-12 text-center text-gray-500 italic bg-slate-900/10 border border-white/5 rounded-xl">
+          <div className="py-16 text-center text-gray-500 dark:text-neutral-500 italic">
             {filter === 'unread' ? 'No unread updates.' : 'No notifications yet.'}
           </div>
         )}

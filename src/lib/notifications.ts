@@ -7,7 +7,8 @@ export async function createNotification(
   type: NotificationType,
   actorId: string | null,
   entityType: string,
-  entityId: string
+  entityId: string,
+  message?: string | null
 ) {
   try {
     // Self-notification prevention: don't notify a user about their own actions
@@ -37,7 +38,8 @@ export async function createNotification(
         type,
         actorId,
         entityType,
-        entityId
+        entityId,
+        message
       }
     });
 

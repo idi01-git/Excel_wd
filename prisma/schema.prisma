@@ -71,6 +71,8 @@ model User {
   bookReviews        BookReview[]
   bookReviewUpvotes  BookReviewUpvote[]
   issueRequests      IssueRequest[]
+  approvedRequests   IssueRequest[]   @relation("IssueRequestApprover")
+  returnedRequests   IssueRequest[]   @relation("IssueRequestReturner")
   auditLogs          AuditLog[]
 }
 
@@ -209,6 +211,7 @@ model Notification {
   actor           User?            @relation("ActorNotifications", fields: [actorId], references: [id])
   entityType      String           // 'PUBLICATION', 'COMMENT', 'EDITORS_SHELF', 'EVENT', 'BOOK'
   entityId        String           // ID of the related entity
+  message         String?          // Custom text (e.g., admin note for rejections)
   isRead          Boolean          @default(false)
   createdAt       DateTime         @default(now())
 
@@ -233,17 +236,25 @@ model EditorShelfItem {
 }
 
 model AlumniProfile {
-  id              String   @id @default(uuid())
-  userId          String?  @unique // Link to User if they have an account
-  user            User?    @relation(fields: [userId], references: [id])
-  name            String
-  photo           String?
-  batch           String   // e.g., "2020-2024"
-  branch          String
-  currentPosition String?
-  message         String?  // Message to juniors
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id                String   @id @default(uuid())
+  userId            String?  @unique // Link to User if they have an account
+  user              User?    @relation(fields: [userId], references: [id])
+  name              String
+  photo             String?
+  batch             String   // e.g., "2020-2024"
+  branch            String
+  currentPosition   String?  // Designation Current
+  excelsiorPosition String?  // Position in Excelsior when they left
+  message           String?  // Testimonial
+  
+  // Restricted Contact Info (Moderator/Admin only)
+  instagram         String?
+  linkedin          String?
+  email             String?
+  phone             String?
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 }
 
 model GalleryItem {
@@ -299,12 +310,16 @@ model Event {
   slug            String      @unique
   description     String      // Rich text or plain description
   posterImage     String?     // URL to event poster
+  coverImage      String?     // URL to event cover banner (landscape)
   date            DateTime    // Event date
   time            String?     // e.g. "3:00 PM - 5:00 PM"
   venue           String
   status          EventStatus @default(UPCOMING)
   isCompetition   Boolean     @default(false)
   maxCapacity     Int?        // null = unlimited
+  rulebookUrl     String?     // URL to rulebook pdf/document
+  socialLink      String?     // URL to Instagram post or tweet
+  downloadUrl     String?     // URL to download poster/brochure
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
 
@@ -338,6 +353,7 @@ model EventWinner {
   eventId         String
   event           Event         @relation(fields: [eventId], references: [id])
   participantName String
+  photoUrl        String?
   position        WinnerPosition
   prize           String?
   description     String?
@@ -379,6 +395,7 @@ model Book {
   coverImage        String?
   description       String
   genre             String[]
+  language          Language               @default(ENGLISH)
   isbn              String?
   pageCount         Int?
   publishedYear     Int?
@@ -402,6 +419,7 @@ model Book {
 
   @@index([availabilityStatus])
   @@index([genre])
+  @@index([language])
   @@index([editorPickType])
 }
 
@@ -440,6 +458,10 @@ model IssueRequest {
   book        Book               @relation(fields: [bookId], references: [id])
   requesterId String
   requester   User               @relation(fields: [requesterId], references: [id])
+  approverId  String?
+  approver    User?              @relation("IssueRequestApprover", fields: [approverId], references: [id])
+  returnerId  String?
+  returner    User?              @relation("IssueRequestReturner", fields: [returnerId], references: [id])
   status      IssueRequestStatus @default(PENDING)
   requestDate DateTime           @default(now())
   issueDate   DateTime?

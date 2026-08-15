@@ -25,6 +25,16 @@ export async function GET(req: Request) {
                 email: true,
                 profilePhoto: true
               }
+            },
+            approver: {
+              select: {
+                name: true
+              }
+            },
+            returner: {
+              select: {
+                name: true
+              }
             }
           },
           orderBy: {

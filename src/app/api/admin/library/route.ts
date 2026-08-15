@@ -17,6 +17,7 @@ export async function POST(req: Request) {
     const {
       title,
       author,
+      language,
       coverImage,
       description,
       genre,
@@ -25,7 +26,8 @@ export async function POST(req: Request) {
       publishedYear,
       totalCopies,
       availabilityStatus,
-      amazonLink
+      amazonLink,
+      downloadLink
     } = await req.json();
 
     if (!title || !author || !description || !totalCopies) {
@@ -38,10 +40,13 @@ export async function POST(req: Request) {
       ? genre.split(',').map((g: string) => g.trim()).filter(Boolean)
       : [];
 
+    const bookLanguage = language === 'HINDI' ? 'HINDI' : 'ENGLISH';
+
     const book = await db.book.create({
       data: {
         title,
         author,
+        language: bookLanguage,
         coverImage: coverImage || null,
         description,
         genre: genresArray,
@@ -51,7 +56,8 @@ export async function POST(req: Request) {
         totalCopies: parseInt(totalCopies),
         issuedCopies: 0,
         availabilityStatus: availabilityStatus || BookAvailabilityStatus.AVAILABLE,
-        amazonLink: amazonLink || null
+        amazonLink: amazonLink || null,
+        downloadLink: downloadLink || null
       }
     });
 
