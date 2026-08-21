@@ -4,6 +4,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { PublicationStatus } from '@prisma/client';
+import { hasPermission } from '@/lib/rbac';
 
 async function checkAuth() {
   const session = await getServerSession(authOptions);
@@ -36,7 +37,18 @@ export async function GET(
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const pub = await db.publication.findUnique({
-      where: { id }
+      where: { id },
+      include: {
+        alumniProfile: {
+          select: {
+            id: true,
+            name: true,
+            batch: true,
+            branch: true,
+            photo: true,
+          }
+        }
+      }
     });
 
     if (!pub) {
@@ -80,7 +92,17 @@ export async function PUT(
       return NextResponse.json({ error: 'Locked: Publication is currently under review or published' }, { status: 403 });
     }
 
-    const { title, content, coverImage, category, tags, language } = await req.json();
+    const {
+      title,
+      content,
+      coverImage,
+      category,
+      tags,
+      language,
+      authorName,
+      authorNote,
+      alumniProfileId
+    } = await req.json();
 
     // Recalculate word count and reading time
     const words = countWordsFromTipTapJSON(content);
@@ -102,6 +124,39 @@ export async function PUT(
       }
     }
 
+    // Handle byline permissions & validation
+    const canCustomizeByline = hasPermission(user.role, 'MODERATE_PUBLICATIONS');
+    let finalAuthorName = pub.authorName;
+    let finalAuthorNote = pub.authorNote;
+    let finalAlumniProfileId = pub.alumniProfileId;
+
+    if (canCustomizeByline) {
+      if (authorName !== undefined) {
+        finalAuthorName = authorName && typeof authorName === 'string' && authorName.trim() !== '' ? authorName.trim() : null;
+      }
+      if (authorNote !== undefined) {
+        finalAuthorNote = authorNote && typeof authorNote === 'string' && authorNote.trim() !== '' ? authorNote.trim() : null;
+      }
+      if (alumniProfileId !== undefined) {
+        if (alumniProfileId && typeof alumniProfileId === 'string' && alumniProfileId.trim() !== '') {
+          const exists = await db.alumniProfile.findUnique({
+            where: { id: alumniProfileId.trim() },
+            select: { id: true, name: true }
+          });
+          if (exists) {
+            finalAlumniProfileId = exists.id;
+            if (!finalAuthorName) {
+              finalAuthorName = exists.name;
+            }
+          } else {
+            finalAlumniProfileId = null;
+          }
+        } else {
+          finalAlumniProfileId = null;
+        }
+      }
+    }
+
     const updatedPub = await db.publication.update({
       where: { id },
       data: {
@@ -112,7 +167,21 @@ export async function PUT(
         category: category || pub.category,
         language: language || pub.language,
         tags: tags || pub.tags,
-        readingTime
+        readingTime,
+        authorName: finalAuthorName,
+        authorNote: finalAuthorNote,
+        alumniProfileId: finalAlumniProfileId,
+      },
+      include: {
+        alumniProfile: {
+          select: {
+            id: true,
+            name: true,
+            batch: true,
+            branch: true,
+            photo: true,
+          }
+        }
       }
     });
 

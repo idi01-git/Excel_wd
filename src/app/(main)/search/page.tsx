@@ -4,6 +4,7 @@
 import { useSearchParams } from 'next/navigation';
 import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
+import { formatRole } from '@/lib/rbac';
 
 interface SearchResultItem {
   id: string;
@@ -149,7 +150,7 @@ function SearchResultsContent() {
                       <div className="flex items-center gap-2">
                         <h3 className="font-serif text-base font-bold text-white truncate">{user.name}</h3>
                         <span className="text-[9px] px-1.5 py-0.5 bg-violet-600/20 border border-violet-500/30 text-cyan-400 font-bold rounded uppercase">
-                          {user.role}
+                          {formatRole(user.role)}
                         </span>
                       </div>
                       <p className="text-xs text-gray-500">@{user.username}</p>

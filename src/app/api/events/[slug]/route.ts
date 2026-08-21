@@ -14,6 +14,7 @@ export async function GET(
 
     const event = await db.event.findUnique({
       where: { slug },
+      omit: { googleSheetUrl: true, googleSheetId: true },
       include: {
         winners: true,
         report: {
@@ -25,7 +26,13 @@ export async function GET(
         },
         _count: {
           select: {
-            registrations: true,
+            registrations: {
+              where: {
+                NOT: {
+                  paymentStatus: { in: ['CANCELLED_REFUND_PENDING', 'CANCELLED', 'REFUNDED'] }
+                }
+              }
+            },
             gallery: true
           }
         }
@@ -48,7 +55,7 @@ export async function GET(
           }
         }
       });
-      if (reg) {
+      if (reg && reg.paymentStatus !== 'CANCELLED') {
         userRegistered = true;
         registrationDetails = reg;
       }

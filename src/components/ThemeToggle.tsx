@@ -2,11 +2,14 @@
 
 import { useTheme } from 'next-themes';
 import { SunIcon, MoonIcon } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
+import { flushSync } from 'react-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function ThemeToggle() {
   const [mounted, setMounted] = useState(false);
-  const { theme, setTheme, resolvedTheme } = useTheme();
+  const { setTheme, resolvedTheme } = useTheme();
+  const buttonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -18,45 +21,42 @@ export default function ThemeToggle() {
 
   const isDark = resolvedTheme === 'dark';
 
-  const toggleTheme = (event: React.MouseEvent<HTMLButtonElement>) => {
+  const toggleTheme = () => {
     const nextTheme = isDark ? 'light' : 'dark';
     
-    // @ts-ignore - View Transitions API is not fully typed in all TS versions
-    if (!document.startViewTransition) {
+    // Fallback if View Transitions API is not supported or user prefers reduced motion
+    // @ts-ignore
+    if (!document.startViewTransition || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
       setTheme(nextTheme);
       return;
     }
 
-    const x = event.clientX;
-    const y = event.clientY;
-    const endRadius = Math.hypot(
-      Math.max(x, innerWidth - x),
-      Math.max(y, innerHeight - y)
-    );
-
     // @ts-ignore
-    const transition = document.startViewTransition(() => {
-      // Force sync flush of theme change if possible
-      // next-themes updates data-theme or class on HTML tag directly
-      setTheme(nextTheme);
+    const transition = document.startViewTransition(async () => {
+      flushSync(() => {
+        setTheme(nextTheme);
+      });
+      if (nextTheme === 'dark') {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
     });
 
     transition.ready.then(() => {
       const clipPath = [
-        `circle(0px at ${x}px ${y}px)`,
-        `circle(${endRadius}px at ${x}px ${y}px)`,
+        `circle(0% at 50% 50%)`,
+        `circle(150vmax at 50% 50%)`,
       ];
 
       document.documentElement.animate(
         {
-          clipPath: isDark ? [...clipPath].reverse() : clipPath,
+          clipPath: clipPath,
         },
         {
-          duration: 400,
-          easing: "ease-in-out",
-          pseudoElement: isDark
-            ? "::view-transition-old(root)"
-            : "::view-transition-new(root)",
+          duration: 1050,
+          easing: "cubic-bezier(0.16, 1, 0.3, 1)",
+          pseudoElement: "::view-transition-new(root)",
         }
       );
     });
@@ -64,11 +64,28 @@ export default function ThemeToggle() {
 
   return (
     <button
+      ref={buttonRef}
       onClick={toggleTheme}
-      className="relative flex items-center justify-center w-8 h-8 rounded-full border border-transparent hover:bg-gray-100 hover:border-gray-200 text-gray-500 hover:text-black dark:text-neutral-400 dark:hover:bg-white/10 dark:hover:border-white/20 dark:hover:text-white transition-all duration-200"
+      className="relative flex items-center justify-center w-8 h-8 rounded-full border border-transparent hover:bg-gray-100/80 hover:border-gray-200/80 text-gray-500 hover:text-black dark:text-neutral-400 dark:hover:bg-white/10 dark:hover:border-white/20 dark:hover:text-white transition-all duration-200 cursor-pointer active:scale-90 select-none overflow-hidden"
       aria-label="Toggle Theme"
+      title={`Switch to ${isDark ? 'light' : 'dark'} mode`}
     >
-      {isDark ? <SunIcon size={15} strokeWidth={2.2} /> : <MoonIcon size={15} strokeWidth={2.2} />}
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.div
+          key={isDark ? 'dark' : 'light'}
+          initial={{ rotate: -45, scale: 0.6, opacity: 0 }}
+          animate={{ rotate: 0, scale: 1, opacity: 1 }}
+          exit={{ rotate: 45, scale: 0.6, opacity: 0 }}
+          transition={{ duration: 0.25, ease: "easeOut" }}
+          className="flex items-center justify-center"
+        >
+          {isDark ? (
+            <SunIcon size={15} strokeWidth={2.2} className="text-white dark:text-neutral-100" />
+          ) : (
+            <MoonIcon size={15} strokeWidth={2.2} className="text-slate-800" />
+          )}
+        </motion.div>
+      </AnimatePresence>
     </button>
   );
 }

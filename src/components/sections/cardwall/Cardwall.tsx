@@ -3,12 +3,14 @@
 import React, {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   useId,
 } from "react";
 import Link from "next/link";
 import gsap from "gsap";
+import { useLenis } from "lenis/react";
 
 /* ==========================================================================
    Types & Interfaces
@@ -274,9 +276,10 @@ const PALETTE: Omit<CardDesign, "id">[] = [
 ];
 
 const REPEATS = 3;
-const CARDS: CardDesign[] = Array.from({ length: REPEATS }, (_, r) =>
+const DEFAULT_CARDS: CardDesign[] = Array.from({ length: REPEATS }, (_, r) =>
   PALETTE.map((c, ci) => ({ ...c, id: r * PALETTE.length + ci }))
 ).flat();
+let visibleCards: CardDesign[] = DEFAULT_CARDS;
 
 const COLORFLOW_EMBED_URLS = [
   "https://colorflow-embed.b-cdn.net/embed.html#e=bRYky8cX",
@@ -336,9 +339,9 @@ const DEFAULT_CFG_MOBILE: ViewConfig = {
   zNear: -100,
   zFar: 500,
   startX: -46,
-  startY: 58,
+  startY: 48,
   endX: 147,
-  endY: 124,
+  endY: 114,
 };
 
 const MOBILE_BREAKPOINT = 768;
@@ -505,7 +508,7 @@ function CardFace({
         className="pointer-events-none absolute inset-0"
         style={{
           borderRadius: 14,
-          background: `linear-gradient(115deg, transparent 30%, ${card.hue} 50%, transparent 70%)`,
+          backgroundImage: `linear-gradient(115deg, transparent 30%, ${card.hue} 50%, transparent 70%)`,
           backgroundSize: "200% 100%",
           backgroundPosition: "50% 50%",
           opacity: 0,
@@ -704,20 +707,27 @@ function CardDetail({
   onClose,
   deckPerspectiveEl,
   slotEls,
+  entranceEls,
+  shadowEls,
+  cardEls,
 }: {
   detail: DetailState;
   onClose: () => void;
   deckPerspectiveEl: HTMLDivElement | null;
   slotEls: (HTMLDivElement | null)[];
+  entranceEls: (HTMLDivElement | null)[];
+  shadowEls: (HTMLDivElement | null)[];
+  cardEls: (HTMLDivElement | null)[];
 }) {
   const backdropRef = useRef<HTMLDivElement>(null);
+  const chromeRootRef = useRef<HTMLDivElement>(null);
   const boxRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const infoRootRef = useRef<HTMLDivElement>(null);
   const closingRef = useRef(false);
   const entrancePlayedRef = useRef(false);
 
-  const card = CARDS[detail.idx];
+  const card = visibleCards[detail.idx];
   const paletteId = detail.idx % PALETTE.length;
 
   const isMobile = typeof window !== "undefined" && window.innerWidth <= MOBILE_BREAKPOINT;
@@ -736,7 +746,17 @@ function CardDetail({
   });
 
   const slotEl = slotEls[detail.idx];
-  const otherSlots = slotEls.filter((el, i) => i !== detail.idx && el !== null);
+  const otherEntrances = entranceEls.filter((el, i) => i !== detail.idx && el !== null);
+
+  // Notify document & Navbar of active modal state
+  useEffect(() => {
+    document.documentElement.dataset.cardwallModal = "open";
+    window.dispatchEvent(new CustomEvent("cardwall-modal-toggle"));
+    return () => {
+      document.documentElement.dataset.cardwallModal = "";
+      window.dispatchEvent(new CustomEvent("cardwall-modal-toggle"));
+    };
+  }, []);
 
   const applyPerspState = useCallback(() => {
     const s = perspStateRef.current;
@@ -758,6 +778,8 @@ function CardDetail({
     const flipEl = slotEl?.querySelector("[data-card-flip]") as HTMLElement | null;
     const scaleEl = slotEl?.querySelector("[data-card-scale]") as HTMLElement | null;
     const frontFaceEl = slotEl?.querySelector("[data-card-face]") as HTMLElement | null;
+    const cardPhysicsEl = cardEls[detail.idx];
+    const shadowEl = shadowEls[detail.idx];
     const infoItems = infoRootRef.current?.querySelectorAll("[data-detail-reveal]");
 
     const tl = gsap.timeline({
@@ -766,36 +788,76 @@ function CardDetail({
       },
     });
 
+    // 1. Modal UI fades out (exact reverse of entrance bloom)
     if (infoItems && infoItems.length > 0) {
       tl.to(
         infoItems,
         {
           opacity: 0,
-          y: 24,
+          y: 20,
           filter: "blur(6px)",
-          duration: 0.4,
+          duration: 0.3,
           ease: "power2.in",
-          stagger: { each: 0.04, from: "end" },
+          stagger: 0.02,
+        },
+        0
+      );
+    }
+    if (infoRootRef.current) {
+      tl.to(
+        infoRootRef.current,
+        {
+          opacity: 0,
+          duration: 0.3,
+          ease: "power2.in",
+        },
+        0
+      );
+    }
+    if (boxRef.current) {
+      tl.to(
+        boxRef.current,
+        {
+          opacity: 0,
+          scale: 0.94,
+          y: 15,
+          duration: 0.35,
+          ease: "power2.in",
+        },
+        0
+      );
+    }
+    if (iframeRef.current) {
+      tl.to(
+        iframeRef.current,
+        {
+          opacity: 0,
+          duration: 0.3,
+          ease: "power2.in",
         },
         0
       );
     }
 
-    if (boxRef.current) {
-      tl.to(boxRef.current, { opacity: 0, duration: 0.35, ease: "power2.in" }, 0.1);
-    }
-    if (iframeRef.current) {
-      tl.to(iframeRef.current, { opacity: 0, duration: 0.3, ease: "power2.in" }, 0);
+    const closeBtn = document.querySelector("[data-detail-close-btn]") as HTMLElement | null;
+    if (closeBtn) {
+      tl.to(closeBtn, { opacity: 0, scale: 0.8, duration: 0.2, ease: "power2.in" }, 0);
     }
 
+    // 2. Smoothly reset 3D orbit drag if manipulated
+    if (cardPhysicsEl) {
+      tl.to(cardPhysicsEl, { rotateX: 0, rotateY: 0, duration: 0.5, ease: "power2.inOut" }, 0);
+    }
+
+    // 3. Card Return Flight (exact reverse of 0.95s flight trajectory)
     if (flipEl) {
-      tl.to(flipEl, { rotationY: 0, duration: 0.7, ease: "power2.inOut", overwrite: true }, 0.2);
+      tl.to(flipEl, { rotationY: 0, duration: 0.95, ease: "power3.inOut" }, 0);
     }
     if (scaleEl) {
-      tl.to(scaleEl, { scale: 1, duration: 0.7, ease: "power2.inOut", overwrite: true }, 0.2);
+      tl.to(scaleEl, { scale: 1, duration: 0.95, ease: "power3.inOut" }, 0);
     }
     if (frontFaceEl) {
-      tl.to(frontFaceEl, { boxShadow: DECK_SHADOW, duration: 0.7, ease: "power2.inOut", overwrite: true }, 0.2);
+      tl.to(frontFaceEl, { boxShadow: DECK_SHADOW, duration: 0.95, ease: "power3.inOut" }, 0);
     }
 
     tl.to(
@@ -809,32 +871,177 @@ function CardDetail({
         slotOriginYpct: 50,
         slotTranslateX: 0,
         slotTranslateY: 0,
-        duration: 0.7,
-        ease: "power2.inOut",
-        overwrite: true,
+        duration: 0.95,
+        ease: "power3.inOut",
         onUpdate: applyPerspState,
       },
-      0.2
+      0
     );
 
-    if (otherSlots.length > 0) {
+    // 4. Just before other cards fade in, drop deck & backdrop z-index so
+    //    returning cards appear BEHIND ManifestoStrip (z-300), not above it.
+    //    The flying card is still in the hero viewport area so it stays visible
+    //    above the now-lowered backdrop.
+    tl.call(
+      () => {
+        if (deckPerspectiveEl) deckPerspectiveEl.style.zIndex = "200";
+        if (chromeRootRef.current) chromeRootRef.current.style.zIndex = "80";
+      },
+      [],
+      0.3
+    );
+
+    // 5. Other deck cards smoothly fade & glide back in behind ManifestoStrip
+    if (otherEntrances.length > 0) {
+      gsap.killTweensOf(otherEntrances);
       tl.to(
-        otherSlots,
+        otherEntrances,
         {
           opacity: 1,
           y: 0,
+          scale: 1,
           duration: 0.55,
           ease: "power2.out",
-          stagger: { each: 0.01, from: detail.idx },
+          stagger: {
+            each: 0.006,
+            from: detail.idx,
+          },
         },
-        0.4
+        0.35
       );
     }
 
-    if (backdropRef.current) {
-      tl.to(backdropRef.current, { opacity: 0, duration: 0.35, ease: "power2.in" }, 0.6);
+    // 5. Hero title block smoothly fades back
+    const heroTitleBlock = document.querySelector("[data-hero-title-block]") as HTMLElement | null;
+    if (heroTitleBlock) {
+      tl.to(heroTitleBlock, { opacity: 1, duration: 0.55, ease: "power2.out" }, 0.35);
     }
-  }, [slotEl, otherSlots, detail, onClose, applyPerspState]);
+
+    // 6. Backdrop blur fades out
+    if (backdropRef.current) {
+      tl.to(backdropRef.current, { opacity: 0, duration: 0.55, ease: "power2.inOut" }, 0.35);
+    }
+
+    // 7. Restore deck shadow under landing card
+    if (shadowEl) {
+      tl.to(shadowEl, { opacity: 0.32, duration: 0.45, ease: "power2.out" }, 0.45);
+    }
+  }, [slotEl, detail, cardEls, shadowEls, otherEntrances, onClose, applyPerspState]);
+
+  // Strict capture-phase scroll lock preventing background window displacement
+  useEffect(() => {
+    const html = document.documentElement;
+    const body = document.body;
+    const prevHtmlOverflow = html.style.overflow;
+    const prevBodyOverflow = body.style.overflow;
+    const prevTouchAction = body.style.touchAction;
+
+    html.style.overflow = "hidden";
+    body.style.overflow = "hidden";
+    body.style.touchAction = "none";
+
+    const preventScroll = (e: Event) => {
+      const target = e.target as HTMLElement | null;
+      if (target && typeof target.closest === "function" && target.closest("[data-detail-info-scroll]")) return;
+      e.preventDefault();
+      e.stopPropagation();
+    };
+
+    window.addEventListener("wheel", preventScroll, { capture: true, passive: false });
+    window.addEventListener("touchmove", preventScroll, { capture: true, passive: false });
+    document.addEventListener("scroll", preventScroll, { capture: true, passive: false });
+
+    return () => {
+      html.style.overflow = prevHtmlOverflow;
+      body.style.overflow = prevBodyOverflow;
+      body.style.touchAction = prevTouchAction;
+      window.removeEventListener("wheel", preventScroll, { capture: true } as any);
+      window.removeEventListener("touchmove", preventScroll, { capture: true } as any);
+      document.removeEventListener("scroll", preventScroll, { capture: true } as any);
+    };
+  }, []);
+
+  // 3D Rotation triggered on Click & Hold (Mouse Drag) with full unrestricted 3D orbit freedom
+  const isDraggingRef = useRef(false);
+  const hasMovedRef = useRef(false);
+  const dragStartRef = useRef({ x: 0, y: 0, rotX: 0, rotY: 0 });
+  const currentRotRef = useRef({ rotX: 0, rotY: 0 });
+
+  useEffect(() => {
+    const onMouseDown = (e: MouseEvent) => {
+      if (closingRef.current || !slotEl) return;
+      const target = e.target as HTMLElement | null;
+      if (target && typeof target.closest === "function" && target.closest("button, a, input, [data-detail-reveal]")) return;
+
+      isDraggingRef.current = true;
+      hasMovedRef.current = false;
+      dragStartRef.current = {
+        x: e.clientX,
+        y: e.clientY,
+        rotX: currentRotRef.current.rotX,
+        rotY: currentRotRef.current.rotY,
+      };
+      document.body.style.cursor = "grabbing";
+    };
+
+    const onMouseMove = (e: MouseEvent) => {
+      if (!isDraggingRef.current || closingRef.current || !slotEl) return;
+
+      const deltaX = e.clientX - dragStartRef.current.x;
+      const deltaY = e.clientY - dragStartRef.current.y;
+
+      if (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3) {
+        hasMovedRef.current = true;
+      }
+
+      // Fully unrestricted 3D orbit rotation (1:1 direct manipulation)
+      const targetRotY = dragStartRef.current.rotY + deltaX * 0.85;
+      const targetRotX = dragStartRef.current.rotX - deltaY * 0.85;
+
+      currentRotRef.current = { rotX: targetRotX, rotY: targetRotY };
+
+      const cardPhysicsEl = cardEls[detail.idx];
+      if (cardPhysicsEl) {
+        gsap.to(cardPhysicsEl, {
+          rotateX: targetRotX,
+          rotateY: targetRotY,
+          duration: 0.08,
+          ease: "none",
+          overwrite: "auto",
+        });
+      }
+    };
+
+    const onMouseUp = () => {
+      if (!isDraggingRef.current) return;
+      isDraggingRef.current = false;
+      document.body.style.cursor = "";
+
+      currentRotRef.current = { rotX: 0, rotY: 0 };
+      const cardPhysicsEl = cardEls[detail.idx];
+      if (cardPhysicsEl && !closingRef.current) {
+        // Elastic spring back to neutral plane when released
+        gsap.to(cardPhysicsEl, {
+          rotateX: 0,
+          rotateY: 0,
+          duration: 0.85,
+          ease: "elastic.out(1, 0.65)",
+          overwrite: "auto",
+        });
+      }
+    };
+
+    window.addEventListener("mousedown", onMouseDown);
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+
+    return () => {
+      window.removeEventListener("mousedown", onMouseDown);
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+      document.body.style.cursor = "";
+    };
+  }, [slotEl, detail.idx, cardEls]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -844,14 +1051,16 @@ function CardDetail({
     return () => window.removeEventListener("keydown", onKey);
   }, [close]);
 
-  // Entrance timeline on modal mount
-  useEffect(() => {
+  // Entrance timeline on modal mount — layout effect so initial hidden states apply BEFORE paint
+  useLayoutEffect(() => {
     if (entrancePlayedRef.current || !slotEl) return;
     entrancePlayedRef.current = true;
 
     const flipEl = slotEl.querySelector("[data-card-flip]") as HTMLElement | null;
     const scaleEl = slotEl.querySelector("[data-card-scale]") as HTMLElement | null;
     const frontFaceEl = slotEl.querySelector("[data-card-face]") as HTMLElement | null;
+    const cardPhysicsEl = cardEls[detail.idx];
+    const shadowEl = shadowEls[detail.idx];
     const infoItems = infoRootRef.current?.querySelectorAll("[data-detail-reveal]");
 
     const targetLayoutCx = (landing.wrapperCenterXvw / 100) * window.innerWidth;
@@ -863,42 +1072,77 @@ function CardDetail({
 
     if (flipEl) gsap.set(flipEl, { transformOrigin: "50% 50%", rotationY: 0 });
     if (scaleEl) gsap.set(scaleEl, { transformOrigin: "50% 50%", scale: 1 });
-    if (boxRef.current) gsap.set(boxRef.current, { opacity: 0 });
+    if (boxRef.current) gsap.set(boxRef.current, { opacity: 0, scale: 0.94, y: 20 });
     if (backdropRef.current) gsap.set(backdropRef.current, { opacity: 0 });
     if (iframeRef.current) gsap.set(iframeRef.current, { opacity: 0 });
-    if (infoItems) gsap.set(infoItems, { opacity: 0, y: 40, filter: "blur(12px)" });
+    if (infoItems) gsap.set(infoItems, { opacity: 0, y: 28, filter: "blur(10px)" });
 
     applyPerspState();
 
     const tl = gsap.timeline();
 
-    // Phase 1
+    // 1. Immediate backdrop bloom & ambient transition
     if (backdropRef.current) {
-      tl.to(backdropRef.current, { opacity: 1, duration: 0.4, ease: "power2.out" }, 0);
+      tl.to(backdropRef.current, { opacity: 1, duration: 0.5, ease: "power2.out" }, 0);
     }
-    if (otherSlots.length > 0) {
+    const heroTitleBlock = document.querySelector("[data-hero-title-block]") as HTMLElement | null;
+    if (heroTitleBlock) {
+      tl.to(heroTitleBlock, { opacity: 0, duration: 0.45, ease: "power2.out" }, 0);
+    }
+
+    // 2. Other deck cards smoothly glide down and fade out with ripple from clicked card
+    if (otherEntrances.length > 0) {
+      gsap.killTweensOf(otherEntrances);
       tl.to(
-        otherSlots,
+        otherEntrances,
         {
           opacity: 0,
-          y: 100,
-          duration: 0.55,
-          ease: "power2.in",
-          stagger: { each: 0.01, from: detail.idx },
+          y: 35,
+          scale: 0.96,
+          duration: 0.45,
+          ease: "power2.out",
+          stagger: {
+            each: 0.006,
+            from: detail.idx,
+          },
         },
         0
       );
     }
 
-    // Phase 2
+    // 3. Smoothly ease out physics hover on clicked card wrapper
+    if (cardPhysicsEl) {
+      gsap.killTweensOf(cardPhysicsEl);
+      tl.to(
+        cardPhysicsEl,
+        {
+          x: 0,
+          y: 0,
+          z: 0,
+          rotateX: 0,
+          rotateY: 0,
+          rotateZ: 0,
+          duration: 0.5,
+          ease: "power2.out",
+        },
+        0
+      );
+    }
+
+    // 4. Fade deck shadow under the taking-off card
+    if (shadowEl) {
+      tl.to(shadowEl, { opacity: 0, duration: 0.35, ease: "power2.out" }, 0);
+    }
+
+    // 5. Main Card Flight & 3D transformation (starts immediately, butter smooth)
     if (flipEl) {
-      tl.to(flipEl, { rotationY: 360, duration: 1.2, ease: "power3.inOut" }, 0.25);
+      tl.to(flipEl, { rotationY: 360, duration: 0.95, ease: "power3.inOut" }, 0);
     }
     if (scaleEl) {
-      tl.to(scaleEl, { scale: scaleTarget, duration: 1.2, ease: "power3.inOut" }, 0.25);
+      tl.to(scaleEl, { scale: scaleTarget, duration: 0.95, ease: "power3.inOut" }, 0);
     }
     if (frontFaceEl) {
-      tl.to(frontFaceEl, { boxShadow: DETAIL_SHADOW, duration: 1.2, ease: "power3.inOut" }, 0.25);
+      tl.to(frontFaceEl, { boxShadow: DETAIL_SHADOW, duration: 0.95, ease: "power3.inOut" }, 0);
     }
     tl.to(
       perspStateRef.current,
@@ -911,22 +1155,22 @@ function CardDetail({
         slotOriginYpct: landing.wrapperOriginYpct,
         slotTranslateX: flightDx,
         slotTranslateY: flightDy,
-        duration: 1.2,
+        duration: 0.95,
         ease: "power3.inOut",
         onUpdate: applyPerspState,
       },
-      0.25
+      0
     );
 
-    // Phase 3
+    // 6. Glass container & gradient colorflow background bloom in behind the card
     if (boxRef.current) {
-      tl.to(boxRef.current, { opacity: 1, duration: 0.55, ease: "power2.out" }, 1.0);
+      tl.to(boxRef.current, { opacity: 1, scale: 1, y: 0, duration: 0.65, ease: "power3.out" }, 0.3);
     }
     if (iframeRef.current) {
-      tl.to(iframeRef.current, { opacity: 1, duration: 0.9, ease: "power2.out" }, 1.1);
+      tl.to(iframeRef.current, { opacity: 1, duration: 0.6, ease: "power2.out" }, 0.35);
     }
 
-    // Phase 4
+    // 7. Editorial info items reveal smoothly with upward glide and blur unmasking
     if (infoItems && infoItems.length > 0) {
       tl.to(
         infoItems,
@@ -934,21 +1178,24 @@ function CardDetail({
           opacity: 1,
           y: 0,
           filter: "blur(0px)",
-          duration: 0.9,
+          duration: 0.6,
           ease: "power3.out",
-          stagger: 0.16,
+          stagger: 0.05,
         },
-        1.35
+        0.4
       );
     }
-  }, [slotEl, otherSlots, detail, landing, scaleTarget, applyPerspState]);
+  }, [slotEl, otherEntrances, detail, landing, scaleTarget, cardEls, shadowEls, applyPerspState]);
 
   return (
     <>
-      {/* Chrome Root: Backdrop + Box (z-[80]) */}
+      {/* Chrome Root: Backdrop + Box (z-[400]) */}
       <div
-        className="fixed inset-0 z-[80] cursor-pointer"
-        onClick={close}
+        ref={chromeRootRef}
+        className="fixed inset-0 z-[400] cursor-grab active:cursor-grabbing"
+        onClick={() => {
+          if (!hasMovedRef.current) close();
+        }}
       >
         <div
           ref={backdropRef}
@@ -999,9 +1246,10 @@ function CardDetail({
         </div>
       </div>
 
-      {/* Controls Root: Close Button + Info Panel (z-[400]) */}
-      <div className="fixed inset-0 z-[400] pointer-events-none">
+      {/* Controls Root: Close Button + Info Panel (z-[99999]) */}
+      <div className="fixed inset-0 z-[99999] pointer-events-none">
         <button
+          data-detail-close-btn
           onClick={close}
           aria-label="Close"
           className="pointer-events-auto absolute right-6 top-6 rounded-full
@@ -1096,9 +1344,7 @@ function CardDetail({
               <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
                 Writer / Contributor
               </div>
-              <div
-                className="text-[14px] font-medium text-foreground mt-0.5"
-              >
+              <div className="text-[14px] font-medium text-foreground mt-0.5">
                 {card.writer}
               </div>
             </div>
@@ -1110,7 +1356,14 @@ function CardDetail({
                 lineHeight: 1,
               }}
             >
-              {card.words} words
+              {card.words
+                ? card.words.toLowerCase().includes("word") ||
+                  card.words.toLowerCase().includes("page") ||
+                  card.words.toLowerCase().includes("vol") ||
+                  card.words.toLowerCase().includes("pub")
+                  ? card.words
+                  : `${card.words} words`
+                : "Featured"}
             </div>
           </div>
 
@@ -1138,16 +1391,110 @@ function CardDetail({
    Main Cardwall Hero Section
    ========================================================================== */
 
-export default function Cardwall() {
+export type HeroCardInput = {
+  title: string;
+  writer: string;
+  category?: string;
+  readTime?: string;
+  words?: string;
+  description?: string;
+  href?: string;
+  image?: string;
+  accent?: string;
+};
+
+export default function Cardwall({
+  heroCards = [],
+  startEntrance = true,
+}: {
+  heroCards?: HeroCardInput[];
+  startEntrance?: boolean;
+}) {
+  visibleCards = heroCards.length
+    ? Array.from({ length: Math.ceil(DEFAULT_CARDS.length / heroCards.length) }, (_, repeat) =>
+        heroCards.map((item, index) => ({
+          ...PALETTE[index % PALETTE.length],
+          id: repeat * heroCards.length + index,
+          title: item.title,
+          writer: item.writer,
+          category: item.category || PALETTE[index % PALETTE.length].category,
+          readTime: item.readTime || PALETTE[index % PALETTE.length].readTime,
+          words: item.words || PALETTE[index % PALETTE.length].words,
+          description: item.description || PALETTE[index % PALETTE.length].description,
+          slug: item.href || PALETTE[index % PALETTE.length].slug,
+          image: item.image || PALETTE[index % PALETTE.length].image,
+          accent: item.accent || PALETTE[index % PALETTE.length].accent,
+        }))
+      )
+        .flat()
+        .slice(0, DEFAULT_CARDS.length)
+    : DEFAULT_CARDS;
   const sectionRef = useRef<HTMLElement>(null);
   const deckPerspectiveRef = useRef<HTMLDivElement>(null);
   const entranceSettledRef = useRef(false);
   const entrancePlayedRef = useRef(false);
   const lockedIdxRef = useRef<number | null>(null);
+  const lenis = useLenis();
+
+  // Safety: never leave Lenis frozen if the section unmounts while the detail modal is open
+  useEffect(() => {
+    return () => {
+      lenis?.start();
+    };
+  }, [lenis]);
 
   const [cfg, setCfg] = useState<ViewConfig>(pickDefaultCfg);
   const [detail, setDetail] = useState<DetailState | null>(null);
   const [centers, setCenters] = useState<Array<{ x: number; y: number }>>([]);
+  const [assetsLoaded, setAssetsLoaded] = useState(false);
+
+  // Preload all images and fonts before starting the entrance animation
+  useEffect(() => {
+    let imagesDone = false;
+    let fontsDone = false;
+
+    const checkReady = () => {
+      if (imagesDone && fontsDone) setAssetsLoaded(true);
+    };
+
+    if (typeof document !== "undefined" && document.fonts?.ready) {
+      document.fonts.ready.then(() => {
+        fontsDone = true;
+        checkReady();
+      });
+    } else {
+      fontsDone = true;
+    }
+
+    if (visibleCards.length === 0) {
+      imagesDone = true;
+      checkReady();
+      return;
+    }
+
+    let loadedCount = 0;
+    visibleCards.forEach((card) => {
+      if (!card.image) {
+        loadedCount++;
+        if (loadedCount === visibleCards.length) {
+          imagesDone = true;
+          checkReady();
+        }
+        return;
+      }
+      const img = new Image();
+      const onImgReady = () => {
+        loadedCount++;
+        if (loadedCount === visibleCards.length) {
+          imagesDone = true;
+          checkReady();
+        }
+      };
+      img.onload = onImgReady;
+      img.onerror = onImgReady;
+      img.src = card.image;
+    });
+  }, []);
 
   const centersRef = useRef<Array<{ x: number; y: number }>>([]);
   const layoutCentersRef = useRef<Array<{ x: number; y: number }>>([]);
@@ -1172,7 +1519,7 @@ export default function Cardwall() {
 
   // Physics state per card
   const physicsStates = useRef<CardPhysicsState[]>(
-    CARDS.map(() => ({
+    visibleCards.map(() => ({
       lift: 0,
       velLift: 0,
       rotX: 0,
@@ -1208,8 +1555,8 @@ export default function Cardwall() {
     const ex = (cfg.endX / 100) * vw;
     const ey = (cfg.endY / 100) * vh;
 
-    const layout = CARDS.map((_, i) => {
-      const t = i / (CARDS.length - 1);
+    const layout = visibleCards.map((_, i) => {
+      const t = i / (visibleCards.length - 1);
       return {
         x: sx + t * (ex - sx),
         y: sy + t * (ey - sy),
@@ -1223,7 +1570,7 @@ export default function Cardwall() {
     const originY = (cfg.originY / 100) * vh;
     const p = cfg.perspective;
     const projected = layout.map((c, i) => {
-      const t = i / (CARDS.length - 1);
+      const t = i / (visibleCards.length - 1);
       const z = cfg.zNear + t * (cfg.zFar - cfg.zNear);
       const scale = p / (p - z);
       return {
@@ -1233,7 +1580,7 @@ export default function Cardwall() {
     });
     centersRef.current = projected;
 
-    const N = CARDS.length;
+    const N = visibleCards.length;
     const dx = projected[N - 1].x - projected[0].x;
     const dy = projected[N - 1].y - projected[0].y;
     ribbonRef.current = {
@@ -1284,14 +1631,14 @@ export default function Cardwall() {
 
   // Entrance animation (Helical sky formation -> resting deck)
   useEffect(() => {
-    if (entrancePlayedRef.current || centers.length === 0) return;
-    entrancePlayedRef.current = true;
+    if (entrancePlayedRef.current || centers.length === 0 || !assetsLoaded) return;
 
     const validEntranceEls = entranceRefs.current.filter((el) => el !== null);
     const letters = sectionRef.current?.querySelectorAll("[data-reveal-letter]");
     const tagline = sectionRef.current?.querySelectorAll("[data-reveal-tagline]");
     const meta = sectionRef.current?.querySelectorAll("[data-reveal-meta]");
 
+    // Frame 1: Pre-position all elements in their initial ready state
     if (validEntranceEls.length > 0) {
       gsap.set(validEntranceEls, {
         x: (i) => Math.cos((i / 42) * 6 * Math.PI) * (320 + (i % 4) * 20),
@@ -1312,6 +1659,10 @@ export default function Cardwall() {
     if (meta && meta.length > 0) {
       gsap.set(meta, { opacity: 0, y: 20 });
     }
+
+    // Wait until startEntrance is triggered by the preloader completion
+    if (!startEntrance) return;
+    entrancePlayedRef.current = true;
 
     const buildTimeline = () => {
       const tl = gsap.timeline({
@@ -1368,22 +1719,16 @@ export default function Cardwall() {
       }
     };
 
-    if (typeof document !== "undefined" && document.fonts?.ready) {
-      document.fonts.ready.then(() => {
-        requestAnimationFrame(() => requestAnimationFrame(buildTimeline));
-      });
-    } else {
-      buildTimeline();
-    }
-  }, [centers]);
+    requestAnimationFrame(() => requestAnimationFrame(buildTimeline));
+  }, [centers, assetsLoaded, startEntrance]);
 
-  // Physics animation loop (rAF)
+  // Physics animation loop (rAF) with delta clamping & micro-thresholding
   useEffect(() => {
     let animId: number;
     let lastT = performance.now();
 
     const tick = (now: number) => {
-      const dt = clamp(0.1, (now - lastT) / 16.667, 2);
+      const dt = clamp(0.1, (now - lastT) / 16.667, 1.5);
       lastT = now;
 
       const cursor = cursorRef.current;
@@ -1396,7 +1741,12 @@ export default function Cardwall() {
         fracFocus = cursor.hitIdx + clamp(0, tSeg, 1);
       }
 
-      for (let i = 0; i < CARDS.length; i++) {
+      const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
+      const waveSpeed = 0.0003;
+      const waveSpatialFreq = 0.12;
+      const wavePhase = now * waveSpeed;
+
+      for (let i = 0; i < visibleCards.length; i++) {
         if (lockedIdxRef.current === i) continue;
 
         const s = physicsStates.current[i];
@@ -1410,19 +1760,28 @@ export default function Cardwall() {
         const dx = cursor.x - center.x;
         const dy = cursor.y - center.y;
 
-        const targetLift = cursor.active
+        const rawWave = Math.sin(wavePhase - i * waveSpatialFreq);
+        const mobileWaveLift = Math.max(0, rawWave);
+
+        const targetLift = isMobile
+          ? -mobileWaveLift * (LIFT_MAX * 0.12)
+          : cursor.active
           ? -LIFT_MAX * Math.exp(-Math.pow(i - fracFocus, 2) / Math.pow(INDEX_SIGMA, 2))
           : 0;
 
         const liftRatio = Math.min(1, Math.abs(s.lift) / LIFT_MAX);
-        const targetRotX = cursor.active
+        const targetRotX = isMobile
+          ? rawWave * 0.6
+          : cursor.active
           ? clamp(-TILT_MAX_X, (dy / 400) * TILT_MAX_X, TILT_MAX_X) * liftRatio
           : 0;
-        const targetRotZ = cursor.active
+        const targetRotZ = isMobile
+          ? -rawWave * 0.45
+          : cursor.active
           ? clamp(-TILT_MAX_Z, (-dx / 500) * TILT_MAX_Z, TILT_MAX_Z) * liftRatio
           : 0;
 
-        // Semi-implicit Euler springs
+        // Optimized Semi-implicit Euler springs
         s.velLift += (targetLift - s.lift) * SPRING_LIFT * dt;
         s.velLift *= Math.pow(DAMPING_LIFT, dt);
         s.lift += s.velLift * dt;
@@ -1438,20 +1797,26 @@ export default function Cardwall() {
         const targetGlow = Math.min(1, Math.abs(s.lift) / LIFT_MAX);
         s.glow += (targetGlow - s.glow) * 0.15 * dt;
 
+        // Skip DOM writes if values have settled and cursor is idle
+        if (!cursor.active && !isMobile && Math.abs(s.lift) < 0.01 && Math.abs(s.velLift) < 0.01) {
+          continue;
+        }
+
         const liftedZ = Math.abs(s.lift) * 0.6;
-        cardRef.style.transform = `translate3d(0, ${s.lift}px, ${liftedZ}px) rotateX(${s.rotX}deg) rotateZ(${s.rotZ}deg)`;
+        cardRef.style.transform = `translate3d(0, ${s.lift.toFixed(2)}px, ${liftedZ.toFixed(2)}px) rotateX(${s.rotX.toFixed(2)}deg) rotateZ(${s.rotZ.toFixed(2)}deg)`;
         cardRef.style.zIndex = `${100 + Math.round(Math.abs(s.lift))}`;
 
         if (shine) {
-          const u = clamp(0, (cursor.x - (center.x - CARD_W / 2)) / CARD_W, 1);
-          shine.style.opacity = `${s.glow * 0.85}`;
-          shine.style.backgroundPosition = `${u * 100}% 50%`;
+          const u = isMobile
+            ? (rawWave + 1) * 0.5
+            : clamp(0, (cursor.x - (center.x - CARD_W / 2)) / CARD_W, 1);
+          shine.style.opacity = `${(s.glow * 0.85).toFixed(3)}`;
+          shine.style.backgroundPosition = `${(u * 100).toFixed(1)}% 50%`;
         }
 
         const l = Math.abs(s.lift);
-        shadow.style.opacity = `${0.32 + s.glow * 0.35}`;
-        shadow.style.filter = `blur(${10 + l * 0.25}px)`;
-        shadow.style.transform = `translateY(${10 + l * 0.12}px) scale(${1 + l * 0.004}, ${0.7 + l * 0.002})`;
+        shadow.style.opacity = `${(0.32 + s.glow * 0.35).toFixed(3)}`;
+        shadow.style.transform = `translateY(${(10 + l * 0.12).toFixed(2)}px) scale(${(1 + l * 0.004).toFixed(3)}, ${(0.7 + l * 0.002).toFixed(3)})`;
       }
 
       animId = requestAnimationFrame(tick);
@@ -1463,7 +1828,11 @@ export default function Cardwall() {
 
   // Pointer event handlers
   const handlePointerMove = (e: React.PointerEvent) => {
-    if (lockedIdxRef.current !== null || !sectionRef.current) {
+    if (
+      lockedIdxRef.current !== null ||
+      !sectionRef.current ||
+      (typeof window !== "undefined" && window.innerWidth < 768)
+    ) {
       cursorRef.current.active = false;
       cursorRef.current.hitIdx = -1;
       return;
@@ -1501,15 +1870,34 @@ export default function Cardwall() {
   };
 
   const handlePointerDown = (e: React.PointerEvent) => {
-    if (detail !== null || !sectionRef.current) return;
+    // Completely deactivate click / detail modal on mobile screens
+    if (
+      detail !== null ||
+      !sectionRef.current ||
+      (typeof window !== "undefined" && window.innerWidth < 768) ||
+      e.pointerType === "touch"
+    ) {
+      return;
+    }
     const tClick = performance.now();
     const hit = document.elementFromPoint(e.clientX, e.clientY);
     const slot = hit?.closest("[data-card-index]") as HTMLElement | null;
     if (!slot) return;
 
+    // Freeze any in-flight smooth scroll so flight coordinates stay valid while the modal is open
+    lenis?.stop();
+
     const idx = Number(slot.dataset.cardIndex);
     lockedIdxRef.current = idx;
     cursorRef.current.active = false;
+
+    // Clear any leftover imperative zIndex from previous close animation
+    // so React's className z-[500] (set by setDetail below) takes effect
+    if (deckPerspectiveRef.current) {
+      deckPerspectiveRef.current.style.zIndex = "";
+    }
+
+    const slotEl = slotRefs.current[idx];
 
     const s = physicsStates.current[idx];
     const sourcePhysics = { lift: s.lift, rotX: s.rotX, rotZ: s.rotZ };
@@ -1522,14 +1910,8 @@ export default function Cardwall() {
     s.velRotZ = 0;
     s.glow = 0;
 
-    const cardRef = cardRefs.current[idx];
-    if (cardRef) {
-      cardRef.style.transform = "translate3d(0,0,0) rotateX(0deg) rotateZ(0deg)";
-      cardRef.style.zIndex = "100";
-    }
-
     const r = slot.getBoundingClientRect();
-    const t = idx / (CARDS.length - 1);
+    const t = idx / (visibleCards.length - 1);
     const zOff = cfg.zNear + t * (cfg.zFar - cfg.zNear);
 
     const sectRect = sectionRef.current.getBoundingClientRect();
@@ -1555,6 +1937,30 @@ export default function Cardwall() {
   const handleCloseDetail = () => {
     lockedIdxRef.current = null;
     setDetail(null);
+    if (typeof document !== "undefined") {
+      document.documentElement.dataset.cardwallModal = "";
+      window.dispatchEvent(new CustomEvent("cardwall-modal-toggle"));
+    }
+    // Reset the opened card's elevated stacking
+    cardRefs.current.forEach((el) => {
+      if (el) el.style.zIndex = "";
+    });
+    // Cleanly restore slot wrapper styles
+    slotRefs.current.forEach((el) => {
+      if (el) {
+        el.style.zIndex = "";
+        el.style.perspective = "";
+        el.style.perspectiveOrigin = "";
+        el.style.opacity = "";
+      }
+    });
+    // Ensure all entrance wrappers are clean
+    entranceRefs.current.forEach((el) => {
+      if (el) {
+        gsap.set(el, { opacity: 1, y: 0, scale: 1 });
+      }
+    });
+    lenis?.start();
   };
 
   return (
@@ -1563,34 +1969,46 @@ export default function Cardwall() {
       onPointerMove={handlePointerMove}
       onPointerLeave={handlePointerLeave}
       onPointerDown={handlePointerDown}
-      className="relative h-screen w-full overflow-hidden bg-background text-foreground cursor-default select-none"
+      className="relative h-screen w-full overflow-x-clip overflow-y-visible bg-background text-foreground cursor-default select-none"
     >
       {/* 21. Ambient radial glow */}
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0"
         style={{
-          background:
+          backgroundImage:
             "radial-gradient(ellipse 70% 45% at 50% 68%, color-mix(in oklab, var(--foreground) 8%, transparent) 0%, transparent 70%)",
         }}
       />
 
-      {/* 19. Title block */}
+      {/* 19. Hero Title & Tagline block */}
       <div
-        className="absolute inset-0 flex items-center justify-center transition-opacity duration-500 pointer-events-none"
-        style={{ opacity: detail !== null ? 0 : 1 }}
+        data-hero-title-block
+        className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none"
+        style={{
+          transform: "translateY(-14vh)",
+        }}
       >
+        {/* Tagline — placed closely above the Excelsior wordmark */}
+        <p
+          data-reveal-tagline
+          className="text-center text-sm md:text-base tracking-[0.02em] text-muted-foreground/90 font-medium mb-1.5 md:mb-3"
+          style={{ fontFamily: "var(--font-playfair), serif", fontStyle: "italic" }}
+        >
+          Appreciate Literature?
+        </p>
+
+        {/* Wordmark — scales to cover ~80% of viewport width on mobile */}
         <h1
           style={{
             fontFamily: "var(--font-playfair), serif",
-            fontSize: "clamp(3.5rem, 13vw, 12rem)",
-            lineHeight: 0.95,
+            fontSize: "clamp(4.2rem, 18.5vw, 12.5rem)",
+            lineHeight: 0.92,
             letterSpacing: "-0.04em",
-            transform: "translateY(-14vh)",
             perspective: "1200px",
             transformStyle: "preserve-3d",
           }}
-          className="text-center font-medium tracking-tight text-foreground/95 select-none"
+          className="text-center font-medium tracking-tight text-foreground/95 select-none w-full px-2"
         >
           {titleText.split("").map((char, idx) => (
             <span
@@ -1608,24 +2026,10 @@ export default function Cardwall() {
         </h1>
       </div>
 
-      {/* 20. Tagline block */}
-      <div
-        className="absolute inset-x-0 top-[18vh] md:top-[19vh] flex flex-col items-center px-4 transition-opacity duration-500 pointer-events-none z-10"
-        style={{ opacity: detail !== null ? 0 : 1 }}
-      >
-        <p
-          data-reveal-tagline
-          className="text-center text-sm md:text-base tracking-[0.02em] text-muted-foreground/90 font-medium"
-          style={{ fontFamily: "var(--font-playfair), serif", fontStyle: "italic" }}
-        >
-          Appreciate Literature?
-        </p>
-      </div>
-
       {/* Deck Perspective Container */}
       <div
         ref={deckPerspectiveRef}
-        className="pointer-events-none absolute inset-0 z-[200]"
+        className={`pointer-events-none absolute inset-0 ${detail !== null ? "z-[500]" : "z-[200]"}`}
         style={{
           perspective: cfg.perspective,
           perspectiveOrigin: `${cfg.originX}% ${cfg.originY}%`,
@@ -1634,9 +2038,9 @@ export default function Cardwall() {
           willChange: "transform",
         }}
       >
-        {CARDS.map((card, i) => {
+        {visibleCards.map((card, i) => {
           const center = centers[i] || { x: -9999, y: -9999 };
-          const t = i / (CARDS.length - 1);
+          const t = i / (visibleCards.length - 1);
           const zOffset = cfg.zNear + t * (cfg.zFar - cfg.zNear);
           const left = center.x - CARD_W / 2;
           const top = center.y - CARD_H / 2;
@@ -1846,8 +2250,28 @@ export default function Cardwall() {
           onClose={handleCloseDetail}
           deckPerspectiveEl={deckPerspectiveRef.current}
           slotEls={slotRefs.current}
+          entranceEls={entranceRefs.current}
+          shadowEls={shadowRefs.current}
+          cardEls={cardRefs.current}
         />
       )}
+
+      {/* Preloader overlay to mask initialization and loading lag */}
+      <div
+        className={`pointer-events-none fixed inset-0 z-[1000] flex items-center justify-center bg-background transition-opacity duration-1000 ${
+          assetsLoaded ? "opacity-0" : "opacity-100"
+        }`}
+      >
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-foreground/20 border-t-foreground" />
+          <p
+            className="text-sm text-foreground/60 uppercase tracking-widest"
+            style={{ fontFamily: "var(--font-inter), sans-serif" }}
+          >
+            Loading Environment
+          </p>
+        </div>
+      </div>
     </section>
   );
 }

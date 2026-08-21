@@ -1,6 +1,15 @@
 "use client";
 
-import { motion, AnimatePresence, LayoutGroup, type Transition } from "motion/react";
+import {
+  motion,
+  AnimatePresence,
+  LayoutGroup,
+  useMotionValue,
+  useSpring,
+  useTransform,
+  useReducedMotion,
+  type Transition,
+} from "motion/react";
 import {
   Newspaper,
   PenTool,
@@ -31,6 +40,15 @@ export interface PublicationItem {
   readingTime: number;
   content?: any;
   coverImage?: string | null;
+  authorName?: string | null;
+  authorNote?: string | null;
+  alumniProfile?: {
+    id: string;
+    name: string;
+    batch: string;
+    branch?: string | null;
+    photo?: string | null;
+  } | null;
   author: {
     name: string;
     username: string;
@@ -44,7 +62,7 @@ export interface PublicationItem {
   hasBookmarked?: boolean;
 }
 
-type ViewMode = "list" | "card";
+export type ViewMode = "list" | "card";
 
 // ─── Animation presets ────────────────────────────────────────────────────────
 
@@ -75,7 +93,17 @@ function categoryLabel(category: string) {
 
 const categoryColor = "bg-gray-50 text-gray-700 border-gray-200";
 
-function avatarSrc(author: PublicationItem["author"]) {
+function getAuthorDisplayName(pub: PublicationItem) {
+  return pub.authorName || pub.alumniProfile?.name || pub.author.name;
+}
+
+function avatarSrc(author: PublicationItem["author"], alumniProfile?: PublicationItem["alumniProfile"], authorName?: string | null) {
+  if (alumniProfile?.photo && alumniProfile.photo.trim() !== '') {
+    return alumniProfile.photo;
+  }
+  if (authorName) {
+    return `https://api.dicebear.com/7.x/initials/svg?seed=${authorName}`;
+  }
   return author.profilePhoto ?? `https://api.dicebear.com/7.x/adventurer/svg?seed=${author.username}`;
 }
 
@@ -119,78 +147,69 @@ function usePreviewInteractions(params: {
   initialLiked?: boolean;
   initialBookmarked?: boolean;
 }) {
-  const { slug, initialLikeCount, initialLiked = false, initialBookmarked = false } = params;
-  const [likeCount, setLikeCount] = useState(initialLikeCount);
-  const [hasLiked, setHasLiked] = useState(initialLiked);
-  const [hasBookmarked, setHasBookmarked] = useState(initialBookmarked);
+  const [likeCount, setLikeCount] = useState(params.initialLikeCount);
+  const [hasLiked, setHasLiked] = useState(params.initialLiked ?? false);
+  const [hasBookmarked, setHasBookmarked] = useState(params.initialBookmarked ?? false);
   const [pendingInteraction, setPendingInteraction] = useState<PreviewInteractionType | null>(null);
-  const pendingRef = useRef(false);
 
   const toggleLike = async () => {
-    if (pendingRef.current) return;
-
-    pendingRef.current = true;
+    if (pendingInteraction) return;
+    const nextLiked = !hasLiked;
+    const nextCount = nextLiked ? likeCount + 1 : Math.max(0, likeCount - 1);
+    
+    // Optimistic update
+    setHasLiked(nextLiked);
+    setLikeCount(nextCount);
     setPendingInteraction('LIKE');
 
-    const previousLikeCount = likeCount;
-    const previousLiked = hasLiked;
-    const nextLiked = !previousLiked;
-    const nextLikeCount = Math.max(0, previousLikeCount + (nextLiked ? 1 : -1));
-
-    setHasLiked(nextLiked);
-    setLikeCount(nextLikeCount);
-
     try {
-      const res = await fetch(`/api/publications/${slug}/interact`, {
+      const res = await fetch(`/api/publications/${params.slug}/interact`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'LIKE' })
+        body: JSON.stringify({ type: 'LIKE' }),
       });
       const data = await res.json();
-
-      if (!res.ok || !data.success) {
-        throw new Error('Failed to update like');
+      if (!data.success) {
+        // Revert
+        setHasLiked(!nextLiked);
+        setLikeCount(likeCount);
+      } else {
+        // Confirm server count
+        setLikeCount(data.counts.likes);
+        setHasLiked(data.userState.liked);
       }
-
-      setLikeCount(data.stats.likes);
-      setHasLiked(data.active);
     } catch {
-      setHasLiked(previousLiked);
-      setLikeCount(previousLikeCount);
+      // Revert on error
+      setHasLiked(!nextLiked);
+      setLikeCount(likeCount);
     } finally {
-      pendingRef.current = false;
       setPendingInteraction(null);
     }
   };
 
   const toggleBookmark = async () => {
-    if (pendingRef.current) return;
-
-    pendingRef.current = true;
+    if (pendingInteraction) return;
+    const nextBookmarked = !hasBookmarked;
+    
+    // Optimistic update
+    setHasBookmarked(nextBookmarked);
     setPendingInteraction('BOOKMARK');
 
-    const previousBookmarked = hasBookmarked;
-    const nextBookmarked = !previousBookmarked;
-
-    setHasBookmarked(nextBookmarked);
-
     try {
-      const res = await fetch(`/api/publications/${slug}/interact`, {
+      const res = await fetch(`/api/publications/${params.slug}/interact`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'BOOKMARK' })
+        body: JSON.stringify({ type: 'BOOKMARK' }),
       });
       const data = await res.json();
-
-      if (!res.ok || !data.success) {
-        throw new Error('Failed to update bookmark');
+      if (!data.success) {
+        setHasBookmarked(!nextBookmarked);
+      } else {
+        setHasBookmarked(data.userState.bookmarked);
       }
-
-      setHasBookmarked(data.active);
     } catch {
-      setHasBookmarked(previousBookmarked);
+      setHasBookmarked(!nextBookmarked);
     } finally {
-      pendingRef.current = false;
       setPendingInteraction(null);
     }
   };
@@ -201,7 +220,7 @@ function usePreviewInteractions(params: {
     hasBookmarked,
     pendingInteraction,
     toggleLike,
-    toggleBookmark
+    toggleBookmark,
   };
 }
 
@@ -296,7 +315,7 @@ function ExpandedPanel({
       {/* Panel */}
       <motion.div
         key="panel-wrapper"
-        initial={{ opacity: 1 }}
+        initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         transition={{ duration: 0.35 }}
@@ -323,7 +342,17 @@ function ExpandedPanel({
           <div className="flex items-start justify-between px-6 pt-4 pb-2">
             <div className="min-w-0 flex-1">
               <motion.p layoutId={`${layoutId}-desc`} transition={smoothSpring} className="text-xs font-semibold text-gray-500 mb-1">
-                {categoryLabel(pub.category)} &middot; {pub.author.name}
+                {categoryLabel(pub.category)} &middot; {getAuthorDisplayName(pub)}
+                {pub.alumniProfile && (
+                  <span className="ml-2 text-[10px] font-mono px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
+                    Alumni &middot; Class of {pub.alumniProfile.batch}
+                  </span>
+                )}
+                {pub.authorNote && !pub.alumniProfile && (
+                  <span className="ml-2 text-[10px] font-mono px-1.5 py-0.5 rounded bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 border border-neutral-200 dark:border-neutral-700">
+                    {pub.authorNote}
+                  </span>
+                )}
               </motion.p>
               <motion.h2 layoutId={`${layoutId}-title`} transition={smoothSpring} className="text-2xl font-bold text-black font-serif leading-tight">
                 {pub.title}
@@ -349,7 +378,7 @@ function ExpandedPanel({
           >
             {/* Tags, Reading time, and Interactions */}
             <div className="flex flex-wrap items-center gap-2 pt-2">
-              <span className={cn("flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full border", categoryColor)}>
+              <span className={cn("flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full border backdrop-blur-md", categoryColor)}>
                 {React.createElement(icon, { size: 10, strokeWidth: 2 })}
                 {categoryLabel(pub.category)}
               </span>
@@ -414,11 +443,70 @@ function ExpandedPanel({
 
 // ─── Unified Publication Item (Layout Morphing) ────────────────────────────────
 
-function UnifiedPublicationItem({ pub, engagement, view }: { pub: PublicationItem; engagement: ReturnType<typeof usePreviewInteractions>; view: ViewMode }) {
+function UnifiedPublicationItem({
+  pub,
+  engagement,
+  view,
+}: {
+  pub: PublicationItem;
+  engagement: ReturnType<typeof usePreviewInteractions>;
+  view: ViewMode;
+}) {
   const [expanded, setExpanded] = useState(false);
-
+  const cardRef = useRef<HTMLElement>(null);
   const layoutId = `pub-unified-${pub.id}`;
   const icon  = categoryIcon(pub.category);
+  const reduce = useReducedMotion();
+
+  // ─── Awwwards-Level Magnetic Interactive Micro-Physics ───
+  const mx = useMotionValue(0);
+  const my = useMotionValue(0);
+  const isHovered = useMotionValue(0);
+
+  // Critically damped spring physics for zero-lag silky tracking
+  const sx = useSpring(mx, { stiffness: 220, damping: 28, mass: 0.5 });
+  const sy = useSpring(my, { stiffness: 220, damping: 28, mass: 0.5 });
+  const sh = useSpring(isHovered, { stiffness: 240, damping: 26 });
+
+  // Subtle 3D tilt
+  const rotX = useTransform(sy, [-0.5, 0.5], [4.5, -4.5]);
+  const rotY = useTransform(sx, [-0.5, 0.5], [-4.5, 4.5]);
+
+  // Liquid spring scale and elevation lift
+  const cardScale = useTransform(sh, [0, 1], [1, 1.018]);
+  const cardLift = useTransform(sh, [0, 1], [0, -6]);
+
+  // Subtle parallax depth on cover image
+  const imgZoom = useTransform(sh, [0, 1], [1, 1.08]);
+  const imgX = useTransform(sx, [-0.5, 0.5], [-5, 5]);
+  const imgY = useTransform(sy, [-0.5, 0.5], [-5, 5]);
+
+  // Multi-stop liquid luxury shadow lift
+  const shadowLift = useTransform(
+    sh,
+    [0, 1],
+    [
+      "0 2px 10px rgba(0, 0, 0, 0.03), 0 1px 3px rgba(0, 0, 0, 0.02)",
+      "0 26px 52px -12px rgba(0, 0, 0, 0.13), 0 12px 24px -6px rgba(0, 0, 0, 0.06)",
+    ]
+  );
+
+  const onPointerMove = (e: React.PointerEvent<HTMLElement>) => {
+    if (reduce || !cardRef.current) return;
+    const rect = cardRef.current.getBoundingClientRect();
+    mx.set((e.clientX - rect.left) / rect.width - 0.5);
+    my.set((e.clientY - rect.top) / rect.height - 0.5);
+  };
+
+  const onPointerEnter = () => {
+    isHovered.set(1);
+  };
+
+  const onPointerLeave = () => {
+    isHovered.set(0);
+    mx.set(0);
+    my.set(0);
+  };
 
   return (
     <>
@@ -439,18 +527,30 @@ function UnifiedPublicationItem({ pub, engagement, view }: { pub: PublicationIte
       </AnimatePresence>
 
       <motion.article
+        ref={cardRef}
         layout
         layoutId={layoutId}
         onClick={() => setExpanded(true)}
-        initial={{ opacity: 0, y: 20, scale: 0.95 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.9 }}
-        transition={{ type: "spring", stiffness: 300, damping: 25, mass: 1 }}
-        className={`group relative overflow-hidden bg-white border border-gray-200/60 rounded-3xl cursor-pointer ${
+        onPointerMove={onPointerMove}
+        onPointerEnter={onPointerEnter}
+        onPointerLeave={onPointerLeave}
+        transition={smoothSpring}
+        style={{
+          perspective: 1200,
+          rotateX: reduce ? 0 : rotX,
+          rotateY: reduce ? 0 : rotY,
+          y: reduce ? 0 : cardLift,
+          boxShadow: shadowLift,
+          transformStyle: "preserve-3d",
+          WebkitBackfaceVisibility: "hidden",
+          backfaceVisibility: "hidden",
+          transform: "translate3d(0,0,0)",
+        }}
+        className={`group relative overflow-hidden bg-white dark:bg-neutral-900 border border-gray-200/80 dark:border-white/10 rounded-3xl cursor-pointer isolate ${
           view === "list"
-            ? "flex flex-col md:flex-row shadow-[0_2px_10px_rgb(0,0,0,0.02)]"
-            : "flex flex-col shadow-sm"
-        } hover:shadow-xl hover:-translate-y-1 transition-all duration-300`}
+            ? "flex flex-col md:flex-row"
+            : "flex flex-col"
+        }`}
       >
         <motion.div
           layout
@@ -458,26 +558,40 @@ function UnifiedPublicationItem({ pub, engagement, view }: { pub: PublicationIte
             view === "list"
               ? "w-full md:w-1/3 aspect-[4/3] md:aspect-auto md:min-h-[200px]"
               : "w-full aspect-[4/3]"
-          } relative overflow-hidden shrink-0 border-b md:border-b-0 md:border-r border-gray-100`}
+          } relative overflow-hidden shrink-0 border-b md:border-b-0 md:border-r border-gray-100 dark:border-white/5 [transform:translateZ(0)]`}
         >
-          <motion.img
-            layout
-            layoutId={`${layoutId}-img`}
-            src={coverSrc(pub)}
-            alt={pub.title}
-            className="w-full h-full object-cover group-hover:scale-105 transition duration-700 ease-out"
-          />
-          <span className={cn("absolute top-3 left-3 flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-0.5 rounded-full border backdrop-blur-sm", categoryColor)}>
+          <motion.div
+            style={{
+              scale: reduce ? 1 : imgZoom,
+              x: reduce ? 0 : imgX,
+              y: reduce ? 0 : imgY,
+              WebkitBackfaceVisibility: "hidden",
+              backfaceVisibility: "hidden",
+            }}
+            className="w-full h-full will-change-transform transform-gpu"
+          >
+            <motion.img
+              layout
+              layoutId={`${layoutId}-img`}
+              src={coverSrc(pub)}
+              alt={pub.title}
+              className="w-full h-full object-cover select-none"
+            />
+          </motion.div>
+          
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/25 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+          
+          <span className={cn("absolute top-3 left-3 flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-0.5 rounded-full border backdrop-blur-md transition-transform duration-300 group-hover:scale-105 shadow-xs", categoryColor)}>
             {React.createElement(icon, { size: 9, strokeWidth: 2 })}
             {categoryLabel(pub.category)}
           </span>
         </motion.div>
 
-        <motion.div layout className="flex flex-col flex-1 p-5 md:p-6 justify-between min-w-0">
+        <motion.div layout className="flex flex-col flex-1 p-5 md:p-6 justify-between min-w-0 [transform:translateZ(0)] antialiased">
           <div>
             <div className="flex gap-1.5 flex-wrap mb-3">
               {pub.tags.slice(0, 3).map((tag) => (
-                <span key={tag} className="text-[10px] text-gray-500 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-full">#{tag}</span>
+                <span key={tag} className="text-[10px] text-gray-500 bg-gray-50 dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 px-2 py-0.5 rounded-full">#{tag}</span>
               ))}
             </div>
             <motion.h3
@@ -485,9 +599,9 @@ function UnifiedPublicationItem({ pub, engagement, view }: { pub: PublicationIte
               layoutId={`${layoutId}-title`}
               className={`${
                 view === "list"
-                  ? "font-serif text-2xl font-bold text-black mb-3 leading-tight line-clamp-2"
-                  : "font-serif text-xl font-bold text-black leading-tight mb-2 line-clamp-2"
-              } group-hover:text-black transition-colors`}
+                  ? "font-serif text-2xl font-bold text-black dark:text-white mb-3 leading-tight line-clamp-2"
+                  : "font-serif text-xl font-bold text-black dark:text-white leading-tight mb-2 line-clamp-2"
+              } transition-colors duration-300 group-hover:text-black dark:group-hover:text-white`}
             >
               {pub.title}
             </motion.h3>
@@ -502,43 +616,37 @@ function UnifiedPublicationItem({ pub, engagement, view }: { pub: PublicationIte
           
           <motion.div
             layout
-            className={`${
-              view === "list"
-                ? "flex flex-wrap items-center justify-between text-xs text-gray-500 font-medium tracking-wide mt-auto"
-                : "flex flex-col gap-3 mt-auto pt-4 border-t border-gray-100"
-            }`}
+            className="flex items-center justify-between gap-3 text-xs text-gray-500 font-medium tracking-wide mt-auto pt-3.5 border-t border-gray-100 dark:border-white/5"
           >
-            <div className="flex items-center gap-2">
-              <img src={avatarSrc(pub.author)} alt={pub.author.name} className="w-6 h-6 rounded-full object-cover border border-gray-200 shrink-0" />
-              <span className="truncate text-gray-700 font-bold">{pub.author.name}</span>
-              {view === "list" && (
-                <>
-                  <span className="w-1 h-1 rounded-full bg-gray-300"></span>
-                  <span className="uppercase text-[10px] font-bold text-gray-400">{pub.readingTime} min read</span>
-                </>
+            <div className="flex items-center gap-2 min-w-0">
+              <img
+                src={avatarSrc(pub.author, pub.alumniProfile, pub.authorName)}
+                alt={getAuthorDisplayName(pub)}
+                className="w-6 h-6 rounded-full object-cover border border-gray-200 dark:border-neutral-700 shrink-0"
+              />
+              <span className="truncate text-gray-700 dark:text-neutral-200 font-bold text-xs">
+                {getAuthorDisplayName(pub)}
+              </span>
+              {pub.alumniProfile && (
+                <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 shrink-0">
+                  Alumni
+                </span>
               )}
             </div>
-            
-            <div className={`flex items-center gap-3 text-[11px] text-gray-400 ${view === "list" ? "" : "justify-between w-full"}`}>
-              {view === "card" && (
-                <span className="flex items-center gap-1.5 uppercase font-bold text-[9px] text-gray-400">
-                  <Clock size={11} strokeWidth={2} /> {pub.readingTime} min
-                </span>
-              )}
-              <div className="flex items-center gap-3 ml-auto">
-                <LocalInteractionButton 
-                  icon={Heart} 
-                  count={engagement.likeCount} 
-                  active={engagement.hasLiked}
-                  disabled={engagement.pendingInteraction !== null}
-                  activeColor="text-red-500" 
-                  onInteract={engagement.toggleLike}
-                />
-                <span className="flex items-center gap-1.5">
-                  <MessageCircle size={12} strokeWidth={1.5} className="text-gray-400" />
-                  <span className="font-medium">{pub._count.comments}</span>
-                </span>
-              </div>
+
+            <div className="flex items-center gap-3 text-[11px] text-gray-400 shrink-0">
+              <LocalInteractionButton 
+                icon={Heart} 
+                count={engagement.likeCount} 
+                active={engagement.hasLiked}
+                disabled={engagement.pendingInteraction !== null}
+                activeColor="text-red-500" 
+                onInteract={engagement.toggleLike}
+              />
+              <span className="flex items-center gap-1.5">
+                <MessageCircle size={12} strokeWidth={1.5} className="text-gray-400" />
+                <span className="font-medium text-gray-600 dark:text-neutral-300">{pub._count.comments}</span>
+              </span>
             </div>
           </motion.div>
         </motion.div>
@@ -556,7 +664,7 @@ function Tab({ active, onClick, icon: Icon, label }: {
     <button
       onClick={onClick}
       className={cn(
-        "relative flex items-center gap-2 px-4 py-2 text-xs font-semibold uppercase tracking-wider transition-all rounded-full outline-none",
+        "relative flex items-center gap-2 px-4 py-2 text-xs font-semibold uppercase tracking-wider transition-all rounded-full outline-none cursor-pointer",
         active ? "text-white" : "text-gray-500 hover:text-black hover:bg-gray-100/50"
       )}
     >
@@ -588,24 +696,56 @@ function PublicationWrapper({ pub, view }: { pub: PublicationItem; view: ViewMod
   return <UnifiedPublicationItem pub={pub} engagement={engagement} view={view} />;
 }
 
+// ─── Exported ViewToggle ──────────────────────────────────────────────────
+
+export function ViewToggle({
+  view,
+  onChange,
+}: {
+  view: ViewMode;
+  onChange: (v: ViewMode) => void;
+}) {
+  return (
+    <div className="flex p-1 bg-gray-50 rounded-full w-fit border border-gray-200/50 gap-0.5">
+      <LayoutGroup id="collection-view-toggle-standalone">
+        <Tab active={view === "list"} onClick={() => onChange("list")} icon={List} label="List" />
+        <Tab active={view === "card"} onClick={() => onChange("card")} icon={LayoutGrid} label="Grid" />
+      </LayoutGroup>
+    </div>
+  );
+}
+
 // ─── Main export ──────────────────────────────────────────────────────────────
 
-export default function PublicationCollection({ publications }: { publications: PublicationItem[] }) {
-  const [view, setView] = useState<ViewMode>("list");
+export default function PublicationCollection({
+  publications,
+  view: controlledView,
+  onViewChange,
+}: {
+  publications: PublicationItem[];
+  view?: ViewMode;
+  onViewChange?: (view: ViewMode) => void;
+}) {
+  const [internalView, setInternalView] = useState<ViewMode>("list");
+  const view = controlledView ?? internalView;
+  const setView = onViewChange ?? setInternalView;
 
   return (
     <div className="w-full font-sans">
       <div className="flex flex-col gap-6">
 
-        {/* View toggle */}
-        <div className="flex p-1 bg-gray-50 rounded-full w-fit border border-gray-200/50 gap-0.5">
-          <LayoutGroup id="collection-view-toggle">
-            <Tab active={view === "list"} onClick={() => setView("list")} icon={List} label="List" />
-            <Tab active={view === "card"} onClick={() => setView("card")} icon={LayoutGrid} label="Grid" />
-          </LayoutGroup>
-        </div>
-
-        <div className="h-px bg-gray-100 w-full" />
+        {/* View toggle (only if not externally controlled) */}
+        {!controlledView && (
+          <>
+            <div className="flex p-1 bg-gray-50 rounded-full w-fit border border-gray-200/50 gap-0.5">
+              <LayoutGroup id="collection-view-toggle">
+                <Tab active={view === "list"} onClick={() => setView("list")} icon={List} label="List" />
+                <Tab active={view === "card"} onClick={() => setView("card")} icon={LayoutGrid} label="Grid" />
+              </LayoutGroup>
+            </div>
+            <div className="h-px bg-gray-100 w-full" />
+          </>
+        )}
 
         {/* Content */}
         <AnimatePresence mode="popLayout" initial={false}>

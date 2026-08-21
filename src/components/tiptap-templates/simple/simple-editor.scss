@@ -22,6 +22,33 @@
   min-height: 400px;
 }
 
+.tiptap-toolbar {
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+
+  @media screen and (max-width: 768px) {
+    max-width: calc(100vw - 2rem);
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+
+    .tiptap-toolbar-group {
+      flex: 0 0 auto;
+    }
+  }
+}
+
 .tiptap.ProseMirror {
   font-family: var(--font-serif);
 }
@@ -34,6 +61,35 @@
   display: flex;
   flex-direction: column;
   flex: 1;
+
+  .tiptap-image-upload {
+    width: 100% !important;
+    margin: 2.5rem 0 !important;
+
+    .tiptap-image-upload-drag-area {
+      width: 100% !important;
+      min-height: 240px;
+
+      @media (min-width: 768px) {
+        min-height: 320px;
+        padding: 5rem 3rem;
+      }
+    }
+  }
+
+  .tiptap-image,
+  .tiptap-image-container,
+  img.cursor-move,
+  .tiptap.ProseMirror img {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    max-height: 600px !important;
+    object-fit: cover !important;
+    border-radius: 1rem !important;
+    margin: 2rem 0 !important;
+    box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.08);
+  }
 }
 
 .simple-editor-content .tiptap.ProseMirror.simple-editor {
@@ -80,8 +136,8 @@
   .tiptap-toolbar {
     background-color: #ffffff;
     border: 1px solid #111111;
-    border-radius: 6px;
-    margin-bottom: 1.25rem;
+    border-radius: 9999px;
+    margin-bottom: 1.5rem;
     transition: all 0.2s ease;
 
     .dark & {
@@ -116,16 +172,16 @@
   }
 
   .tiptap-toolbar {
-    background-color: rgba(255, 255, 255, 0.8);
+    background-color: rgba(255, 255, 255, 0.85);
     border: 1px solid rgba(228, 228, 231, 0.8);
-    border-radius: 12px;
-    backdrop-filter: blur(12px);
+    border-radius: 9999px;
+    backdrop-filter: blur(16px);
     margin-bottom: 1.5rem;
-    box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.03);
+    box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.04);
     transition: all 0.2s ease;
 
     .dark & {
-      background-color: rgba(9, 9, 11, 0.8);
+      background-color: rgba(9, 9, 11, 0.85);
       border: 1px solid rgba(39, 39, 42, 0.8);
       box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.2);
     }
@@ -165,8 +221,8 @@
   .tiptap-toolbar {
     background-color: #fbf9f4;
     border: 1px solid #e8e1d5;
-    border-radius: 10px;
-    margin-bottom: 1.25rem;
+    border-radius: 9999px;
+    margin-bottom: 1.5rem;
     transition: all 0.2s ease;
 
     .dark & {

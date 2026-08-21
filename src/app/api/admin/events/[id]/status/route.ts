@@ -1,48 +1,56 @@
 // src/app/api/admin/events/[id]/status/route.ts
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { EventStatus } from '@prisma/client';
+import { requirePermission } from '@/lib/api-auth';
 
 export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { session, error } = await requirePermission('MANAGE_EVENTS');
+    if (error || !session) return error;
+
     const { id } = await params;
-    const session = await getServerSession(authOptions);
-    const role = session?.user?.role;
-
-    if (!session || (role !== 'MODERATOR' && role !== 'ADMIN')) {
-      return NextResponse.json({ error: 'Forbidden: Staff access only' }, { status: 403 });
-    }
-
     const { action } = await req.json();
 
-    if (action !== 'ARCHIVE' && action !== 'CANCEL') {
+    if (action !== 'ARCHIVE' && action !== 'CANCEL' && action !== 'UPCOMING' && action !== 'HOLD' && action !== 'UNHOLD') {
       return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
     }
 
     const event = await db.event.findUnique({
-      where: { id }
+      where: { id },
     });
 
     if (!event) {
       return NextResponse.json({ error: 'Event not found' }, { status: 404 });
     }
 
-    const newStatus = action === 'ARCHIVE' ? EventStatus.PAST : EventStatus.CANCELLED;
+    if (action === 'HOLD' || action === 'UNHOLD') {
+      const { parseEventFormConfig, serializeEventFormConfig } = await import('@/lib/event-form');
+      const formConfig = parseEventFormConfig(event.customFormFields, event.isCompetition);
+      formConfig.isOnHold = action === 'HOLD';
+      const updated = await db.event.update({
+        where: { id },
+        data: { customFormFields: serializeEventFormConfig(formConfig) },
+      });
+      return NextResponse.json({ success: true, event: updated });
+    }
+
+    let newStatus: EventStatus = EventStatus.UPCOMING;
+    if (action === 'ARCHIVE') newStatus = EventStatus.PAST;
+    if (action === 'CANCEL') newStatus = EventStatus.CANCELLED;
 
     const updated = await db.event.update({
       where: { id },
-      data: { status: newStatus }
+      data: { status: newStatus },
     });
 
     // Notify all registered users
     const registrations = await db.eventRegistration.findMany({
       where: { eventId: id },
-      select: { userId: true }
+      select: { userId: true },
     });
 
     if (registrations.length > 0) {
@@ -53,7 +61,8 @@ export async function PATCH(
           'EVENT_UPDATE',
           session.user.id,
           'EVENT',
-          id
+          id,
+          `Event status changed to ${newStatus}`
         );
       }
     }
@@ -61,6 +70,9 @@ export async function PATCH(
     return NextResponse.json({ success: true, event: updated });
   } catch (error: any) {
     console.error('Update event status error:', error);
-    return NextResponse.json({ error: 'Failed to update event status' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Failed to update event status' },
+      { status: 500 }
+    );
   }
 }

@@ -1,36 +1,37 @@
 // src/app/api/admin/library/issue-requests/[id]/route.ts
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { IssueRequestStatus, BookAvailabilityStatus } from '@prisma/client';
+import { requirePermission } from '@/lib/api-auth';
 
 export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { session, error } = await requirePermission('MANAGE_SHELF_LIBRARY');
+    if (error || !session) return error;
+
     const { id } = await params;
-    const session = await getServerSession(authOptions);
-    const role = session?.user?.role;
-
-    if (!session || role !== 'ADMIN') {
-      return NextResponse.json({ error: 'Forbidden: Admin access only' }, { status: 403 });
-    }
-
     const { action, adminNote, dueDate } = await req.json();
 
     if (action !== 'APPROVE' && action !== 'REJECT' && action !== 'RETURN') {
-      return NextResponse.json({ error: 'Invalid loan status action' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Invalid loan status action' },
+        { status: 400 }
+      );
     }
 
     const request = await db.issueRequest.findUnique({
       where: { id },
-      include: { book: true }
+      include: { book: true },
     });
 
     if (!request) {
-      return NextResponse.json({ error: 'Issue request not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Issue request not found' },
+        { status: 404 }
+      );
     }
 
     // Run transaction
@@ -44,9 +45,8 @@ export async function PATCH(
           throw new Error('Only PENDING requests can be approved');
         }
 
-        // Check if there are available copies in stock
         const currentBook = await tx.book.findUnique({
-          where: { id: request.bookId }
+          where: { id: request.bookId },
         });
 
         if (!currentBook) {
@@ -54,25 +54,25 @@ export async function PATCH(
         }
 
         if (currentBook.issuedCopies >= currentBook.totalCopies) {
-          throw new Error(`Cannot approve: All ${currentBook.totalCopies} copies of "${currentBook.title}" are currently checked out.`);
+          throw new Error(
+            `Cannot approve: All ${currentBook.totalCopies} copies of "${currentBook.title}" are currently checked out.`
+          );
         }
 
         targetStatus = IssueRequestStatus.APPROVED;
         issueDate = new Date();
 
-        // Increment issuedCopies on book
         const book = await tx.book.update({
           where: { id: request.bookId },
           data: {
-            issuedCopies: { increment: 1 }
-          }
+            issuedCopies: { increment: 1 },
+          },
         });
 
-        // Toggle availabilityStatus to ISSUED if at capacity
         if (book.issuedCopies >= book.totalCopies) {
           await tx.book.update({
             where: { id: request.bookId },
-            data: { availabilityStatus: BookAvailabilityStatus.ISSUED }
+            data: { availabilityStatus: BookAvailabilityStatus.ISSUED },
           });
         }
       } else if (action === 'REJECT') {
@@ -87,19 +87,17 @@ export async function PATCH(
         targetStatus = IssueRequestStatus.RETURNED;
         returnDate = new Date();
 
-        // Decrement issuedCopies on book
         const book = await tx.book.update({
           where: { id: request.bookId },
           data: {
-            issuedCopies: { decrement: 1 }
-          }
+            issuedCopies: { decrement: 1 },
+          },
         });
 
-        // Set status back to AVAILABLE if below capacity
         if (book.issuedCopies < book.totalCopies) {
           await tx.book.update({
             where: { id: request.bookId },
-            data: { availabilityStatus: BookAvailabilityStatus.AVAILABLE }
+            data: { availabilityStatus: BookAvailabilityStatus.AVAILABLE },
           });
         }
       }
@@ -110,11 +108,12 @@ export async function PATCH(
           status: targetStatus,
           issueDate,
           returnDate,
-          dueDate: action === 'APPROVE' && dueDate ? new Date(dueDate) : undefined,
+          dueDate:
+            action === 'APPROVE' && dueDate ? new Date(dueDate) : undefined,
           adminNote: adminNote || request.adminNote,
           approverId: action === 'APPROVE' ? session.user.id : undefined,
-          returnerId: action === 'RETURN' ? session.user.id : undefined
-        }
+          returnerId: action === 'RETURN' ? session.user.id : undefined,
+        },
       });
 
       return updatedRequest;
@@ -145,6 +144,9 @@ export async function PATCH(
     return NextResponse.json({ success: true, request: updated });
   } catch (error: any) {
     console.error('Update issue request status error:', error);
-    return NextResponse.json({ error: error.message || 'Failed to update request' }, { status: 500 });
+    return NextResponse.json(
+      { error: error.message || 'Failed to update request' },
+      { status: 500 }
+    );
   }
 }

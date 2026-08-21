@@ -1,0 +1,4 @@
+ALTER TABLE "Event" ADD COLUMN IF NOT EXISTS "internalReportUrl" TEXT;
+ALTER TABLE "Event" ADD COLUMN IF NOT EXISTS "externalReportUrl" TEXT;
+ALTER TABLE "Event" ADD COLUMN IF NOT EXISTS "internalGalleryUrl" TEXT;
+ALTER TABLE "Event" ADD COLUMN IF NOT EXISTS "externalGalleryUrl" TEXT;

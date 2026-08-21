@@ -16,11 +16,17 @@ export interface BookData {
   motif?: string; // procedural foil motif (lattice, orbit, circuit, etc.)
   foilColor?: string; // metallic foil stamp color (gold, bronze, silver)
   synopsis: string; // 1–2 sentences for buy panel
-  excerpt: string; // famous quote, ≤22 words, printed on inside page
+  excerpt: string; // famous quote printed on inside page
   retailers: Retailer[]; // displayed in buy panel
   width: number; // world units; mix 1.85–2.05 for variety
   height: number; // world units; 2.85 (paperback) → 3.30 (oversized hardback)
   spineThickness: number; // world units; 0.30 (slim) → 0.58 (brick)
+  categoryBadge?: string; // e.g. "READ OF THE WEEK · FEB 2025"
+  leftPageHeader?: string; // e.g. "FROM THE SHELF OF EXCELSIOR"
+  rightPageOrnament?: string; // e.g. "— § —"
+  readButtonText?: string; // e.g. "READ PUBLICATION"
+  readLink?: string; // direct publication or shop URL
+  language?: 'en' | 'hi'; // language template
 }
 
 // ── Shelf Layout Constants ───────────────────────────────────────────────────
@@ -36,8 +42,8 @@ export const OPEN_POS_Z = 2.4; // forward of shelf so the open book reads larger
 export const OPEN_ANGLE = Math.PI * 0.8; // 144° front-cover swing (80% of fully flat)
 export const OPEN_TILT_X = -0.26; // backward tilt (rad) of the open book
 
-export const OPEN_DURATION = 1.85; // seconds for the open animation
-export const CLOSE_DURATION = 1.0;
+export const OPEN_DURATION = 1.75; // seconds for the open animation
+export const CLOSE_DURATION = 1.3;
 
 // ── Other-books Retreat During Open ──────────────────────────────────────────
 export const FALL_DEPTH = 3.2; // world units other books recede into -Z
@@ -63,7 +69,7 @@ export const INITIAL_INDEX = 5; // floor(12/2) - 1 => book index 5 (6th book)
 
 // ── Mobile Open ─────────────────────────────────────────────────────────────
 export const MOBILE_OPEN_POS_X = 0.8; // cancels the spread's natural ~0.8-unit leftward drift
-export const MOBILE_OPEN_POS_Y = -0.25; // book TOP at ~86px from viewport top
+export const MOBILE_OPEN_POS_Y = 0.05; // book TOP positioned higher for spacious mobile reading room
 export const MOBILE_OPEN_POS_Z = -1.5; // pushed back so spread fills ~90% of portrait viewport width
 
 // ── Book Mesh ───────────────────────────────────────────────────────────────

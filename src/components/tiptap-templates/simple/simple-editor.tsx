@@ -50,7 +50,7 @@ import "@/components/tiptap-node/paragraph-node/paragraph-node.scss"
 
 // --- Tiptap UI ---
 import { HeadingDropdownMenu } from "@/components/tiptap-ui/heading-dropdown-menu"
-import { ImageUploadButton } from "@/components/tiptap-ui/image-upload-button"
+import { ImageUploadButton, insertImage } from "@/components/tiptap-ui/image-upload-button"
 import { ListDropdownMenu } from "@/components/tiptap-ui/list-dropdown-menu"
 import { BlockquoteButton } from "@/components/tiptap-ui/blockquote-button"
 import { CodeBlockButton } from "@/components/tiptap-ui/code-block-button"
@@ -87,7 +87,16 @@ import {
   ListOrdered,
   ListTodo,
   Ban,
-  Bold
+  Bold,
+  MoreHorizontal,
+  Plus,
+  Type,
+  Image as ImageIcon,
+  Quote,
+  Minus,
+  Check,
+  Underline as UnderlineIcon,
+  Strikethrough as StrikeIcon
 } from "lucide-react"
 
 // --- UI Primitives ---
@@ -180,6 +189,9 @@ const MainToolbarContent = ({
   const [lastColor, setLastColor] = useState<string>('var(--tt-color-highlight-yellow)')
   const [isHighContrast, setIsHighContrast] = useState<boolean>(false)
 
+  const [moreFormatOpen, setMoreFormatOpen] = useState(false)
+  const [insertOpen, setInsertOpen] = useState(false)
+
   useEffect(() => {
     if (!editor) return
 
@@ -260,10 +272,273 @@ const MainToolbarContent = ({
     }
   }
 
+  // Super-Intelligent UX: 100% Zero-Drag 1-Screen Mobile Toolbar
+  if (isMobile) {
+    return (
+      <div className="flex items-center justify-between w-full px-1 py-0.5 select-none">
+        {/* 1. History (Undo / Redo) */}
+        <div className="flex items-center gap-0.5 shrink-0">
+          <UndoRedoButton action="undo" />
+          <UndoRedoButton action="redo" />
+        </div>
+
+        <div className="h-4 w-px bg-gray-200 dark:bg-white/15 shrink-0" />
+
+        {/* 2. Text Hierarchy / Headings Dropdown (Compact H ⌵) */}
+        <DropdownMenu open={headingOpen} onOpenChange={setHeadingOpen}>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              className="flex items-center justify-center gap-0.5 w-8 h-8 p-0 rounded-lg bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/15 text-slate-800 dark:text-neutral-200 transition-all active:scale-95 cursor-pointer shrink-0"
+              title="Heading & Typography"
+            >
+              <span className="font-serif font-bold text-xs">H</span>
+              <ChevronDownIcon className="w-2.5 h-2.5 opacity-50 shrink-0 -ml-0.5" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-52 p-1.5 bg-white/95 dark:bg-neutral-900/95 backdrop-blur-2xl border border-gray-200/80 dark:border-neutral-800 rounded-2xl shadow-2xl z-50">
+            <div className="text-[9px] uppercase tracking-wider font-bold text-gray-400 dark:text-neutral-500 px-3 py-1.5">Heading Style</div>
+            <DropdownMenuItem asChild>
+              <Button
+                variant="ghost"
+                className="w-full justify-between text-xs font-bold py-2 px-3 rounded-xl cursor-pointer"
+                data-active-state={editor.isActive('heading', { level: 1 }) ? "on" : "off"}
+                onClick={() => { editor.chain().focus().toggleHeading({ level: 1 }).run(); setHeadingOpen(false); }}
+              >
+                <span>Title (Heading 1)</span>
+                {editor.isActive('heading', { level: 1 }) && <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0 ml-2" />}
+              </Button>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Button
+                variant="ghost"
+                className="w-full justify-between text-xs font-semibold py-2 px-3 rounded-xl cursor-pointer"
+                data-active-state={editor.isActive('heading', { level: 2 }) ? "on" : "off"}
+                onClick={() => { editor.chain().focus().toggleHeading({ level: 2 }).run(); setHeadingOpen(false); }}
+              >
+                <span>Big (Heading 2)</span>
+                {editor.isActive('heading', { level: 2 }) && <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0 ml-2" />}
+              </Button>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Button
+                variant="ghost"
+                className="w-full justify-between text-xs font-medium py-2 px-3 rounded-xl cursor-pointer"
+                data-active-state={editor.isActive('heading', { level: 3 }) ? "on" : "off"}
+                onClick={() => { editor.chain().focus().toggleHeading({ level: 3 }).run(); setHeadingOpen(false); }}
+              >
+                <span>Medium (Heading 3)</span>
+                {editor.isActive('heading', { level: 3 }) && <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0 ml-2" />}
+              </Button>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Button
+                variant="ghost"
+                className="w-full justify-between text-xs py-2 px-3 rounded-xl cursor-pointer"
+                data-active-state={(!editor.isActive('heading') || editor.isActive('paragraph')) ? "on" : "off"}
+                onClick={() => { editor.chain().focus().setParagraph().run(); setHeadingOpen(false); }}
+              >
+                <span>Body Paragraph</span>
+                {(!editor.isActive('heading') || editor.isActive('paragraph')) && <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0 ml-2" />}
+              </Button>
+            </DropdownMenuItem>
+
+            <div className="h-px bg-gray-100 dark:bg-neutral-800 my-1.5 mx-1" />
+            <div className="text-[9px] uppercase tracking-wider font-bold text-gray-400 dark:text-neutral-500 px-3 py-1.5">Font Family</div>
+            <DropdownMenuItem asChild>
+              <Button
+                variant="ghost"
+                className="w-full justify-between text-xs py-2 px-3 rounded-xl cursor-pointer"
+                data-active-state={!editor.getAttributes('textStyle').fontFamily ? "on" : "off"}
+                onClick={() => { editor.chain().focus().unsetFontFamily().run(); setHeadingOpen(false); }}
+              >
+                <span>Inter (Sans)</span>
+                {!editor.getAttributes('textStyle').fontFamily && <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0 ml-2" />}
+              </Button>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Button
+                variant="ghost"
+                className="w-full justify-between text-xs py-2 px-3 font-serif rounded-xl cursor-pointer"
+                data-active-state={editor.getAttributes('textStyle').fontFamily?.includes('Playfair') ? "on" : "off"}
+                onClick={() => { editor.chain().focus().setFontFamily('Playfair Display, serif').run(); setHeadingOpen(false); }}
+              >
+                <span>Playfair (Serif)</span>
+                {editor.getAttributes('textStyle').fontFamily?.includes('Playfair') && <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0 ml-2" />}
+              </Button>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <div className="h-4 w-px bg-gray-200 dark:bg-white/15 shrink-0" />
+
+        {/* 3. Core Inline Styling (Bold, Italic, Direct Highlight) */}
+        <div className="flex items-center gap-0.5 shrink-0">
+          <Button
+            variant="ghost"
+            className={`w-7.5 h-7.5 p-0 rounded-lg transition-all active:scale-90 cursor-pointer ${
+              editor.isActive('bold')
+                ? 'bg-black text-white dark:bg-white dark:text-black font-bold shadow-xs'
+                : 'text-gray-700 dark:text-neutral-300 hover:bg-black/5 dark:hover:bg-white/10'
+            }`}
+            onClick={() => editor.chain().focus().toggleBold().run()}
+            title="Bold"
+          >
+            <Bold className="w-3.5 h-3.5" />
+          </Button>
+          <Button
+            variant="ghost"
+            className={`w-7.5 h-7.5 p-0 rounded-lg transition-all active:scale-90 cursor-pointer ${
+              editor.isActive('italic')
+                ? 'bg-black text-white dark:bg-white dark:text-black font-bold shadow-xs'
+                : 'text-gray-700 dark:text-neutral-300 hover:bg-black/5 dark:hover:bg-white/10'
+            }`}
+            onClick={() => editor.chain().focus().toggleItalic().run()}
+            title="Italic"
+          >
+            <span className="italic font-serif font-bold text-xs">I</span>
+          </Button>
+          <Button
+            variant="ghost"
+            className={`w-7.5 h-7.5 p-0 rounded-lg transition-all active:scale-90 cursor-pointer ${
+              isHighlighted
+                ? 'bg-amber-400/20 text-amber-600 dark:text-amber-300 ring-1 ring-amber-400/40'
+                : 'text-gray-700 dark:text-neutral-300 hover:bg-black/5 dark:hover:bg-white/10'
+            }`}
+            onClick={handleColorLeftClick}
+            title="Highlight"
+          >
+            <HighlighterIcon className="w-3.5 h-3.5" />
+          </Button>
+        </div>
+
+        <div className="h-4 w-px bg-gray-200 dark:bg-white/15 shrink-0" />
+
+        {/* 4. Direct 1-Tap List Toggle */}
+        <Button
+          variant="ghost"
+          className={`w-7.5 h-7.5 p-0 rounded-lg transition-all active:scale-90 cursor-pointer shrink-0 ${
+            isAnyListActive
+              ? 'bg-black text-white dark:bg-white dark:text-black font-bold shadow-xs'
+              : 'text-gray-700 dark:text-neutral-300 hover:bg-black/5 dark:hover:bg-white/10'
+          }`}
+          onClick={handleListLeftClick}
+          title="Bullet List"
+        >
+          <ListIcon className="w-3.5 h-3.5" />
+        </Button>
+
+        {/* 5. Dynamic Alignment Dropdown */}
+        <DropdownMenu open={alignOpen} onOpenChange={setAlignOpen}>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              className={`w-7.5 h-7.5 p-0 rounded-lg transition-all active:scale-90 cursor-pointer shrink-0 ${
+                isAligned
+                  ? 'bg-black/10 dark:bg-white/15 text-black dark:text-white font-semibold'
+                  : 'text-gray-700 dark:text-neutral-300 hover:bg-black/5 dark:hover:bg-white/10'
+              }`}
+              title="Text Alignment"
+            >
+              <AlignIcon className="w-3.5 h-3.5" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="center" className="w-44 p-1.5 bg-white/95 dark:bg-neutral-900/95 backdrop-blur-2xl border border-gray-200/80 dark:border-neutral-800 rounded-2xl shadow-2xl z-50">
+            <DropdownMenuItem asChild>
+              <Button variant="ghost" className="w-full justify-between text-xs py-2 px-3 rounded-xl cursor-pointer" onClick={() => { editor.chain().focus().setTextAlign('left').run(); setAlignOpen(false); }}>
+                <span className="flex items-center gap-2.5"><AlignLeft className="w-3.5 h-3.5" /> Align Left</span>
+                {isLeftAligned && <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0 ml-2" />}
+              </Button>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Button variant="ghost" className="w-full justify-between text-xs py-2 px-3 rounded-xl cursor-pointer" onClick={() => { editor.chain().focus().setTextAlign('center').run(); setAlignOpen(false); }}>
+                <span className="flex items-center gap-2.5"><AlignCenter className="w-3.5 h-3.5" /> Align Center</span>
+                {isCenterAligned && <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0 ml-2" />}
+              </Button>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Button variant="ghost" className="w-full justify-between text-xs py-2 px-3 rounded-xl cursor-pointer" onClick={() => { editor.chain().focus().setTextAlign('right').run(); setAlignOpen(false); }}>
+                <span className="flex items-center gap-2.5"><AlignRight className="w-3.5 h-3.5" /> Align Right</span>
+                {isRightAligned && <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0 ml-2" />}
+              </Button>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Button variant="ghost" className="w-full justify-between text-xs py-2 px-3 rounded-xl cursor-pointer" onClick={() => { editor.chain().focus().setTextAlign('justify').run(); setAlignOpen(false); }}>
+                <span className="flex items-center gap-2.5"><AlignJustify className="w-3.5 h-3.5" /> Justify</span>
+                {isJustifyAligned && <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0 ml-2" />}
+              </Button>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        {/* 6. More Formats & Media Insert Dropdown */}
+        <DropdownMenu open={moreFormatOpen} onOpenChange={setMoreFormatOpen}>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              className="w-7.5 h-7.5 p-0 rounded-lg bg-black dark:bg-white text-white dark:text-black hover:opacity-90 active:scale-90 flex items-center justify-center shadow-sm transition-all cursor-pointer shrink-0"
+              title="More Options & Insert"
+            >
+              <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56 p-2 bg-white/95 dark:bg-neutral-900/95 backdrop-blur-2xl border border-gray-200/80 dark:border-neutral-800 rounded-2xl shadow-2xl z-50">
+            <div className="text-[9px] uppercase tracking-wider font-bold text-gray-400 dark:text-neutral-500 px-3 py-1">Insert Blocks</div>
+            <DropdownMenuItem asChild>
+              <Button variant="ghost" className="w-full justify-start text-xs py-2 px-3 rounded-xl flex items-center gap-2.5 cursor-pointer" onClick={() => { insertImage(editor); setMoreFormatOpen(false); }}>
+                <ImageIcon className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> Insert Image
+              </Button>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Button variant="ghost" className="w-full justify-start text-xs py-2 px-3 rounded-xl flex items-center gap-2.5 cursor-pointer" onClick={() => { onLinkClick(); setMoreFormatOpen(false); }}>
+                <LinkIcon className="w-3.5 h-3.5 text-blue-500 shrink-0" /> Add Hyperlink
+              </Button>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Button variant="ghost" className="w-full justify-start text-xs py-2 px-3 rounded-xl flex items-center gap-2.5 cursor-pointer" onClick={() => { editor.chain().focus().toggleBlockquote().run(); setMoreFormatOpen(false); }}>
+                <Quote className="w-3.5 h-3.5 text-purple-500 shrink-0" /> Quote Block
+              </Button>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Button variant="ghost" className="w-full justify-start text-xs py-2 px-3 rounded-xl flex items-center gap-2.5 cursor-pointer" onClick={() => { editor.chain().focus().setHorizontalRule().run(); setMoreFormatOpen(false); }}>
+                <Minus className="w-3.5 h-3.5 text-gray-400 shrink-0" /> Divider Line
+              </Button>
+            </DropdownMenuItem>
+
+            <div className="h-px bg-gray-100 dark:bg-neutral-800 my-1.5 mx-1" />
+            <div className="text-[9px] uppercase tracking-wider font-bold text-gray-400 dark:text-neutral-500 px-3 py-1">Additional Styles</div>
+            <DropdownMenuItem asChild>
+              <Button variant="ghost" className="w-full justify-between text-xs py-2 px-3 rounded-xl cursor-pointer" data-active-state={editor.isActive('underline') ? "on" : "off"} onClick={() => { editor.chain().focus().toggleUnderline().run(); setMoreFormatOpen(false); }}>
+                <span className="flex items-center gap-2.5"><UnderlineIcon className="w-3.5 h-3.5 shrink-0" /> Underline</span>
+                {editor.isActive('underline') && <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0 ml-2" />}
+              </Button>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Button variant="ghost" className="w-full justify-between text-xs py-2 px-3 rounded-xl cursor-pointer" data-active-state={editor.isActive('strike') ? "on" : "off"} onClick={() => { editor.chain().focus().toggleStrike().run(); setMoreFormatOpen(false); }}>
+                <span className="flex items-center gap-2.5"><StrikeIcon className="w-3.5 h-3.5 shrink-0" /> Strikethrough</span>
+                {editor.isActive('strike') && <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0 ml-2" />}
+              </Button>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Button variant="ghost" className="w-full justify-between text-xs py-2 px-3 rounded-xl cursor-pointer" data-active-state={isOrderedActive ? "on" : "off"} onClick={() => { editor.chain().focus().toggleOrderedList().run(); setMoreFormatOpen(false); }}>
+                <span className="flex items-center gap-2.5"><ListOrdered className="w-3.5 h-3.5 shrink-0" /> Numbered List</span>
+                {isOrderedActive && <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0 ml-2" />}
+              </Button>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Button variant="ghost" className="w-full justify-between text-xs py-2 px-3 rounded-xl cursor-pointer" data-active-state={isTaskActive ? "on" : "off"} onClick={() => { editor.chain().focus().toggleTaskList().run(); setMoreFormatOpen(false); }}>
+                <span className="flex items-center gap-2.5"><ListTodo className="w-3.5 h-3.5 shrink-0" /> Task Checklist</span>
+                {isTaskActive && <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0 ml-2" />}
+              </Button>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    );
+  }
+
   return (
     <>
-      <Spacer />
-
       <ToolbarGroup>
         <UndoRedoButton action="undo" />
         <UndoRedoButton action="redo" />
@@ -670,8 +945,6 @@ const MainToolbarContent = ({
       <ToolbarGroup>
         <ImageUploadButton />
       </ToolbarGroup>
-
-      <Spacer />
     </>
   )
 }
@@ -824,13 +1097,7 @@ export function SimpleEditor({
         {isEditable && (
           <Toolbar
             ref={toolbarRef}
-            style={{
-              ...(isMobile
-                ? {
-                    bottom: `calc(100% - ${height - rect.y}px)`,
-                  }
-                : {}),
-            }}
+            variant={isMobile ? "fixed" : "floating"}
           >
             {mobileView === "main" ? (
               <MainToolbarContent

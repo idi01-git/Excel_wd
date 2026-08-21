@@ -46,19 +46,19 @@ export default function CommentInput({
         placeholder={placeholder}
         rows={content.length > 0 ? 3 : 1}
         disabled={loading}
-        className="w-full bg-transparent border-0 border-b border-gray-200 px-0 py-2 text-black text-sm outline-none focus:border-black focus:ring-0 transition-colors resize-none overflow-hidden placeholder:text-gray-400"
+        className="w-full bg-transparent border-0 border-b border-neutral-200 dark:border-neutral-700 px-0 py-2 text-neutral-900 dark:text-neutral-100 text-sm outline-none focus:border-neutral-950 dark:focus:border-neutral-100 focus:ring-0 transition-colors resize-none overflow-hidden placeholder:text-neutral-400 dark:placeholder:text-neutral-500"
       />
       
       {/* Controls reveal when there is content or focus */}
       <div className={`flex justify-between items-center mt-2 transition-opacity duration-300 ${content.length > 0 ? 'opacity-100' : 'opacity-0 pointer-events-none group-focus-within:opacity-100 group-focus-within:pointer-events-auto'}`}>
-        <span className="text-[10px] text-gray-400 font-medium">Markdown supported (*italic*, **bold**, ~~strikethrough~~)</span>
+        <span className="text-[10px] text-muted-foreground font-medium">Markdown supported (*italic*, **bold**, ~~strikethrough~~)</span>
         <div className="flex gap-2">
           {onCancel && (
             <button
               type="button"
               onClick={onCancel}
               disabled={loading}
-              className="py-1.5 px-4 bg-transparent hover:bg-gray-100 rounded-full text-xs text-gray-500 font-bold transition"
+              className="py-1.5 px-4 bg-transparent hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-full text-xs text-neutral-600 dark:text-neutral-400 font-bold transition cursor-pointer"
             >
               {cancelLabel}
             </button>
@@ -66,7 +66,7 @@ export default function CommentInput({
           <button
             type="submit"
             disabled={!content.trim() || loading}
-            className="py-1.5 px-5 bg-black hover:bg-gray-900 disabled:opacity-50 disabled:cursor-not-allowed rounded-full text-xs text-white font-bold shadow-sm transition"
+            className="py-1.5 px-5 bg-neutral-950 dark:bg-white hover:bg-neutral-800 dark:hover:bg-neutral-200 disabled:opacity-50 disabled:cursor-not-allowed rounded-full text-xs text-white dark:text-neutral-950 font-bold shadow-sm transition cursor-pointer"
           >
             {loading ? 'Posting...' : submitLabel}
           </button>

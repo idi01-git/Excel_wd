@@ -1,12 +1,14 @@
+// src/components/sections/hardback/HardbackScene.tsx
 'use client';
 
-import React, { useRef, useEffect, Suspense } from 'react';
-import * as THREE from 'three';
+import React, { useRef, Suspense, useEffect } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { ContactShadows, Environment, Lightformer } from '@react-three/drei';
+import * as THREE from 'three';
 import { Book } from './Book';
 import {
   BOOKS,
+  BookData,
   SHELF_PITCH,
   COVER_PADDING,
   COVER_Z_LIFT,
@@ -14,28 +16,32 @@ import {
   OPEN_POS_X,
   OPEN_POS_Y,
   OPEN_POS_Z,
-  MOBILE_OPEN_POS_X,
-  MOBILE_OPEN_POS_Y,
-  MOBILE_OPEN_POS_Z,
   OPEN_ANGLE,
   OPEN_TILT_X,
   FALL_DEPTH,
-  SHELF_OPEN_Z,
   SHELF_OPEN_Y,
+  SHELF_OPEN_Z,
   SLIDER_APPROACH,
-  ENTRANCE_DURATION,
-  ENTRANCE_STAGGER,
-  ENTRY_FROM_X,
-  ENTRY_FROM_Y_OFFSET,
-  ENTRY_FROM_Z,
 } from './hardback-data';
 
+// Responsive offsets for mobile
+const MOBILE_OPEN_POS_X = -0.05;
+const MOBILE_OPEN_POS_Y = -1.25;
+const MOBILE_OPEN_POS_Z = 1.35;
+
+// Constants for entrance animation
+const ENTRANCE_DURATION = 2.0;
+const ENTRANCE_STAGGER = 0.055;
+const ENTRY_FROM_X = 14;
+const ENTRY_FROM_Z = -5;
+const ENTRY_FROM_Y_OFFSET = 0.6;
+
 // ── Math & Easing Helpers ───────────────────────────────────────────────────
-const clamp01 = (x: number) => (x < 0 ? 0 : x > 1 ? 1 : x);
+const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
 const easeInOutSine = (t: number) => -(Math.cos(Math.PI * t) - 1) / 2;
-const easeOutQuart = (t: number) => 1 - Math.pow(1 - t, 4);
 const easeInOutCubic = (t: number) =>
   t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+const easeOutQuart = (t: number) => 1 - Math.pow(1 - t, 4);
 const smoothstep = (t: number, a: number, b: number) => {
   const x = clamp01((t - a) / (b - a));
   return x * x * (3 - 2 * x);
@@ -45,8 +51,8 @@ const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 /**
  * Continuous shelf layout with fractional coverness
  */
-function layoutShelf(position: number) {
-  const N = BOOKS.length;
+function layoutShelf(position: number, books: BookData[] = BOOKS) {
+  const N = books.length;
   const widths: number[] = [];
   const cov: number[] = [];
 
@@ -54,7 +60,7 @@ function layoutShelf(position: number) {
     const relP = i - position;
     const c = Math.max(0, 1 - Math.abs(relP));
     cov.push(c);
-    const expanded = BOOKS[i].width + COVER_PADDING;
+    const expanded = books[i].width + COVER_PADDING;
     widths.push(SHELF_PITCH + (expanded - SHELF_PITCH) * c);
   }
 
@@ -68,7 +74,7 @@ function layoutShelf(position: number) {
   const frac = position - lo;
   const safeLo = Math.max(0, Math.min(N - 1, lo));
   const safeHi = Math.max(0, Math.min(N - 1, hi));
-  const anchor = lerp(centres[safeLo], centres[safeHi], frac);
+  const anchor = lerp(centres[safeLo] || 0, centres[safeHi] || centres[safeLo] || 0, frac);
 
   return {
     centres,
@@ -80,13 +86,23 @@ function layoutShelf(position: number) {
 /**
  * Recursively applies opacity to meshes in a group
  */
+/**
+ * Recursively applies opacity to meshes in a group and fades shadows
+ */
 function applyGroupOpacity(group: THREE.Group, opacity: number) {
+  const isHidden = opacity <= 0.01;
+  group.visible = !isHidden;
   group.traverse((obj) => {
-    if (obj instanceof THREE.Mesh && obj.material) {
-      const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
-      for (const m of mats) {
-        if (m && 'opacity' in m) {
-          (m as any).opacity = opacity;
+    if (obj instanceof THREE.Mesh) {
+      // Disable shadow casting as soon as the book begins receding and fading
+      obj.castShadow = opacity > 0.5;
+      if (obj.material) {
+        const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+        for (const m of mats) {
+          if (m && 'opacity' in m) {
+            (m as any).opacity = opacity;
+            (m as any).transparent = true;
+          }
         }
       }
     }
@@ -170,6 +186,7 @@ function StudioLights({ isDark }: { isDark: boolean }) {
 
 // ── Book Manager with Single Frame Loop ──────────────────────────────────────
 interface BookManagerProps {
+  books: BookData[];
   positionRef: React.MutableRefObject<number>;
   targetRef: React.MutableRefObject<number>;
   modeRef: React.MutableRefObject<string>;
@@ -184,6 +201,7 @@ interface BookManagerProps {
 }
 
 function BookManager({
+  books,
   positionRef,
   targetRef,
   modeRef,
@@ -196,7 +214,7 @@ function BookManager({
   shelfGroupRef,
   isMobile,
 }: BookManagerProps) {
-  const N = BOOKS.length;
+  const N = books.length;
   const hoverProgressRef = useRef<number[]>(new Array(N).fill(0));
 
   useFrame(() => {
@@ -219,7 +237,7 @@ function BookManager({
     }
 
     const currentPos = positionRef.current;
-    const { centres, covernesses, anchor } = layoutShelf(currentPos);
+    const { centres, covernesses, anchor } = layoutShelf(currentPos, books);
 
     // Target coordinates for open book
     const openX = isMobile ? MOBILE_OPEN_POS_X : OPEN_POS_X;
@@ -232,7 +250,7 @@ function BookManager({
       const pivot = pivotRefs.current[i];
       if (!g) continue;
 
-      const book = BOOKS[i];
+      const book = books[i];
       const cov = covernesses[i];
       const shelfX = centres[i] - anchor;
       const shelfY = book.height / 2 + SHELF_Y;
@@ -330,6 +348,7 @@ function BookManager({
           : 0;
       const eased = easeInOutCubic(t);
       sg.position.set(0, SHELF_OPEN_Y * eased, SHELF_OPEN_Z * eased);
+      sg.visible = t < 0.95;
     }
   });
 
@@ -338,6 +357,7 @@ function BookManager({
 
 // ── HardbackScene Component ─────────────────────────────────────────────────
 export interface HardbackSceneProps {
+  books?: BookData[];
   isDark: boolean;
   isMobile: boolean;
   positionRef: React.MutableRefObject<number>;
@@ -353,6 +373,7 @@ export interface HardbackSceneProps {
 }
 
 export const HardbackScene: React.FC<HardbackSceneProps> = ({
+  books = BOOKS,
   isDark,
   isMobile,
   positionRef,
@@ -369,6 +390,8 @@ export const HardbackScene: React.FC<HardbackSceneProps> = ({
   const groupRefs = useRef<(THREE.Group | null)[]>([]);
   const pivotRefs = useRef<(THREE.Group | null)[]>([]);
   const shelfGroupRef = useRef<THREE.Group>(null!);
+
+  const activeBooks = books && books.length > 0 ? books : BOOKS;
 
   return (
     <Canvas
@@ -441,6 +464,7 @@ export const HardbackScene: React.FC<HardbackSceneProps> = ({
         </group>
 
         <BookManager
+          books={activeBooks}
           positionRef={positionRef}
           targetRef={targetRef}
           modeRef={modeRef}
@@ -454,9 +478,9 @@ export const HardbackScene: React.FC<HardbackSceneProps> = ({
           isMobile={isMobile}
         />
 
-        {BOOKS.map((book, i) => (
+        {activeBooks.map((book, i) => (
           <Book
-            key={book.id}
+            key={book.id || `book-${i}`}
             book={book}
             groupRef={(g) => {
               groupRefs.current[i] = g;

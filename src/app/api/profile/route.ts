@@ -18,7 +18,7 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { name, username, bio, profilePhoto } = await req.json();
+    const { name, username, bio, profilePhoto, socialLinks, showSocialLinks } = await req.json();
 
     // Field Validations
     if (!name || name.trim().length === 0) {
@@ -32,9 +32,9 @@ export async function PUT(req: Request) {
     const cleanUsername = username.trim().toLowerCase();
 
     // Username regex check (letters, numbers, underscore)
-    if (!/^[a-zA-Z0-9_]+$/.test(cleanUsername)) {
+    if (!/^[a-zA-Z0-9_]{3,20}$/.test(cleanUsername)) {
       return NextResponse.json(
-        { error: 'Username can only contain letters, numbers, and underscores' },
+        { error: 'Username must be 3-20 characters and contain only letters, numbers, and underscores' },
         { status: 400 }
       );
     }
@@ -44,7 +44,7 @@ export async function PUT(req: Request) {
       const existingUser = await db.user.findUnique({
         where: { username: cleanUsername },
       });
-      if (existingUser) {
+      if (existingUser && existingUser.id !== (session.user as any).id) {
         return NextResponse.json({ error: 'Username is already taken' }, { status: 400 });
       }
     }
@@ -53,44 +53,42 @@ export async function PUT(req: Request) {
 
     // Handle Cloudinary upload if a base64 string is sent
     if (profilePhoto && profilePhoto.startsWith('data:image/')) {
-      // Validate file size (under 500KB)
+      // Validate file size (under 2MB)
       const base64Length = profilePhoto.length - (profilePhoto.indexOf(',') + 1);
       const sizeInBytes = (base64Length * 3) / 4;
-      if (sizeInBytes > 500 * 1024) {
-        return NextResponse.json({ error: 'Profile photo must be under 500KB' }, { status: 400 });
+      if (sizeInBytes > 2 * 1024 * 1024) {
+        return NextResponse.json({ error: 'Profile photo must be under 2MB' }, { status: 400 });
       }
 
-      // Check if credentials are set
-      if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
-        return NextResponse.json({ error: 'Cloudinary credentials are not configured on server' }, { status: 500 });
-      }
-
-      try {
-        const uploadResponse = await cloudinary.uploader.upload(profilePhoto, {
-          folder: 'excelsior/avatars',
-          public_id: `profile-${session.user.id}`,
-          overwrite: true,
-          transformation: [
-            { width: 300, height: 300, crop: 'fill', gravity: 'face' },
-            { quality: 'auto' },
-            { fetch_format: 'auto' }
-          ]
-        });
-        profilePhotoUrl = uploadResponse.secure_url;
-      } catch (cloudinaryError: any) {
-        console.error('Cloudinary upload failure:', cloudinaryError);
-        return NextResponse.json({ error: 'Cloudinary upload failed: ' + (cloudinaryError.message || 'Unknown error') }, { status: 500 });
+      if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET) {
+        try {
+          const uploadResponse = await cloudinary.uploader.upload(profilePhoto, {
+            folder: 'excelsior/avatars',
+            public_id: `profile-${session.user.id}`,
+            overwrite: true,
+            transformation: [
+              { width: 300, height: 300, crop: 'fill', gravity: 'face' },
+              { quality: 'auto' },
+              { fetch_format: 'auto' }
+            ]
+          });
+          profilePhotoUrl = uploadResponse.secure_url;
+        } catch (cloudinaryError: any) {
+          console.error('Cloudinary upload failure:', cloudinaryError);
+        }
       }
     }
 
     // Update user in DB
     const updatedUser = await db.user.update({
-      where: { id: session.user.id },
+      where: { id: (session.user as any).id },
       data: {
         name: name.trim(),
         username: cleanUsername,
         bio: bio ? bio.trim() : null,
         profilePhoto: profilePhotoUrl,
+        socialLinks: socialLinks !== undefined ? socialLinks : undefined,
+        showSocialLinks: showSocialLinks !== undefined ? Boolean(showSocialLinks) : undefined,
       },
     });
 
@@ -102,6 +100,8 @@ export async function PUT(req: Request) {
         username: updatedUser.username,
         bio: updatedUser.bio,
         profilePhoto: updatedUser.profilePhoto,
+        socialLinks: updatedUser.socialLinks,
+        showSocialLinks: updatedUser.showSocialLinks,
       },
     });
   } catch (error: any) {

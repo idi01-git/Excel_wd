@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import CommentThread from '@/components/discussion/CommentThread';
 import CommentInput from '@/components/discussion/CommentInput';
+import { LoginPromptModal } from '@/components/auth/LoginPromptModal';
 
 interface ShelfItem {
   id: string;
@@ -30,6 +31,7 @@ export default function EditorsShelfDetailPage() {
   const [comments, setComments] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [commentsSort, setCommentsSort] = useState<string>('new');
+  const [showLoginModal, setShowLoginModal] = useState<boolean>(false);
 
   const fetchDetail = async () => {
     try {
@@ -70,6 +72,10 @@ export default function EditorsShelfDetailPage() {
   }, [item, commentsSort]);
 
   const handlePostComment = async (content: string) => {
+    if (!session?.user) {
+      setShowLoginModal(true);
+      return;
+    }
     if (!item) return;
     try {
       const res = await fetch(`/api/editors-shelf/${slug}/comments`, {
@@ -87,6 +93,10 @@ export default function EditorsShelfDetailPage() {
   };
 
   const handleReplyComment = async (content: string, parentId: string) => {
+    if (!session?.user) {
+      setShowLoginModal(true);
+      return;
+    }
     if (!item) return;
     try {
       const res = await fetch(`/api/editors-shelf/${slug}/comments`, {
@@ -104,6 +114,10 @@ export default function EditorsShelfDetailPage() {
   };
 
   const handleUpvoteComment = async (commentId: string) => {
+    if (!session?.user) {
+      setShowLoginModal(true);
+      return;
+    }
     try {
       const res = await fetch(`/api/comments/${commentId}/upvote`, {
         method: 'POST'
@@ -118,6 +132,10 @@ export default function EditorsShelfDetailPage() {
   };
 
   const handleDownvoteComment = async (commentId: string) => {
+    if (!session?.user) {
+      setShowLoginModal(true);
+      return;
+    }
     try {
       const res = await fetch(`/api/comments/${commentId}/downvote`, {
         method: 'POST'
@@ -172,10 +190,10 @@ export default function EditorsShelfDetailPage() {
   }
 
   return (
-    <article className="max-w-3xl mx-auto py-8 text-black dark:text-white">
+    <article className="max-w-3xl mx-auto py-8 px-4 text-foreground">
       {/* Back to Shelf */}
-      <Link href="/editors-shelf" className="text-sm font-semibold text-gray-500 hover:text-black dark:hover:text-white transition flex items-center gap-1.5 mb-6">
-        <ArrowLeft className="w-4 h-4" />
+      <Link href="/editors-shelf" className="text-sm font-semibold text-muted-foreground hover:text-foreground transition flex items-center gap-1.5 mb-6 group">
+        <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
         <span>Back to Editor's Shelf</span>
       </Link>
 
@@ -183,10 +201,10 @@ export default function EditorsShelfDetailPage() {
       <header className="mb-8">
         {item.coverImage && (
           <div 
-            className="relative w-full h-80 rounded-2xl overflow-hidden border border-gray-200/60 dark:border-white/10 shadow-sm mb-6"
+            className="relative w-full h-80 rounded-2xl overflow-hidden border border-neutral-200/80 dark:border-neutral-800 shadow-sm mb-6"
             style={{
-              maskImage: 'linear-gradient(to bottom, black 50%, transparent 100%)',
-              WebkitMaskImage: 'linear-gradient(to bottom, black 50%, transparent 100%)'
+              maskImage: 'linear-gradient(to bottom, black 70%, transparent 100%)',
+              WebkitMaskImage: 'linear-gradient(to bottom, black 70%, transparent 100%)'
             }}
           >
             <img
@@ -199,39 +217,39 @@ export default function EditorsShelfDetailPage() {
 
         <div className="flex flex-wrap gap-1.5 mb-3">
           {item.genre.map((g) => (
-            <span key={g} className="text-[10px] font-bold text-gray-500 dark:text-neutral-400 bg-gray-50 dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 px-2.5 py-0.5 rounded-full uppercase tracking-wide">
+            <span key={g} className="text-[10px] font-bold text-neutral-600 dark:text-neutral-400 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 px-2.5 py-0.5 rounded-full uppercase tracking-wide">
               {g}
             </span>
           ))}
         </div>
         
-        <h1 className="font-serif text-4xl text-black dark:text-white font-bold leading-tight mb-2">
+        <h1 className="font-serif text-3xl sm:text-4xl text-neutral-950 dark:text-neutral-50 font-bold leading-tight mb-2">
           {item.title}
         </h1>
-        <p className="text-gray-500 dark:text-neutral-500 text-sm mb-6">By {item.author}</p>
+        <p className="text-muted-foreground text-sm mb-6">By {item.author}</p>
       </header>
 
       {/* Note Description */}
-      <div className="bg-gray-50 border border-gray-200 rounded-2xl p-6 md:p-8 font-serif text-lg leading-relaxed text-gray-800 mb-12 shadow-sm">
-        <h3 className="font-sans text-xs uppercase tracking-wider text-gray-400 font-bold mb-4">Editorial Recommendation</h3>
+      <div className="bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-6 md:p-8 font-serif text-lg leading-relaxed text-neutral-800 dark:text-neutral-200 mb-12 shadow-sm">
+        <h3 className="font-sans text-xs uppercase tracking-wider text-muted-foreground font-bold mb-4">Editorial Recommendation</h3>
         <p className="whitespace-pre-line">{item.editorialNote}</p>
       </div>
 
       {/* Discussion Area */}
-      <section className="mt-12 pt-8 border-t border-gray-200/80">
-        <h3 className="font-serif text-2xl text-black font-bold mb-4">Review Discussion</h3>
+      <section className="mt-12 pt-8 border-t border-neutral-200 dark:border-neutral-800">
+        <h3 className="font-serif text-2xl text-neutral-950 dark:text-neutral-50 font-bold mb-4">Review Discussion</h3>
         
         {/* Comment input box */}
         <div className="mb-8">
           {session ? (
-            <div className="bg-gray-50 border border-gray-200/60 rounded-2xl p-4">
-              <p className="text-xs text-gray-500 mb-3">Commenting as <strong className="text-gray-700">@{session.user.username}</strong></p>
+            <div className="bg-neutral-50 dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-800 rounded-2xl p-4">
+              <p className="text-xs text-muted-foreground mb-3">Commenting as <strong className="text-neutral-800 dark:text-neutral-200">@{session.user.username}</strong></p>
               <CommentInput onSubmit={handlePostComment} />
             </div>
           ) : (
-            <div className="p-6 bg-gray-50 border border-gray-200 rounded-2xl text-center">
-              <p className="text-gray-500 text-sm mb-4">Please register or log in to join the discussion.</p>
-              <Link href="/login" className="inline-block py-2 px-6 bg-black hover:bg-gray-900 text-white text-xs font-bold rounded-full transition shadow-sm">
+            <div className="p-6 bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl text-center">
+              <p className="text-muted-foreground text-sm mb-4">Please register or log in to join the discussion.</p>
+              <Link href="/login" className="inline-block py-2 px-6 bg-neutral-950 dark:bg-white hover:bg-neutral-800 dark:hover:bg-neutral-200 text-white dark:text-neutral-950 text-xs font-bold rounded-full transition shadow-sm">
                 Join to comment
               </Link>
             </div>
@@ -239,14 +257,14 @@ export default function EditorsShelfDetailPage() {
         </div>
 
         {/* Comment Sort Selector */}
-        <div className="flex justify-between items-center mb-6 pb-2 border-b border-gray-250">
-          <span className="text-xs text-gray-500 font-semibold uppercase tracking-wider">Comments ({comments.length})</span>
+        <div className="flex justify-between items-center mb-6 pb-2 border-b border-neutral-200 dark:border-neutral-800">
+          <span className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">Comments ({comments.length})</span>
           <div className="flex items-center gap-1.5">
-            <span className="text-xs text-gray-500">Sort:</span>
+            <span className="text-xs text-muted-foreground">Sort:</span>
             <select
               value={commentsSort}
               onChange={(e) => setCommentsSort(e.target.value)}
-              className="bg-white border border-gray-200 text-black text-xs rounded-full px-3 py-1 focus:outline-none cursor-pointer"
+              className="bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100 text-xs rounded-full px-3 py-1 focus:outline-none cursor-pointer"
             >
               <option value="new">Newest</option>
               <option value="top">Top Upvoted</option>
@@ -274,6 +292,13 @@ export default function EditorsShelfDetailPage() {
           )}
         </div>
       </section>
+
+      {/* Luxury Login Prompt Modal */}
+      <LoginPromptModal
+        isOpen={showLoginModal}
+        onClose={() => setShowLoginModal(false)}
+        action="join the discussion"
+      />
     </article>
   );
 }

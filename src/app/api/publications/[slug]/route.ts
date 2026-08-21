@@ -25,6 +25,15 @@ export async function GET(
             bio: true
           }
         },
+        alumniProfile: {
+          select: {
+            id: true,
+            name: true,
+            batch: true,
+            branch: true,
+            photo: true,
+          }
+        },
         _count: {
           select: {
             comments: true

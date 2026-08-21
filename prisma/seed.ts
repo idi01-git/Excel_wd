@@ -1,74 +1,638 @@
 // prisma/seed.ts
-import { PrismaClient, Role, PublicationCategory, PublicationStatus, GalleryItemType, AchievementCategory } from '@prisma/client';
+import {
+  PrismaClient,
+  Role,
+  VerificationStatus,
+  MemberSection,
+  PublicationCategory,
+  PublicationStatus,
+  GalleryItemType,
+  AchievementCategory,
+} from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import { LIBRARY_BOOKS } from './books-data';
 
 const prisma = new PrismaClient();
 
 async function main() {
-  // Hash password
-  const passwordHash = await bcrypt.hash('password', 10);
+  const passwordHash = await bcrypt.hash('Test@1234', 10);
 
-  // 1. Seed Users
-  const admin = await prisma.user.upsert({
-    where: { username: 'admin' },
-    update: {},
+  console.log('Seeding staff and club members with new RBAC roles...');
+
+  // 1. Coordinator (God-mode lead)
+  const coordinator = await prisma.user.upsert({
+    where: { username: 'coordinator' },
+    update: {
+      role: Role.COORDINATOR,
+      verificationStatus: VerificationStatus.VERIFIED,
+      isVerified: true,
+      memberSection: MemberSection.COORDINATORS,
+      memberTitle: 'Student Coordinator & Editor-in-Chief',
+    },
     create: {
-      username: 'admin',
-      name: 'Sarah Admin',
-      email: 'admin@excelsior.club',
+      username: 'coordinator',
+      name: 'Sarah Coordinator',
+      email: 'coordinator@excelsior',
       passwordHash,
-      role: Role.ADMIN,
-      bio: 'Editor-in-Chief & Technical Coordinator of Excelsior. Loves magical realism and system design.',
-      profilePhoto: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&h=150&fit=crop'
-    }
+      role: Role.COORDINATOR,
+      verificationStatus: VerificationStatus.VERIFIED,
+      isVerified: true,
+      memberSection: MemberSection.COORDINATORS,
+      memberTitle: 'Student Coordinator & Editor-in-Chief',
+      branch: 'CSE',
+      batch: '2022-2026',
+      bio: 'Student Coordinator & Editor-in-Chief. Managing editorial vision, publication archives, and role allocations.',
+      profilePhoto:
+        'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=500&h=500&fit=crop',
+    },
   });
 
-  const moderator = await prisma.user.upsert({
-    where: { username: 'moderator' },
-    update: {},
+  // 2. Tech Lead
+  const techlead = await prisma.user.upsert({
+    where: { username: 'techlead' },
+    update: {
+      role: Role.TECH_LEAD,
+      verificationStatus: VerificationStatus.VERIFIED,
+      isVerified: true,
+      memberSection: MemberSection.COORDINATORS,
+      memberTitle: 'Technical & Platform Lead',
+    },
     create: {
-      username: 'moderator',
-      name: 'Mark Moderator',
-      email: 'mod@excelsior.club',
+      username: 'techlead',
+      name: 'Alex Tech Lead',
+      email: 'techlead@excelsior',
       passwordHash,
-      role: Role.MODERATOR,
-      bio: 'Senior editor, short story enthusiast. Keeping the discussions civil and constructive.',
-      profilePhoto: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop'
-    }
+      role: Role.TECH_LEAD,
+      verificationStatus: VerificationStatus.VERIFIED,
+      isVerified: true,
+      memberSection: MemberSection.COORDINATORS,
+      memberTitle: 'Technical & Platform Lead',
+      branch: 'CSE',
+      batch: '2023-2027',
+      bio: 'Technical & Web Architecture Lead. Directing digital platforms, 3D experiences, and infrastructure.',
+      profilePhoto:
+        'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500&h=500&fit=crop',
+    },
   });
 
-  const author = await prisma.user.upsert({
-    where: { username: 'author' },
-    update: {},
+  // 3. PR Head
+  const prHead = await prisma.user.upsert({
+    where: { username: 'pr_head' },
+    update: {
+      role: Role.PR_HEAD,
+      verificationStatus: VerificationStatus.VERIFIED,
+      isVerified: true,
+      memberSection: MemberSection.CORE,
+      memberTitle: 'Public Relations & Outreach Head',
+    },
     create: {
-      username: 'author',
-      name: 'John Author',
-      email: 'author@excelsior.club',
+      username: 'pr_head',
+      name: 'Priya PR Head',
+      email: 'pr@excelsior',
       passwordHash,
-      role: Role.VERIFIED_AUTHOR,
-      bio: 'Verified novelist and contributor at Excelsior. Exploring magical realism and sci-fi.',
-      profilePhoto: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop'
-    }
+      role: Role.PR_HEAD,
+      verificationStatus: VerificationStatus.VERIFIED,
+      isVerified: true,
+      memberSection: MemberSection.CORE,
+      memberTitle: 'Public Relations & Outreach Head',
+      branch: 'IT',
+      batch: '2023-2027',
+      bio: 'Public Relations & Outreach Lead. Curating alumni relations, gallery showcases, and press coverage.',
+      profilePhoto:
+        'https://images.unsplash.com/photo-1534751516642-a131ffd107fd?w=500&h=500&fit=crop',
+    },
   });
 
+  // 4. Operations Head
+  const opsHead = await prisma.user.upsert({
+    where: { username: 'ops_head' },
+    update: {
+      role: Role.OPERATIONS_HEAD,
+      verificationStatus: VerificationStatus.VERIFIED,
+      isVerified: true,
+      memberSection: MemberSection.CORE,
+      memberTitle: 'Operations & Logistics Head',
+    },
+    create: {
+      username: 'ops_head',
+      name: 'Rohan Operations',
+      email: 'ops@excelsior',
+      passwordHash,
+      role: Role.OPERATIONS_HEAD,
+      verificationStatus: VerificationStatus.VERIFIED,
+      isVerified: true,
+      memberSection: MemberSection.CORE,
+      memberTitle: 'Operations & Logistics Head',
+      branch: 'ME',
+      batch: '2023-2027',
+      bio: 'Operations & Logistics Lead. Overseeing campus events, venue setups, and book loans.',
+      profilePhoto:
+        'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=500&h=500&fit=crop',
+    },
+  });
+
+  // 5. Treasurer
+  const treasurer = await prisma.user.upsert({
+    where: { username: 'treasurer' },
+    update: {
+      role: Role.TREASURER,
+      verificationStatus: VerificationStatus.VERIFIED,
+      isVerified: true,
+      memberSection: MemberSection.CORE,
+      memberTitle: 'Treasurer & Finance Head',
+    },
+    create: {
+      username: 'treasurer',
+      name: 'Fatima Treasurer',
+      email: 'treasurer@excelsior',
+      passwordHash,
+      role: Role.TREASURER,
+      verificationStatus: VerificationStatus.VERIFIED,
+      isVerified: true,
+      memberSection: MemberSection.CORE,
+      memberTitle: 'Treasurer & Finance Head',
+      branch: 'CE',
+      batch: '2023-2027',
+      bio: 'Treasurer & Finance Lead. Managing event fees, sponsorships, and payment verifications.',
+      profilePhoto:
+        'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=500&h=500&fit=crop',
+    },
+  });
+
+  // 6. Member
   const member = await prisma.user.upsert({
     where: { username: 'member' },
-    update: {},
+    update: {
+      role: Role.MEMBER,
+      verificationStatus: VerificationStatus.VERIFIED,
+      isVerified: true,
+      memberSection: MemberSection.TEAM,
+      memberTitle: 'Senior Staff Writer',
+    },
     create: {
       username: 'member',
       name: 'Jane Member',
-      email: 'member@excelsior.club',
+      email: 'member@excelsior',
       passwordHash,
       role: Role.MEMBER,
-      bio: 'Avid reader, aspiring poet, and literature major. Always down for book discussions.',
-      profilePhoto: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop'
-    }
+      verificationStatus: VerificationStatus.VERIFIED,
+      isVerified: true,
+      memberSection: MemberSection.TEAM,
+      memberTitle: 'Senior Staff Writer',
+      branch: 'ECE',
+      batch: '2024-2028',
+      bio: 'Senior Staff Writer & Anthology Contributor. Fiction, postmodern poetry, and literary essays.',
+      profilePhoto:
+        'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=500&h=500&fit=crop',
+    },
   });
 
-  console.log('Seeded 4 users: admin, moderator, author, member');
+  // 7. Alumni User
+  await prisma.user.upsert({
+    where: { username: 'alumni_user' },
+    update: {
+      role: Role.ALUMNI,
+      verificationStatus: VerificationStatus.VERIFIED,
+      isVerified: true,
+    },
+    create: {
+      username: 'alumni_user',
+      name: 'David Alumni',
+      email: 'alumni@excelsior',
+      passwordHash,
+      role: Role.ALUMNI,
+      verificationStatus: VerificationStatus.VERIFIED,
+      isVerified: true,
+      branch: 'EE',
+      batch: '2016-2020',
+      bio: 'Excelsior Alumnus · Class of 2020. Senior Editor at Penguin Random House.',
+      profilePhoto:
+        'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=500&h=500&fit=crop',
+    },
+  });
 
-  // 2. Seed Publications (varying categories and statuses)
+  // 8. Visitor
+  await prisma.user.upsert({
+    where: { username: 'visitor' },
+    update: {
+      role: Role.VISITOR,
+      verificationStatus: VerificationStatus.VERIFIED,
+      isVerified: true,
+    },
+    create: {
+      username: 'visitor',
+      name: 'Guest Visitor',
+      email: 'visitor@excelsior',
+      passwordHash,
+      role: Role.VISITOR,
+      verificationStatus: VerificationStatus.VERIFIED,
+      isVerified: true,
+      bio: 'Passionate reader and literature enthusiast visiting Excelsior.',
+    },
+  });
+
+  console.log('Seeded all staff roles & users successfully.');
+
+  // 2. Seed 3D Editor's Shelf items with rich styling
+  const shelfItems = [
+    {
+      title: 'निर्मला',
+      author: 'मुंशी प्रेमचंद',
+      slug: 'nirmala',
+      coverImage: '/images/image.png',
+      genre: ['Classic Literature', 'Hindi Novel', 'Social Realism'],
+      spineColor: '#182b5e',
+      spineTextColor: '#f3ecd8',
+      coverColor: '#1c3370',
+      coverTextColor: '#f3ecd8',
+      motif: 'lattice',
+      foilColor: '#e7b55f',
+      width: 1.95,
+      height: 3.05,
+      spineThickness: 0.38,
+      synopsis:
+        'मुंशी प्रेमचंद का एक कालजयी सामाजिक उपन्यास। 1920 के दशक के भारत में बेमेल विवाह, दहेज प्रथा और नारी के आत्मसम्मान का मार्मिक चित्रण।',
+      excerpt: 'जब मनुष्य पर विपत्ति आती है, तो उसकी बुद्धि भी भ्रष्ट हो जाती है।',
+      editorialNote: JSON.stringify({
+        editorialText: 'मुंशी प्रेमचंद का एक कालजयी सामाजिक उपन्यास। 1920 के दशक के भारत में बेमेल विवाह, दहेज प्रथा और नारी के आत्मसम्मान का मार्मिक चित्रण।',
+        categoryBadge: 'READ OF THE WEEK · FEB 2025',
+        leftPageHeader: 'FROM THE SHELF OF EXCELSIOR',
+        rightPageOrnament: '— § —',
+        readButtonText: 'READ PUBLICATION',
+        language: 'hi',
+        retailers: [
+          { name: 'Amazon', price: '₹199', url: 'https://www.amazon.in' },
+          { name: 'Bookshop', price: '₹240', url: 'https://bookshop.org' },
+        ],
+      }),
+      readLink: 'https://www.amazon.in',
+      displayOrder: 10,
+    },
+    {
+      title: 'गुनाहों का देवता',
+      author: 'धर्मवीर भारती',
+      slug: 'gunaho-ka-devta',
+      coverImage: '/images/gunaho%20ka%20devta.png',
+      genre: ['Classic Literature', 'Hindi Romance', 'Drama'],
+      spineColor: '#ece0ca',
+      spineTextColor: '#8b1e1a',
+      coverColor: '#f3ebe0',
+      coverTextColor: '#8b1e1a',
+      motif: 'continuum',
+      foilColor: '#8b1e1a',
+      width: 2.0,
+      height: 3.15,
+      spineThickness: 0.42,
+      synopsis:
+        'धर्मवीर भारती का कालजयी और भावुक उपन्यास। चंदर और सुधा के अनूठे, पवित्र और आत्मबलिदान से भरे प्रेम की अमर गाथा।',
+      excerpt: 'किसी से ज़िन्दगी भर स्नेह रखने, प्रेम करने का गुनाह... स्नेह और प्रेम जब अपनी पराकाष्ठा पर पहुँचने लगे तो उसका त्याग करने का गुनाह...',
+      editorialNote: JSON.stringify({
+        editorialText: 'धर्मवीर भारती का कालजयी और भावुक उपन्यास। चंदर और सुधा के अनूठे, पवित्र और आत्मबलिदान से भरे प्रेम की अमर गाथा।',
+        categoryBadge: 'READ OF THE WEEK · FEB 2025',
+        leftPageHeader: 'FROM THE SHELF OF EXCELSIOR',
+        rightPageOrnament: '— § —',
+        readButtonText: 'READ PUBLICATION',
+        language: 'hi',
+        retailers: [
+          { name: 'Amazon', price: '₹225', url: 'https://www.amazon.in' },
+          { name: 'Bookshop', price: '₹260', url: 'https://bookshop.org' },
+        ],
+      }),
+      readLink: 'https://www.amazon.in',
+      displayOrder: 20,
+    },
+    {
+      title: 'Good to Great',
+      author: 'Jim Collins',
+      slug: 'good-to-great',
+      genre: ['Strategy', 'Leadership', 'Business'],
+      spineColor: '#6d1f1f',
+      spineTextColor: '#f3ecd8',
+      coverColor: '#571616',
+      coverTextColor: '#f3ecd8',
+      motif: 'continuum',
+      foilColor: '#c8a44a',
+      width: 2.05,
+      height: 3.20,
+      spineThickness: 0.46,
+      synopsis:
+        "Why some companies make the leap and others don't. A five-year study of 1,435 firms identifies the disciplines — Level 5 leaders, the hedgehog concept, the flywheel — that turn good companies into enduring great ones.",
+      excerpt: 'Good is the enemy of great.',
+      editorialNote: JSON.stringify({
+        editorialText: "Why some companies make the leap and others don't. A five-year study of 1,435 firms identifies the disciplines that turn good companies into enduring great ones.",
+        categoryBadge: 'READ OF THE WEEK · FEB 2025',
+        leftPageHeader: 'FROM THE SHELF OF EXCELSIOR',
+        rightPageOrnament: '— § —',
+        readButtonText: 'READ PUBLICATION',
+        language: 'en',
+        retailers: [
+          { name: 'Amazon', price: '$19.99', url: 'https://www.amazon.com/dp/0066620996' },
+          { name: 'Barnes & Noble', price: '$21.99', url: 'https://www.barnesandnoble.com' },
+        ],
+      }),
+      readLink: 'https://www.amazon.com/dp/0066620996',
+      displayOrder: 30,
+    },
+    {
+      title: 'Atomic Habits',
+      author: 'James Clear',
+      slug: 'atomic-habits',
+      genre: ['Psychology', 'Self Improvement', 'Productivity'],
+      spineColor: '#b8932a',
+      spineTextColor: '#1a1a1a',
+      coverColor: '#222018',
+      coverTextColor: '#e8d27a',
+      motif: 'steps',
+      foilColor: '#e8d27a',
+      width: 2.0,
+      height: 3.0,
+      spineThickness: 0.40,
+      synopsis:
+        "Tiny changes, remarkable results. A practical, evidence-based framework for compounding small habits into outsized outcomes — built around four laws that shape every behaviour you'll ever form.",
+      excerpt: 'You do not rise to the level of your goals. You fall to the level of your systems.',
+      editorialNote: JSON.stringify({
+        editorialText: "Tiny changes, remarkable results. A practical, evidence-based framework for compounding small habits into outsized outcomes.",
+        categoryBadge: 'READ OF THE WEEK · FEB 2025',
+        leftPageHeader: 'FROM THE SHELF OF EXCELSIOR',
+        rightPageOrnament: '— § —',
+        readButtonText: 'READ PUBLICATION',
+        language: 'en',
+        retailers: [
+          { name: 'Amazon', price: '$14.99', url: 'https://www.amazon.com/dp/0735211299' },
+          { name: 'Bookshop', price: '$16.19', url: 'https://bookshop.org' },
+        ],
+      }),
+      readLink: 'https://www.amazon.com/dp/0735211299',
+      displayOrder: 40,
+    },
+    {
+      title: 'Shoe Dog',
+      author: 'Phil Knight',
+      slug: 'shoe-dog',
+      genre: ['Memoir', 'Biography', 'Entrepreneurship'],
+      spineColor: '#a8501f',
+      spineTextColor: '#f3ecd8',
+      coverColor: '#8f3e12',
+      coverTextColor: '#f3ecd8',
+      motif: 'runner',
+      foilColor: '#f4a261',
+      width: 1.95,
+      height: 3.0,
+      spineThickness: 0.38,
+      synopsis:
+        "A memoir by the creator of Nike. From a $50 loan from his father to one of the world's most iconic brands, detailing the messy, honest struggle behind extraordinary ambition.",
+      excerpt: "Don't tell people how to do things, tell them what to do and let them surprise you with their results.",
+      editorialNote: JSON.stringify({
+        editorialText: "A memoir by the creator of Nike. From a $50 loan from his father to one of the world's most iconic brands.",
+        categoryBadge: 'READ OF THE WEEK · FEB 2025',
+        leftPageHeader: 'FROM THE SHELF OF EXCELSIOR',
+        rightPageOrnament: '— § —',
+        readButtonText: 'READ PUBLICATION',
+        language: 'en',
+        retailers: [
+          { name: 'Amazon', price: '$16.50', url: 'https://www.amazon.com/dp/1501135929' },
+          { name: 'Bookshop', price: '$17.99', url: 'https://bookshop.org' },
+        ],
+      }),
+      readLink: 'https://www.amazon.com/dp/1501135929',
+      displayOrder: 50,
+    },
+    {
+      title: 'The Hard Thing About Hard Things',
+      author: 'Ben Horowitz',
+      slug: 'hard-thing',
+      genre: ['Leadership', 'Management', 'Startups'],
+      spineColor: '#1a1a1a',
+      spineTextColor: '#cf9b3a',
+      coverColor: '#151515',
+      coverTextColor: '#cf9b3a',
+      motif: 'fracture',
+      foilColor: '#d4af37',
+      width: 2.0,
+      height: 3.10,
+      spineThickness: 0.42,
+      synopsis:
+        'Building a business when there are no easy answers. Ben Horowitz on layoffs, demotions, betrayals, and the crushing weight of decisions no MBA prepares you for.',
+      excerpt: 'There is no recipe for the hard things. There is no recipe for really complex, dynamic situations.',
+      editorialNote: JSON.stringify({
+        editorialText: 'Building a business when there are no easy answers. Ben Horowitz on layoffs, demotions, and the crushing weight of decisions.',
+        categoryBadge: 'READ OF THE WEEK · FEB 2025',
+        leftPageHeader: 'FROM THE SHELF OF EXCELSIOR',
+        rightPageOrnament: '— § —',
+        readButtonText: 'READ PUBLICATION',
+        language: 'en',
+        retailers: [
+          { name: 'Amazon', price: '$18.99', url: 'https://www.amazon.com/dp/0062273205' },
+          { name: 'Barnes & Noble', price: '$20.00', url: 'https://www.barnesandnoble.com' },
+        ],
+      }),
+      readLink: 'https://www.amazon.com/dp/0062273205',
+      displayOrder: 60,
+    },
+    {
+      title: 'The 4-Hour Workweek',
+      author: 'Tim Ferriss',
+      slug: 'four-hour-week',
+      genre: ['Productivity', 'Lifestyle', 'Business'],
+      spineColor: '#b8932a',
+      spineTextColor: '#1a1a1a',
+      coverColor: '#1f1d19',
+      coverTextColor: '#f3ecd8',
+      motif: 'wave',
+      foilColor: '#d4af37',
+      width: 2.0,
+      height: 3.05,
+      spineThickness: 0.44,
+      synopsis:
+        'Escape 9–5, live anywhere, and join the new rich. Tim Ferriss’s manifesto for trading time-for-money for systems-for-freedom and lifestyle design.',
+      excerpt: 'What we fear doing most is usually what we most need to do.',
+      editorialNote: JSON.stringify({
+        editorialText: 'Escape 9–5, live anywhere, and join the new rich. Tim Ferriss’s manifesto for trading time-for-money for systems-for-freedom.',
+        categoryBadge: 'READ OF THE WEEK · FEB 2025',
+        leftPageHeader: 'FROM THE SHELF OF EXCELSIOR',
+        rightPageOrnament: '— § —',
+        readButtonText: 'READ PUBLICATION',
+        language: 'en',
+        retailers: [
+          { name: 'Amazon', price: '$15.49', url: 'https://www.amazon.com/dp/0307465357' },
+          { name: 'Bookshop', price: '$16.50', url: 'https://bookshop.org' },
+        ],
+      }),
+      readLink: 'https://www.amazon.com/dp/0307465357',
+      displayOrder: 70,
+    },
+    {
+      title: 'Principles',
+      author: 'Ray Dalio',
+      slug: 'principles',
+      genre: ['Philosophy', 'Management', 'Economics'],
+      spineColor: '#1c2a44',
+      spineTextColor: '#f3ecd8',
+      coverColor: '#131d2e',
+      coverTextColor: '#f3ecd8',
+      motif: 'schematic',
+      foilColor: '#c5a059',
+      width: 2.05,
+      height: 3.30,
+      spineThickness: 0.58,
+      synopsis:
+        'Life and work principles from the founder of Bridgewater. Radical transparency, idea meritocracy, and an algorithmic approach to decision-making.',
+      excerpt: 'Pain plus reflection equals progress.',
+      editorialNote: JSON.stringify({
+        editorialText: 'Life and work principles from the founder of Bridgewater. Radical transparency, idea meritocracy, and an algorithmic approach.',
+        categoryBadge: 'READ OF THE WEEK · FEB 2025',
+        leftPageHeader: 'FROM THE SHELF OF EXCELSIOR',
+        rightPageOrnament: '— § —',
+        readButtonText: 'READ PUBLICATION',
+        language: 'en',
+        retailers: [
+          { name: 'Amazon', price: '$21.99', url: 'https://www.amazon.com/dp/1501124021' },
+          { name: 'Bookshop', price: '$23.50', url: 'https://bookshop.org' },
+        ],
+      }),
+      readLink: 'https://www.amazon.com/dp/1501124021',
+      displayOrder: 80,
+    },
+    {
+      title: 'Rework',
+      author: 'Jason Fried',
+      slug: 'rework',
+      genre: ['Business', 'Productivity', 'Culture'],
+      spineColor: '#333333',
+      spineTextColor: '#f3ecd8',
+      coverColor: '#222222',
+      coverTextColor: '#f3ecd8',
+      motif: 'windows',
+      foilColor: '#cccccc',
+      width: 1.85,
+      height: 2.85,
+      spineThickness: 0.30,
+      synopsis:
+        'Change the way you work forever. Short, blunt essays on the nonsense of business orthodoxy — from planning fallacy to unnecessary meetings.',
+      excerpt: 'Planning is guessing. Workaholism is stupid. Meetings are toxic.',
+      editorialNote: JSON.stringify({
+        editorialText: 'Change the way you work forever. Short, blunt essays on the nonsense of business orthodoxy.',
+        categoryBadge: 'READ OF THE WEEK · FEB 2025',
+        leftPageHeader: 'FROM THE SHELF OF EXCELSIOR',
+        rightPageOrnament: '— § —',
+        readButtonText: 'READ PUBLICATION',
+        language: 'en',
+        retailers: [
+          { name: 'Amazon', price: '$14.29', url: 'https://www.amazon.com/dp/0307463745' },
+          { name: 'Bookshop', price: '$15.00', url: 'https://bookshop.org' },
+        ],
+      }),
+      readLink: 'https://www.amazon.com/dp/0307463745',
+      displayOrder: 90,
+    },
+    {
+      title: 'The Innovator’s Dilemma',
+      author: 'Clayton Christensen',
+      slug: 'innovators-dilemma',
+      genre: ['Technology', 'Strategy', 'Innovation'],
+      spineColor: '#3f444a',
+      spineTextColor: '#f3ecd8',
+      coverColor: '#2c3035',
+      coverTextColor: '#f3ecd8',
+      motif: 'circuit',
+      foilColor: '#9ec1cf',
+      width: 1.95,
+      height: 3.10,
+      spineThickness: 0.40,
+      synopsis:
+        'When new technologies cause great firms to fail. The seminal theory of disruptive innovation that explains how market leaders are toppled.',
+      excerpt: 'The very decision-making and resource-allocation processes that are key to the success of established companies are the very processes that reject disruptive technologies.',
+      editorialNote: JSON.stringify({
+        editorialText: 'When new technologies cause great firms to fail. The seminal theory of disruptive innovation.',
+        categoryBadge: 'READ OF THE WEEK · FEB 2025',
+        leftPageHeader: 'FROM THE SHELF OF EXCELSIOR',
+        rightPageOrnament: '— § —',
+        readButtonText: 'READ PUBLICATION',
+        language: 'en',
+        retailers: [
+          { name: 'Amazon', price: '$17.99', url: 'https://www.amazon.com/dp/1633691780' },
+          { name: 'Bookshop', price: '$18.50', url: 'https://bookshop.org' },
+        ],
+      }),
+      readLink: 'https://www.amazon.com/dp/1633691780',
+      displayOrder: 100,
+    },
+    {
+      title: 'Start with Why',
+      author: 'Simon Sinek',
+      slug: 'start-with-why',
+      genre: ['Leadership', 'Marketing', 'Inspiration'],
+      spineColor: '#7a3a2a',
+      spineTextColor: '#f3ecd8',
+      coverColor: '#59281c',
+      coverTextColor: '#f3ecd8',
+      motif: 'lattice',
+      foilColor: '#e7b55f',
+      width: 1.95,
+      height: 3.0,
+      spineThickness: 0.36,
+      synopsis:
+        'How great leaders inspire everyone to take action. The Golden Circle framework — start with why, then how, then what — that drives movements.',
+      excerpt: 'People don’t buy what you do; they buy why you do it.',
+      editorialNote: JSON.stringify({
+        editorialText: 'How great leaders inspire everyone to take action. The Golden Circle framework that drives movements.',
+        categoryBadge: 'READ OF THE WEEK · FEB 2025',
+        leftPageHeader: 'FROM THE SHELF OF EXCELSIOR',
+        rightPageOrnament: '— § —',
+        readButtonText: 'READ PUBLICATION',
+        language: 'en',
+        retailers: [
+          { name: 'Amazon', price: '$15.20', url: 'https://www.amazon.com/dp/1591846447' },
+          { name: 'Bookshop', price: '$16.00', url: 'https://bookshop.org' },
+        ],
+      }),
+      readLink: 'https://www.amazon.com/dp/1591846447',
+      displayOrder: 110,
+    },
+    {
+      title: 'Built to Last',
+      author: 'Jim Collins',
+      slug: 'built-to-last',
+      genre: ['Business', 'Management', 'Strategy'],
+      spineColor: '#3a1818',
+      spineTextColor: '#cf9b3a',
+      coverColor: '#2a1010',
+      coverTextColor: '#cf9b3a',
+      motif: 'branches',
+      foilColor: '#cf9b3a',
+      width: 2.0,
+      height: 3.15,
+      spineThickness: 0.48,
+      synopsis:
+        'Successful habits of visionary companies. What makes an enterprise endure and thrive across generations, beating rivals by 15-to-1.',
+      excerpt: 'Preserve the core, stimulate progress.',
+      editorialNote: JSON.stringify({
+        editorialText: 'Successful habits of visionary companies. What makes an enterprise endure and thrive across generations.',
+        categoryBadge: 'READ OF THE WEEK · FEB 2025',
+        leftPageHeader: 'FROM THE SHELF OF EXCELSIOR',
+        rightPageOrnament: '— § —',
+        readButtonText: 'READ PUBLICATION',
+        language: 'en',
+        retailers: [
+          { name: 'Amazon', price: '$19.50', url: 'https://www.amazon.com/dp/0060516402' },
+          { name: 'Bookshop', price: '$20.50', url: 'https://bookshop.org' },
+        ],
+      }),
+      readLink: 'https://www.amazon.com/dp/0060516402',
+      displayOrder: 120,
+    },
+  ];
+
+  for (const item of shelfItems) {
+    await prisma.editorShelfItem.upsert({
+      where: { slug: item.slug },
+      update: item,
+      create: item,
+    });
+  }
+  console.log('Seeded all 12 rich 3D Editor’s Shelf items.');
+
+  // 3. Seed Publications
   await prisma.publication.upsert({
     where: { slug: 'silent-architecture-of-memory' },
     update: {},
@@ -77,403 +641,11 @@ async function main() {
       slug: 'silent-architecture-of-memory',
       category: PublicationCategory.ARTICLE,
       status: PublicationStatus.PUBLISHED,
-      authorId: author.id,
+      authorId: coordinator.id,
       readingTime: 6,
       tags: ['Memory', 'Philosophy', 'Essays'],
-      coverImage: 'https://images.unsplash.com/photo-1507842217343-583bb7270b66?w=800&h=450&fit=crop',
-      content: {
-        type: 'doc',
-        content: [
-          {
-            type: 'paragraph',
-            content: [{ type: 'text', text: 'Memory is not an archive; it is a fluid architecture that gets rebuilt every time we enter its rooms. In this essay, we explore how our personal history is shaped not by what actually happened, but by the narratives we construct in retrospect.' }]
-          }
-        ]
-      },
-      publishedAt: new Date()
-    }
-  });
-
-  await prisma.publication.upsert({
-    where: { slug: 'echoes-of-the-monsoon' },
-    update: {},
-    create: {
-      title: 'Echoes of the Monsoon',
-      slug: 'echoes-of-the-monsoon',
-      category: PublicationCategory.POEM,
-      status: PublicationStatus.PUBLISHED,
-      authorId: member.id,
-      readingTime: 2,
-      tags: ['Nature', 'Nostalgia', 'Poetry'],
-      coverImage: 'https://images.unsplash.com/photo-1534274988757-a28bf1a57c17?w=800&h=450&fit=crop',
-      content: {
-        type: 'doc',
-        content: [
-          {
-            type: 'paragraph',
-            content: [{ type: 'text', text: 'The sky bruised purple, weeping ink upon the parched clay. We danced in the downpour, writing poems on dry leaves, washing away the seasons of waiting.' }]
-          }
-        ]
-      },
-      publishedAt: new Date()
-    }
-  });
-
-  await prisma.publication.upsert({
-    where: { slug: 'neon-dreamers' },
-    update: {},
-    create: {
-      title: 'Neon Dreamers',
-      slug: 'neon-dreamers',
-      category: PublicationCategory.STORY,
-      status: PublicationStatus.PENDING,
-      authorId: author.id,
-      readingTime: 12,
-      tags: ['Sci-Fi', 'Cyberpunk', 'Short Story'],
-      coverImage: 'https://images.unsplash.com/photo-1515621061946-eff1c2a352bd?w=800&h=450&fit=crop',
-      content: {
-        type: 'doc',
-        content: [
-          {
-            type: 'paragraph',
-            content: [{ type: 'text', text: 'Under the holographic rain, Kael interface-jacked the core network. He could feel the pulse of a million minds, locked inside the grid, dreaming of synthetic green pastures.' }]
-          }
-        ]
-      }
-    }
-  });
-
-  console.log('Seeded publications (Published & Pending)');
-
-  // 3. Seed Editor's Shelf
-  await prisma.editorShelfItem.upsert({
-    where: { slug: 'if-on-a-winters-night-a-traveler' },
-    update: {},
-    create: {
-      title: "If on a winter's night a traveler",
-      author: 'Italo Calvino',
-      slug: 'if-on-a-winters-night-a-traveler',
-      genre: ['Postmodernism', 'Fiction', 'Metafiction'],
-      coverImage: 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?w=800&h=450&fit=crop',
-      editorialNote: 'Calvino’s masterpiece is a love letter to the act of reading. Written in the second person, it draws the reader into a nested series of incomplete novels. A mandatory study for any creative writing student at Excelsior.'
-    }
-  });
-
-  await prisma.editorShelfItem.upsert({
-    where: { slug: 'ficciones' },
-    update: {},
-    create: {
-      title: 'Ficciones',
-      author: 'Jorge Luis Borges',
-      slug: 'ficciones',
-      genre: ['Magical Realism', 'Short Stories', 'Philosophy'],
-      coverImage: 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=800&h=450&fit=crop',
-      editorialNote: 'Labyrinths, mirrors, infinite libraries, and double agents. Borges is the patron saint of magical realism. This collection of short stories challenges our concept of reality and structure.'
-    }
-  });
-
-  console.log('Seeded Editor\'s Shelf items');
-
-  // 4. Seed Alumni Profiles (Seeding 15 profiles to test pagination threshold of 12!)
-  const alumniProfilesData = [
-    {
-      id: 'alumni-1',
-      name: 'Sarah Jenkins',
-      photo: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=200&h=200&fit=crop',
-      batch: '2018-2022',
-      branch: 'Computer Science',
-      currentPosition: 'Technical Writer at Google',
-      excelsiorPosition: 'Editor-in-Chief',
-      message: 'Excelsior gave me a voice and a family. Never stop writing, even when your code compiles. The bridge between language and logic is where magic happens.',
-      email: 'sarah.j@google.com',
-      linkedin: 'https://linkedin.com'
-    },
-    {
-      id: 'alumni-2',
-      name: 'David Kojo',
-      photo: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200&h=200&fit=crop',
-      batch: '2016-2020',
-      branch: 'Electrical Engineering',
-      currentPosition: 'Editor at Penguin Random House',
-      excelsiorPosition: 'Senior Reviewer',
-      message: 'Find your cadence. In the club, we learned to critique without crushing. Take that empathy into the publishing industry.',
-      email: 'kojo.david@penguin.com',
-      instagram: 'https://instagram.com'
-    },
-    {
-      id: 'alumni-3',
-      name: 'Priya Sharma',
-      photo: 'https://images.unsplash.com/photo-1534751516642-a131ffd107fd?w=200&h=200&fit=crop',
-      batch: '2019-2023',
-      branch: 'Information Technology',
-      currentPosition: 'Frontend Engineer at Vercel',
-      excelsiorPosition: 'Design Lead',
-      message: 'Excelsior is where my love for typography and layouts began. Making magazines look editorial was the sandbox for what I do now.',
-      linkedin: 'https://linkedin.com'
-    },
-    {
-      id: 'alumni-4',
-      name: 'Marcus Vance',
-      photo: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=200&h=200&fit=crop',
-      batch: '2015-2019',
-      branch: 'Mechanical Engineering',
-      currentPosition: 'Automotive Journalist at TopGear',
-      excelsiorPosition: 'Core Member',
-      message: 'I was an engineer who loved engines and poetry. Excelsior taught me that storytelling belongs everywhere, even under a car chassis.',
-      email: 'marcus.vance@topgear.com'
-    },
-    {
-      id: 'alumni-5',
-      name: 'Elena Rostova',
-      photo: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200&h=200&fit=crop',
-      batch: '2017-2021',
-      branch: 'Civil Engineering',
-      currentPosition: 'Architectural Consultant',
-      excelsiorPosition: 'PR Lead',
-      message: 'Structure, space, and syntax. Whether laying brick or writing copy, proportions matter. Excelsior set that foundation for me.',
-      instagram: 'https://instagram.com'
-    },
-    {
-      id: 'alumni-6',
-      name: 'Alex Chen',
-      photo: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=200&h=200&fit=crop',
-      batch: '2020-2024',
-      branch: 'Computer Science',
-      currentPosition: 'AI Researcher at OpenAI',
-      excelsiorPosition: 'Web Coordinator',
-      message: 'Large language models process text, but human language holds the soul. Keep the poetry alive in the machine age.',
-      linkedin: 'https://linkedin.com',
-      email: 'alex.chen@openai.com'
-    },
-    {
-      id: 'alumni-7',
-      name: 'Fatima Al-Sayed',
-      photo: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=200&h=200&fit=crop',
-      batch: '2018-2022',
-      branch: 'Chemical Engineering',
-      currentPosition: 'Technical Consultant at McKinsey',
-      excelsiorPosition: 'Treasurer',
-      message: 'Formulas tell part of the truth, stories tell the rest. Balancing spreadsheets and editing anthologies was a wild but necessary ride.',
-      linkedin: 'https://linkedin.com'
-    },
-    {
-      id: 'alumni-8',
-      name: 'Kenji Takahashi',
-      photo: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=200&h=200&fit=crop',
-      batch: '2016-2020',
-      branch: 'Electronics & Communication',
-      currentPosition: 'Hardware Designer at Sony',
-      excelsiorPosition: 'Slam Coordinator',
-      message: 'We measured wavelengths in lab and vocal resonance at slam nights. They’re just different frequencies of the same human expression.',
-      instagram: 'https://instagram.com'
-    },
-    {
-      id: 'alumni-9',
-      name: 'Sophie Dubois',
-      photo: 'https://images.unsplash.com/photo-1567532939604-b6b5b0db2604?w=200&h=200&fit=crop',
-      batch: '2019-2023',
-      branch: 'Computer Science',
-      currentPosition: 'Product Manager at Figma',
-      excelsiorPosition: 'Editorial Board',
-      message: 'Figma boards and magazine drafts aren’t that different. It’s all about collaboration, iterations, and pushing constraints.',
-      linkedin: 'https://linkedin.com'
-    },
-    {
-      id: 'alumni-10',
-      name: 'Carlos Mendez',
-      photo: 'https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=200&h=200&fit=crop',
-      batch: '2015-2019',
-      branch: 'Mechanical Engineering',
-      currentPosition: 'Creative Director at Vogue',
-      excelsiorPosition: 'Art Director',
-      message: 'An engineer finding a home at Vogue makes total sense if you knew the grid systems we obsessed over at Excelsior.',
-      instagram: 'https://instagram.com'
-    },
-    {
-      id: 'alumni-11',
-      name: 'Amara Okafor',
-      photo: 'https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=200&h=200&fit=crop',
-      batch: '2017-2021',
-      branch: 'Information Technology',
-      currentPosition: 'Cybersecurity Analyst at Crowdstrike',
-      excelsiorPosition: 'Moderator',
-      message: 'Spotting syntax errors in code prepares you well for editing comma splices. Protect your system, protect your style.',
-      email: 'amara.o@crowdstrike.com'
-    },
-    {
-      id: 'alumni-12',
-      name: 'Liam O\'Connor',
-      photo: 'https://images.unsplash.com/photo-1500048993953-d23a436266cf?w=200&h=200&fit=crop',
-      batch: '2020-2024',
-      branch: 'Computer Science',
-      currentPosition: 'Graduate Assistant at Stanford',
-      excelsiorPosition: 'Poetry Mentor',
-      message: 'Academic papers are precise, poetry is expansive. You need both to avoid getting intellectually claustrophobic.',
-      linkedin: 'https://linkedin.com'
-    },
-    {
-      id: 'alumni-13',
-      name: 'Zara Patel',
-      photo: 'https://images.unsplash.com/photo-1587614382346-4ec70e388b28?w=200&h=200&fit=crop',
-      batch: '2018-2022',
-      branch: 'Civil Engineering',
-      currentPosition: 'Structural Engineer',
-      excelsiorPosition: 'Anthology Editor',
-      message: 'Magazines require structural integrity, too. A weak spine ruins a book just like a bridge.',
-      instagram: 'https://instagram.com',
-      linkedin: 'https://linkedin.com'
-    },
-    {
-      id: 'alumni-14',
-      name: 'Nikita Smirnov',
-      photo: 'https://images.unsplash.com/photo-1489980508314-941910ded1f4?w=200&h=200&fit=crop',
-      batch: '2016-2020',
-      branch: 'Electrical Engineering',
-      currentPosition: 'Sound Designer at Ubisoft',
-      excelsiorPosition: 'Audio Coordinator',
-      message: 'Designing sonic spaces for open-world games started with mixing audio for our podcasts and slam stages.',
-      email: 'nikita.smir@ubisoft.com'
-    },
-    {
-      id: 'alumni-15',
-      name: 'Chloe Lefevre',
-      photo: 'https://images.unsplash.com/photo-1554151228-14d9def656e4?w=200&h=200&fit=crop',
-      batch: '2019-2023',
-      branch: 'Chemical Engineering',
-      currentPosition: 'Fragrance Chemist at Estée Lauder',
-      excelsiorPosition: 'Anthology Contributor',
-      message: 'Blending volatile chemicals to create perfumes is a lot like blending words to evoke memory.',
-      instagram: 'https://instagram.com'
-    }
-  ];
-
-  for (const alum of alumniProfilesData) {
-    await prisma.alumniProfile.upsert({
-      where: { id: alum.id },
-      update: {},
-      create: alum
-    });
-  }
-
-  console.log('Seeded 15 Alumni Profiles (to test pagination)');
-
-  // 5. Seed Gallery Items
-  await prisma.galleryItem.createMany({
-    data: [
-      {
-        type: GalleryItemType.PHOTO,
-        url: 'https://images.unsplash.com/photo-1517486808906-6ca8b3f04846?w=800&h=600&fit=crop',
-        caption: 'Excelsior Poetry Slam Night 2025'
-      },
-      {
-        type: GalleryItemType.PHOTO,
-        url: 'https://images.unsplash.com/photo-1515187029135-18ee286d815b?w=800&h=600&fit=crop',
-        caption: 'Alumni Panels & Creative Writing Workshops'
-      },
-      {
-        type: GalleryItemType.PHOTO,
-        url: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=800&h=600&fit=crop',
-        caption: 'Editorial Board Planning the Annual Anthology'
-      }
-    ],
-    skipDuplicates: true
-  });
-
-  console.log('Seeded Gallery Items');
-
-  // 6. Seed Achievements
-  await prisma.achievement.createMany({
-    data: [
-      {
-        title: 'Best College Magazine Award',
-        description: 'Awarded 1st place in the National Campus Press Awards for our annual anthology, "Metaphor".',
-        category: AchievementCategory.AWARD,
-        date: new Date('2025-11-15')
-      },
-      {
-        title: 'Decennial Anniversary Celebration',
-        description: 'Celebrated 10 years of preserving stories, Slam Poetry, and building community on campus.',
-        category: AchievementCategory.MILESTONE,
-        date: new Date('2025-09-10')
-      },
-      {
-        title: 'Inter-University Poetry Slam Champion',
-        description: 'Member Jane Member won 1st place at the National Verse Slam Tournament.',
-        category: AchievementCategory.COMPETITION,
-        date: new Date('2026-02-20')
-      }
-    ],
-    skipDuplicates: true
-  });
-
-  console.log('Seeded Achievements');
-
-  // 7. Seed Events & Library
-  // Clear any existing to avoid key conflict
-  await prisma.issueRequest.deleteMany();
-  await prisma.bookReview.deleteMany();
-  await prisma.book.deleteMany();
-  await prisma.eventWinner.deleteMany();
-  await prisma.eventGalleryItem.deleteMany();
-  await prisma.eventReport.deleteMany();
-  await prisma.eventRegistration.deleteMany();
-  await prisma.event.deleteMany();
-
-  // Create Events
-  const upcomingEvent = await prisma.event.create({
-    data: {
-      title: 'Excelsior Poetry Slam 2026',
-      slug: 'excelsior-poetry-slam-2026',
-      description: 'Prepare your verses! The annual poetry slam tournament is back. This year we have exciting cash prizes and a renowned panel of judges. Open to all students.',
-      posterImage: 'https://images.unsplash.com/photo-1518156677180-95a2893f3e9f?w=800&h=800&fit=crop',
-      coverImage: 'https://images.unsplash.com/photo-1518156677180-95a2893f3e9f?w=1600&h=900&fit=crop',
-      date: new Date('2026-08-15T15:00:00.000Z'),
-      time: '3:00 PM - 6:00 PM',
-      venue: 'Main Auditorium, Campus Hub',
-      status: 'UPCOMING',
-      isCompetition: true,
-      maxCapacity: 100,
-      rulebookUrl: 'https://excelsior.club/docs/poetry-slam-2026-rules.pdf',
-      socialLink: 'https://instagram.com/excelsior_club',
-      downloadUrl: 'https://images.unsplash.com/photo-1518156677180-95a2893f3e9f?w=1200&fit=crop'
-    }
-  });
-
-  const pastEvent = await prisma.event.create({
-    data: {
-      title: 'Creative Writing Workshop 2026',
-      slug: 'creative-writing-workshop-2026',
-      description: 'A hands-on session on world-building, narrative arcs, and character development mentored by verified author John Author.',
-      posterImage: 'https://images.unsplash.com/photo-1455390582262-044cdead277a?w=800&h=800&fit=crop',
-      coverImage: 'https://images.unsplash.com/photo-1455390582262-044cdead277a?w=1600&h=900&fit=crop',
-      date: new Date('2026-05-10T10:00:00.000Z'),
-      time: '10:00 AM - 1:00 PM',
-      venue: 'Seminar Hall B, Library Block',
-      status: 'PAST',
-      isCompetition: false,
-      maxCapacity: 50
-    }
-  });
-
-  // Seed Event Registration
-  await prisma.eventRegistration.create({
-    data: {
-      eventId: pastEvent.id,
-      userId: member.id,
-      name: 'Jane Member',
-      email: 'member@excelsior.club',
-      phone: '+91 9876543210',
-      extraFields: { dietary: 'None' }
-    }
-  });
-
-  // Seed Event Report (valid TipTap JSON structure)
-  await prisma.eventReport.create({
-    data: {
-      eventId: pastEvent.id,
-      title: 'Workshop Highlights: Building Better Worlds',
-      coverImage: 'https://images.unsplash.com/photo-1455390582262-044cdead277a?w=800&fit=crop',
-      authorId: admin.id,
+      coverImage:
+        'https://images.unsplash.com/photo-1507842217343-583bb7270b66?w=800&h=450&fit=crop',
       content: {
         type: 'doc',
         content: [
@@ -482,75 +654,300 @@ async function main() {
             content: [
               {
                 type: 'text',
-                text: 'The Creative Writing Workshop was a massive success! Attended by over 45 students, our verified author John Author walked through modern frameworks of narrative design, offering interactive prompts for character design and world development. Check out the gallery for highlights.'
-              }
-            ]
-          }
-        ]
-      }
-    }
+                text: 'Memory is not an archive; it is a fluid architecture that gets rebuilt every time we enter its rooms. In this essay, we explore how our personal history is shaped not by what actually happened, but by the narratives we construct in retrospect.',
+              },
+            ],
+          },
+        ],
+      },
+      publishedAt: new Date(),
+    },
   });
 
-  // Seed Event Gallery
-  await prisma.eventGalleryItem.createMany({
+  // 4. Seed Gallery with isFeaturedOnHome
+  await prisma.galleryItem.deleteMany();
+  await prisma.galleryItem.createMany({
     data: [
       {
-        eventId: pastEvent.id,
-        url: 'https://images.unsplash.com/photo-1455390582262-044cdead277a?w=800&fit=crop',
-        caption: 'Author John Author demonstrating world building maps.',
-        type: 'PHOTO',
-        uploadedById: admin.id
-      }
-    ]
+        type: GalleryItemType.PHOTO,
+        url: 'https://images.unsplash.com/photo-1517486808906-6ca8b3f04846?w=800&h=600&fit=crop',
+        caption: 'Excelsior Poetry Slam Night 2025',
+        isFeaturedOnHome: true,
+        uploadedById: coordinator.id,
+      },
+      {
+        type: GalleryItemType.PHOTO,
+        url: 'https://images.unsplash.com/photo-1515187029135-18ee286d815b?w=800&h=600&fit=crop',
+        caption: 'Alumni Panels & Creative Writing Workshops',
+        isFeaturedOnHome: true,
+        uploadedById: techlead.id,
+      },
+      {
+        type: GalleryItemType.PHOTO,
+        url: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=800&h=600&fit=crop',
+        caption: 'Editorial Board Planning the Annual Anthology',
+        isFeaturedOnHome: true,
+        uploadedById: prHead.id,
+      },
+      {
+        type: GalleryItemType.PHOTO,
+        url: 'https://images.unsplash.com/photo-1455390582262-044cdead277a?w=800&h=600&fit=crop',
+        caption: 'Letterpress Typography Workshop',
+        isFeaturedOnHome: true,
+        uploadedById: coordinator.id,
+      },
+      {
+        type: GalleryItemType.PHOTO,
+        url: 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=800&h=600&fit=crop',
+        caption: 'Midnight Soliloquy Chamber',
+        isFeaturedOnHome: true,
+        uploadedById: prHead.id,
+      },
+    ],
+  });
+  console.log('Seeded Gallery Items with Homepage Featured flags.');
+
+  // 5. Seed Achievements
+  await prisma.achievement.deleteMany();
+  await prisma.achievement.createMany({
+    data: [
+      {
+        title: 'Best College Magazine Award',
+        description:
+          'Awarded 1st place in the National Campus Press Awards for our annual anthology, "Metaphor".',
+        category: AchievementCategory.AWARD,
+        date: new Date('2025-11-15'),
+        image:
+          'https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?w=1600&h=1000&fit=crop',
+      },
+      {
+        title: 'Decennial Anniversary Celebration',
+        description:
+          'Celebrated 10 years of preserving stories, Slam Poetry, and building community on campus.',
+        category: AchievementCategory.MILESTONE,
+        date: new Date('2025-09-10'),
+        image:
+          'https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=1600&h=1000&fit=crop',
+      },
+      {
+        title: 'Inter-University Poetry Slam Champion',
+        description:
+          'Member Jane Member won 1st place at the National Verse Slam Tournament.',
+        category: AchievementCategory.COMPETITION,
+        date: new Date('2026-02-20'),
+        image:
+          'https://images.unsplash.com/photo-1475721027785-f74eccf877e2?w=1600&h=1000&fit=crop',
+      },
+    ],
+  });
+  console.log('Seeded Achievements.');
+
+  // 6. Seed Events
+  await prisma.eventWinner.deleteMany();
+  await prisma.eventGalleryItem.deleteMany();
+  await prisma.eventReport.deleteMany();
+  await prisma.eventRegistration.deleteMany();
+  await prisma.event.deleteMany();
+
+  await prisma.event.create({
+    data: {
+      title: 'Excelsior Poetry Slam 2026',
+      slug: 'excelsior-poetry-slam-2026',
+      description:
+        'Prepare your verses and sharpen your cadence! The annual Excelsior Poetry Slam tournament returns to the Main Auditorium for an evening of spoken word, raw emotion, and rhythm.',
+      posterImage:
+        'https://images.unsplash.com/photo-1518156677180-95a2893f3e9f?w=800&h=800&fit=crop',
+      coverImage:
+        'https://images.unsplash.com/photo-1518156677180-95a2893f3e9f?w=1600&h=900&fit=crop',
+      date: new Date('2026-08-15T15:00:00.000Z'),
+      time: '3:00 PM - 6:00 PM',
+      venue: 'Main Auditorium, Campus Hub',
+      status: 'UPCOMING',
+      isCompetition: true,
+      maxCapacity: 100,
+      rulebookUrl: 'https://excelsior.club/docs/poetry-slam-2026-rules.pdf',
+      socialLink: 'https://instagram.com/excelsior_club',
+      customFormFields: {
+        access: 'ALL STUDENTS & MEMBERS',
+        inclusions: 'PRIZE POOL & PASS',
+        standardFields: {
+          nameRequired: true,
+          nameLabel: 'Full Name',
+          namePlaceholder: 'e.g. Sarah Jenkins',
+          emailRequired: true,
+          emailLabel: 'Email Address',
+          emailPlaceholder: 'e.g. sarah@example.com',
+          phoneRequired: true,
+          phoneLabel: 'WhatsApp / Phone Number',
+          phonePlaceholder: '+91 98765 43210',
+        },
+        fields: [
+          {
+            id: 'genre',
+            label: 'Performance Genre / Style',
+            name: 'performance_genre',
+            type: 'select',
+            required: true,
+            options: ['Spoken Word', 'Classical Meter', 'Bilingual / Hindi', 'Free Verse'],
+          },
+          {
+            id: 'poem_title',
+            label: 'Working Title of First Round Piece',
+            name: 'poem_title',
+            type: 'text',
+            required: true,
+          },
+          {
+            id: 'bio_note',
+            label: 'Stage Introduction (2-3 sentences)',
+            name: 'stage_introduction',
+            type: 'textarea',
+            required: false,
+          },
+        ],
+      },
+      requirePayment: false,
+    },
   });
 
-  // Seed All 60 Library Books (30 Hindi + 30 English)
-  const createdBooks = [];
-  for (const book of LIBRARY_BOOKS) {
-    const created = await prisma.book.create({
-      data: {
-        title: book.title,
-        author: book.author,
-        language: book.language,
-        description: book.description,
-        genre: book.genre,
-        coverImage: book.coverImage,
-        pageCount: book.pageCount,
-        publishedYear: book.publishedYear,
-        isbn: book.isbn,
-        themeColor: book.themeColor,
-        editorPickType: book.editorPickType,
-        totalCopies: 2,
-        issuedCopies: 0,
-        availabilityStatus: 'AVAILABLE',
-      }
-    });
-    createdBooks.push(created);
-  }
+  // Seed Paid Event & Student Registrations for Treasurer Testing
+  const student1 = await prisma.user.upsert({
+    where: { username: 'rahul_student' },
+    update: {},
+    create: {
+      username: 'rahul_student',
+      name: 'Rahul Kumar',
+      email: 'rahul@excelsior.edu',
+      passwordHash,
+      role: Role.VISITOR,
+      verificationStatus: VerificationStatus.VERIFIED,
+      isVerified: true,
+      bio: 'Loves classical poetry and short fiction.',
+    },
+  });
 
-  // Seed sample reviews & issue requests on seeded books
-  if (createdBooks.length >= 2) {
-    await prisma.bookReview.create({
-      data: {
-        bookId: createdBooks[0].id,
-        reviewerId: member.id,
-        rating: 5,
-        reviewText: 'An absolute masterpiece. Deeply moving and timeless!'
-      }
-    });
+  const student2 = await prisma.user.upsert({
+    where: { username: 'priya_student' },
+    update: {},
+    create: {
+      username: 'priya_student',
+      name: 'Priya Sharma',
+      email: 'priya@excelsior.edu',
+      passwordHash,
+      role: Role.VISITOR,
+      verificationStatus: VerificationStatus.VERIFIED,
+      isVerified: true,
+      bio: 'Enthusiastic reader and campus blogger.',
+    },
+  });
 
-    await prisma.issueRequest.create({
-      data: {
-        bookId: createdBooks[1].id,
-        requesterId: member.id,
-        status: 'APPROVED',
-        issueDate: new Date(),
-        returnDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
-      }
-    });
-  }
+  const student3 = await prisma.user.upsert({
+    where: { username: 'isha_student' },
+    update: {},
+    create: {
+      username: 'isha_student',
+      name: 'Isha Patel',
+      email: 'isha@excelsior.edu',
+      passwordHash,
+      role: Role.VISITOR,
+      verificationStatus: VerificationStatus.VERIFIED,
+      isVerified: true,
+      bio: 'Dramatics society member and occasional poet.',
+    },
+  });
 
-  console.log(`Seeded ${createdBooks.length} Library Books, Events, and sample reviews successfully!`);
+  const paidEvent = await prisma.event.upsert({
+    where: { slug: 'creative-writers-retreat-2026' },
+    update: {
+      requirePayment: true,
+      paymentAmount: '₹250',
+      paymentQrImage: 'https://images.unsplash.com/photo-1518156677180-95a2893f3e9f?w=600&h=600&fit=crop',
+      paymentInstructions: 'Scan this UPI QR code, pay ₹250, and upload your screenshot below with transaction ID.',
+    },
+    create: {
+      title: 'Creative Writers Retreat 2026',
+      slug: 'creative-writers-retreat-2026',
+      description: 'Spend an immersive weekend in the hills with professional authors, workshops, and intensive peer feedback sessions.',
+      venue: 'Naini Hills Campus Sanctuary',
+      date: new Date('2026-08-28T09:00:00.000Z'),
+      time: '09:00 AM – 05:00 PM',
+      status: 'UPCOMING',
+      isCompetition: false,
+      maxCapacity: 30,
+      requirePayment: true,
+      paymentAmount: '₹250',
+      paymentQrImage: 'https://images.unsplash.com/photo-1518156677180-95a2893f3e9f?w=600&h=600&fit=crop',
+      paymentInstructions: 'Scan this UPI QR code, pay ₹250, and upload your screenshot below with transaction ID.',
+    },
+  });
+
+  await prisma.eventRegistration.upsert({
+    where: {
+      eventId_userId: {
+        eventId: paidEvent.id,
+        userId: student1.id,
+      },
+    },
+    update: {
+      paymentStatus: 'PENDING',
+      paymentScreenshotUrl: 'https://images.unsplash.com/photo-1621416894569-0f39ed31d247?w=500&h=800&fit=crop',
+    },
+    create: {
+      eventId: paidEvent.id,
+      userId: student1.id,
+      name: student1.name,
+      email: student1.email,
+      phone: '+91 99887 76655',
+      paymentStatus: 'PENDING',
+      paymentScreenshotUrl: 'https://images.unsplash.com/photo-1621416894569-0f39ed31d247?w=500&h=800&fit=crop',
+    },
+  });
+
+  await prisma.eventRegistration.upsert({
+    where: {
+      eventId_userId: {
+        eventId: paidEvent.id,
+        userId: student2.id,
+      },
+    },
+    update: {
+      paymentStatus: 'VERIFIED',
+      paymentScreenshotUrl: 'https://images.unsplash.com/photo-1559526324-4b87b5e36e44?w=500&h=800&fit=crop',
+    },
+    create: {
+      eventId: paidEvent.id,
+      userId: student2.id,
+      name: student2.name,
+      email: student2.email,
+      phone: '+91 88776 65544',
+      paymentStatus: 'VERIFIED',
+      paymentScreenshotUrl: 'https://images.unsplash.com/photo-1559526324-4b87b5e36e44?w=500&h=800&fit=crop',
+    },
+  });
+
+  await prisma.eventRegistration.upsert({
+    where: {
+      eventId_userId: {
+        eventId: paidEvent.id,
+        userId: student3.id,
+      },
+    },
+    update: {
+      paymentStatus: 'PENDING',
+      paymentScreenshotUrl: 'https://images.unsplash.com/photo-1616077168712-fc6c788bc4ee?w=500&h=800&fit=crop',
+    },
+    create: {
+      eventId: paidEvent.id,
+      userId: student3.id,
+      name: student3.name,
+      email: student3.email,
+      phone: '+91 77665 54433',
+      paymentStatus: 'PENDING',
+      paymentScreenshotUrl: 'https://images.unsplash.com/photo-1616077168712-fc6c788bc4ee?w=500&h=800&fit=crop',
+    },
+  });
+
+  console.log('Seeding complete!');
 }
 
 main()

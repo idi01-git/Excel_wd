@@ -102,9 +102,11 @@
   }
 
   .tiptap-image-upload-drag-area {
-    padding: 3rem 2rem;
+    width: 100%;
+    min-height: 240px;
+    padding: 3.5rem 2rem;
     border: 2px dashed var(--tiptap-image-upload-border);
-    border-radius: 1rem;
+    border-radius: 1.25rem;
     background-color: var(--tt-gray-light-a-50);
     text-align: center;
     cursor: pointer;
@@ -114,7 +116,13 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 1rem;
+    justify-content: center;
+    gap: 1.25rem;
+
+    @media (min-width: 768px) {
+      min-height: 320px;
+      padding: 5.5rem 3rem;
+    }
 
     .dark & {
       background-color: var(--tt-gray-dark-a-50);
@@ -124,14 +132,14 @@
       border-color: var(--tiptap-image-upload-border-active);
       background-color: var(--tiptap-image-upload-progress-bg);
       transform: translateY(-2px);
-      box-shadow: 0 10px 30px -10px rgba(0,0,0,0.05);
+      box-shadow: 0 12px 36px -10px rgba(0,0,0,0.08);
     }
 
     &.drag-active,
     &.drag-over {
       border-color: var(--tiptap-image-upload-border-active);
       background-color: var(--tiptap-image-upload-progress-bg);
-      transform: scale(1.02);
+      transform: scale(1.01);
     }
   }
 

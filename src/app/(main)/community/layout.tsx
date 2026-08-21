@@ -12,7 +12,9 @@ export default function CommunityLayout({
   const isCustomPaddingPage = 
     pathname.startsWith('/community/library') || 
     pathname.startsWith('/community/alumni') || 
-    pathname.startsWith('/community/members');
+    pathname.startsWith('/community/members') ||
+    pathname.startsWith('/community/achievements') ||
+    pathname.startsWith('/community/gallery');
 
   return (
     <div className={`w-full mx-auto text-black dark:text-neutral-200 ${isCustomPaddingPage ? '' : 'max-w-6xl py-8'}`}>

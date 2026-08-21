@@ -1,9 +1,11 @@
 'use client';
 
-import { useState, useRef, ChangeEvent } from 'react';
+import React, { useState, useRef, useEffect, ChangeEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import { X, Upload, Loader2, Camera } from 'lucide-react';
+import { X, Upload, Loader2, Camera, Check, ExternalLink, ShieldCheck, AlertCircle } from 'lucide-react';
+import { useLenis } from 'lenis/react';
+import { ImageCropperModal } from '@/components/ui/ImageCropperModal';
 
 interface EditProfileModalProps {
   isOpen: boolean;
@@ -13,19 +15,134 @@ interface EditProfileModalProps {
     username: string;
     bio: string | null;
     profilePhoto: string | null;
+    socialLinks?: any;
+    showSocialLinks?: boolean;
+    email?: string;
   };
+}
+
+function formatSocialUrl(platform: string, input: string): { url: string; handle: string; isValid: boolean } {
+  const clean = input.trim().replace(/^@/, '');
+  if (!clean) return { url: '', handle: '', isValid: false };
+
+  switch (platform) {
+    case 'github': {
+      const match = clean.match(/github\.com\/([a-zA-Z0-9_-]+)/);
+      const handle = match ? match[1] : clean.replace(/[^a-zA-Z0-9_-]/g, '');
+      return { url: `https://github.com/${handle}`, handle: `@${handle}`, isValid: handle.length > 0 };
+    }
+    case 'linkedin': {
+      const match = clean.match(/linkedin\.com\/in\/([a-zA-Z0-9_-]+)/);
+      const handle = match ? match[1] : clean.replace(/[^a-zA-Z0-9_-]/g, '');
+      return { url: `https://linkedin.com/in/${handle}`, handle: `in/${handle}`, isValid: handle.length > 0 };
+    }
+    case 'twitter': {
+      const match = clean.match(/(?:twitter|x)\.com\/([a-zA-Z0-9_]+)/);
+      const handle = match ? match[1] : clean.replace(/[^a-zA-Z0-9_]/g, '');
+      return { url: `https://x.com/${handle}`, handle: `@${handle}`, isValid: handle.length > 0 };
+    }
+    case 'instagram': {
+      const match = clean.match(/instagram\.com\/([a-zA-Z0-9_.]+)/);
+      const handle = match ? match[1] : clean.replace(/[^a-zA-Z0-9_.]/g, '');
+      return { url: `https://instagram.com/${handle}`, handle: `@${handle}`, isValid: handle.length > 0 };
+    }
+    case 'website': {
+      const hasProto = /^https?:\/\//i.test(clean);
+      const url = hasProto ? clean : `https://${clean}`;
+      const isValid = /^https?:\/\/[a-zA-Z0-9-]+\.[a-zA-Z]{2,}/.test(url);
+      return { url, handle: clean.replace(/^https?:\/\//, ''), isValid };
+    }
+    default:
+      return { url: clean, handle: clean, isValid: true };
+  }
 }
 
 export default function EditProfileModal({ isOpen, onClose, currentUser }: EditProfileModalProps) {
   const router = useRouter();
   const { update } = useSession();
+  const lenis = useLenis();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  const [name, setName] = useState(currentUser.name);
-  const [username, setUsername] = useState(currentUser.username);
+  // Stop Lenis background scrolling when modal is active
+  useEffect(() => {
+    if (isOpen) {
+      lenis?.stop();
+      document.body.style.overflow = 'hidden';
+    } else {
+      lenis?.start();
+      document.body.style.overflow = '';
+    }
+    return () => {
+      lenis?.start();
+      document.body.style.overflow = '';
+    };
+  }, [isOpen, lenis]);
+
+  const [name, setName] = useState(currentUser.name || '');
+  const [username, setUsername] = useState(currentUser.username || '');
   const [bio, setBio] = useState(currentUser.bio || '');
   const [profilePhoto, setProfilePhoto] = useState<string | null>(currentUser.profilePhoto);
   const [previewUrl, setPreviewUrl] = useState<string | null>(currentUser.profilePhoto);
+
+  // Photo Cropper State
+  const [rawImageSrc, setRawImageSrc] = useState<string | null>(null);
+  const [isCropperOpen, setIsCropperOpen] = useState(false);
+
+  // Social Links state parsing
+  const initialSocials = currentUser.socialLinks;
+  
+  const getInitialValue = (platform: string) => {
+    if (Array.isArray(initialSocials)) {
+      const found = initialSocials.find((s: any) => s.platform === platform);
+      return {
+        handle: found?.handle || found?.url || '',
+        enabled: found?.enabled !== false,
+      };
+    } else if (initialSocials && typeof initialSocials === 'object') {
+      const keyMap: Record<string, string> = {
+        github: 'showGithub',
+        linkedin: 'showLinkedin',
+        twitter: 'showTwitter',
+        instagram: 'showInstagram',
+        website: 'showWebsite',
+      };
+      return {
+        handle: initialSocials[platform] || '',
+        enabled: initialSocials[keyMap[platform]] !== false,
+      };
+    }
+    return { handle: '', enabled: true };
+  };
+
+  const ghInit = getInitialValue('github');
+  const liInit = getInitialValue('linkedin');
+  const twInit = getInitialValue('twitter');
+  const igInit = getInitialValue('instagram');
+  const webInit = getInitialValue('website');
+
+  const [githubInput, setGithubInput] = useState(ghInit.handle);
+  const [showGithub, setShowGithub] = useState(ghInit.enabled);
+
+  const [linkedinInput, setLinkedinInput] = useState(liInit.handle);
+  const [showLinkedin, setShowLinkedin] = useState(liInit.enabled);
+
+  const [twitterInput, setTwitterInput] = useState(twInit.handle);
+  const [showTwitter, setShowTwitter] = useState(twInit.enabled);
+
+  const [instagramInput, setInstagramInput] = useState(igInit.handle);
+  const [showInstagram, setShowInstagram] = useState(igInit.enabled);
+
+  const [websiteInput, setWebsiteInput] = useState(webInit.handle);
+  const [showWebsite, setShowWebsite] = useState(webInit.enabled);
+
+  const [showSocialLinks, setShowSocialLinks] = useState(currentUser.showSocialLinks !== false);
+  const [showEmail, setShowEmail] = useState(
+    Array.isArray(initialSocials)
+      ? Boolean(initialSocials.find((s: any) => s.platform === 'email')?.showEmail || initialSocials.find((s: any) => s.platform === 'email')?.enabled !== false)
+      : Boolean(initialSocials?.showEmail)
+  );
+
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -37,37 +154,55 @@ export default function EditProfileModal({ isOpen, onClose, currentUser }: EditP
 
     setError(null);
 
-    // Limit to 500KB
-    if (file.size > 500 * 1024) {
-      setError('Image must be under 500KB. Please compress or choose a smaller image.');
+    // Limit to 2MB
+    if (file.size > 2 * 1024 * 1024) {
+      setError('Image must be under 2MB. Please compress or choose a smaller image.');
       if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
 
+    if (!file.type.startsWith('image/')) {
+      setError('Please select a valid image file (PNG, JPG, WebP)');
+      return;
+    }
+
     const reader = new FileReader();
-    reader.onloadend = () => {
-      const base64String = reader.result as string;
-      setProfilePhoto(base64String);
-      setPreviewUrl(base64String);
+    reader.onload = () => {
+      setRawImageSrc(reader.result as string);
+      setIsCropperOpen(true);
     };
     reader.onerror = () => {
       setError('Failed to read image file.');
     };
     reader.readAsDataURL(file);
+
+    // Reset input value so user can pick the same file again if desired
+    e.target.value = '';
   };
 
-  const handleTriggerUpload = () => {
-    fileInputRef.current?.click();
+  const handleCropComplete = (croppedBlob: Blob, croppedUrl: string) => {
+    setIsCropperOpen(false);
+    setPreviewUrl(croppedUrl);
+
+    // Convert blob to base64 for API update
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setProfilePhoto(reader.result as string);
+    };
+    reader.readAsDataURL(croppedBlob);
+    setError(null);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     if (!name.trim()) {
       setError('Name is required.');
+      scrollContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
     if (!username.trim()) {
       setError('Username is required.');
+      scrollContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
 
@@ -75,6 +210,37 @@ export default function EditProfileModal({ isOpen, onClose, currentUser }: EditP
     setError(null);
 
     try {
+      // Build verified social links array with individual enabled states
+      const socialLinks: any[] = [];
+      
+      const gh = formatSocialUrl('github', githubInput);
+      if (gh.isValid) {
+        socialLinks.push({ platform: 'github', url: gh.url, handle: gh.handle, enabled: showGithub });
+      }
+
+      const li = formatSocialUrl('linkedin', linkedinInput);
+      if (li.isValid) {
+        socialLinks.push({ platform: 'linkedin', url: li.url, handle: li.handle, enabled: showLinkedin });
+      }
+
+      const tw = formatSocialUrl('twitter', twitterInput);
+      if (tw.isValid) {
+        socialLinks.push({ platform: 'twitter', url: tw.url, handle: tw.handle, enabled: showTwitter });
+      }
+
+      const ig = formatSocialUrl('instagram', instagramInput);
+      if (ig.isValid) {
+        socialLinks.push({ platform: 'instagram', url: ig.url, handle: ig.handle, enabled: showInstagram });
+      }
+
+      const web = formatSocialUrl('website', websiteInput);
+      if (web.isValid) {
+        socialLinks.push({ platform: 'website', url: web.url, handle: web.handle, enabled: showWebsite });
+      }
+
+      // Email mailto toggle
+      socialLinks.push({ platform: 'email', showEmail, enabled: showEmail });
+
       const response = await fetch('/api/profile', {
         method: 'PUT',
         headers: {
@@ -82,9 +248,11 @@ export default function EditProfileModal({ isOpen, onClose, currentUser }: EditP
         },
         body: JSON.stringify({
           name: name.trim(),
-          username: username.trim(),
+          username: username.trim().toLowerCase(),
           bio: bio.trim(),
           profilePhoto,
+          socialLinks,
+          showSocialLinks,
         }),
       });
 
@@ -94,169 +262,502 @@ export default function EditProfileModal({ isOpen, onClose, currentUser }: EditP
         throw new Error(data.error || 'Failed to update profile');
       }
 
-      // Update next-auth session cookie with new details
+      // Update session cookie with new details
       await update({
         name: name.trim(),
-        username: username.trim(),
-        profilePhoto: data.user.profilePhoto
+        username: username.trim().toLowerCase(),
+        profilePhoto: data.user.profilePhoto,
       });
 
       onClose();
       
-      // If username changed, redirect to new profile path
       const newUsername = username.trim().toLowerCase();
       if (newUsername !== currentUser.username.toLowerCase()) {
         window.location.href = `/profile/${newUsername}`;
       } else {
         router.refresh();
-        window.location.reload();
       }
     } catch (err: any) {
       setError(err.message || 'Something went wrong. Please try again.');
+      scrollContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      {/* Backdrop */}
-      <div 
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" 
-        onClick={loading ? undefined : onClose}
-      />
+    <>
+      <div
+        data-lenis-prevent
+        className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 md:p-6 overflow-y-auto"
+      >
+        {/* Backdrop */}
+        <div 
+          className="fixed inset-0 bg-black/80 backdrop-blur-md transition-opacity" 
+          onClick={loading ? undefined : onClose}
+        />
 
-      {/* Modal Content */}
-      <div className="relative w-full max-w-lg overflow-hidden rounded-2xl bg-white dark:bg-[#0f0f0f] border border-gray-100 dark:border-neutral-800 shadow-2xl transition-all">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-gray-100 dark:border-neutral-800 px-6 py-4">
-          <h3 className="font-serif text-xl font-bold text-gray-900 dark:text-white">Edit Profile</h3>
-          <button 
-            onClick={onClose}
-            disabled={loading}
-            className="rounded-full p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-neutral-800 hover:text-gray-900 dark:hover:text-white transition"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          {error && (
-            <div className="rounded-lg bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/30 p-3 text-xs font-semibold text-red-600 dark:text-red-400">
-              {error}
+        {/* Modal Form Card */}
+        <form
+          onSubmit={handleSubmit}
+          data-lenis-prevent
+          className="relative z-10 w-full max-w-xl max-h-[88vh] flex flex-col rounded-3xl bg-white dark:bg-[#0c0c0c] border border-neutral-200/90 dark:border-neutral-800 shadow-2xl overflow-hidden"
+        >
+          {/* Fixed Header */}
+          <div className="flex items-center justify-between border-b border-neutral-100 dark:border-neutral-900 px-6 py-4 shrink-0 bg-white/95 dark:bg-[#0c0c0c]/95 backdrop-blur-sm">
+            <div>
+              <h3 className="font-serif text-lg sm:text-xl font-bold text-neutral-900 dark:text-white">Edit Author Profile</h3>
+              <p className="text-xs text-neutral-500 font-mono">Byline, verified social icons &amp; visibility</p>
             </div>
-          )}
-
-          {/* Photo Upload Area */}
-          <div className="flex flex-col items-center gap-4">
-            <div className="group relative h-24 w-24 overflow-hidden rounded-full border border-gray-200 dark:border-neutral-800 shadow-inner bg-gray-50 dark:bg-neutral-900">
-              {previewUrl ? (
-                <img 
-                  src={previewUrl} 
-                  alt="Profile preview" 
-                  className="h-full w-full object-cover transition group-hover:opacity-75"
-                />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center text-gray-400">
-                  <Camera className="h-8 w-8" />
-                </div>
-              )}
-              
-              <button
-                type="button"
-                onClick={handleTriggerUpload}
-                disabled={loading}
-                className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-full"
-              >
-                <Upload className="h-5 w-5 text-white" />
-              </button>
-            </div>
-            
-            <div className="text-center">
-              <button
-                type="button"
-                onClick={handleTriggerUpload}
-                disabled={loading}
-                className="text-xs font-bold text-violet-600 dark:text-cyan-400 hover:underline"
-              >
-                Upload new image
-              </button>
-              <p className="text-[10px] text-gray-400 mt-1">PNG, JPG or WEBP up to 500KB</p>
-            </div>
-
-            <input 
-              type="file"
-              ref={fileInputRef}
-              onChange={handleFileChange}
-              accept="image/*"
-              className="hidden"
-            />
+            <button 
+              type="button"
+              onClick={onClose}
+              disabled={loading}
+              className="p-1.5 rounded-xl border border-neutral-200 dark:border-neutral-800 text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition cursor-pointer"
+            >
+              <X size={16} />
+            </button>
           </div>
 
-          {/* Text Inputs */}
-          <div className="space-y-4">
-            <div className="flex flex-col">
-              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Display Name</label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                disabled={loading}
-                placeholder="Your Name"
-                className="w-full rounded-lg border border-gray-200 dark:border-neutral-800 bg-transparent p-3 text-sm text-gray-900 dark:text-white outline-none focus:border-violet-600 dark:focus:border-cyan-400 transition"
-              />
-            </div>
+          {/* Smooth Scrollable Body */}
+          <div
+            ref={scrollContainerRef}
+            data-lenis-prevent
+            className="flex-1 overflow-y-auto overscroll-contain p-6 space-y-6"
+            style={{ WebkitOverflowScrolling: 'touch' }}
+          >
+            {error && (
+              <div className="rounded-2xl bg-red-500/10 border border-red-500/20 p-3.5 text-xs font-mono text-red-600 dark:text-red-400 flex items-center gap-2">
+                <AlertCircle size={15} className="shrink-0" />
+                <span>{error}</span>
+              </div>
+            )}
 
-            <div className="flex flex-col">
-              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Username</label>
-              <div className="relative">
-                <span className="absolute left-3 top-3 text-sm text-gray-400 font-medium">@</span>
-                <input
-                  type="text"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
+            {/* Photo Upload Area with 1:1 Cropper integration */}
+            <div className="flex items-center gap-4 p-4 rounded-2xl bg-neutral-50 dark:bg-[#141414] border border-neutral-200/80 dark:border-neutral-800/80">
+              <div className="group relative h-18 w-18 overflow-hidden rounded-full border border-neutral-200 dark:border-neutral-800 shadow-inner bg-neutral-100 dark:bg-neutral-900 shrink-0 flex items-center justify-center">
+                {previewUrl ? (
+                  <img 
+                    src={previewUrl} 
+                    alt="Profile preview" 
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="text-neutral-400">
+                    <Camera size={24} />
+                  </div>
+                )}
+                
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
                   disabled={loading}
-                  placeholder="username"
-                  className="w-full rounded-lg border border-gray-200 dark:border-neutral-800 bg-transparent py-3 pl-7 pr-3 text-sm text-gray-900 dark:text-white outline-none focus:border-violet-600 dark:focus:border-cyan-400 transition"
+                  className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-full cursor-pointer"
+                  title="Crop and upload portrait"
+                >
+                  <Upload size={16} className="text-white" />
+                </button>
+              </div>
+              
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-neutral-900 dark:text-white">Profile Portrait (1:1 Crop)</span>
+                  <span className="text-[10px] font-mono text-neutral-400">Max 2MB</span>
+                </div>
+                <p className="text-[11px] text-neutral-500 truncate mt-0.5">Interactive pan, zoom, and rotate cropper</p>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={loading}
+                  className="mt-2 text-xs font-mono font-bold text-neutral-800 dark:text-neutral-200 hover:underline cursor-pointer"
+                >
+                  Change Avatar...
+                </button>
+                <input 
+                  ref={fileInputRef}
+                  type="file" 
+                  accept="image/*" 
+                  onChange={handleFileChange} 
+                  className="hidden" 
                 />
               </div>
             </div>
 
-            <div className="flex flex-col">
-              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Bio</label>
+            {/* Account Fields */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="font-mono text-[11px] font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
+                  Full Name
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="w-full h-11 px-3.5 rounded-xl border border-neutral-200/90 dark:border-neutral-800 bg-white/80 dark:bg-[#121212] text-sm text-neutral-900 dark:text-white focus:border-neutral-950 dark:focus:border-white focus:outline-none"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="font-mono text-[11px] font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
+                  Username
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value.toLowerCase())}
+                  className="w-full h-11 px-3.5 rounded-xl border border-neutral-200/90 dark:border-neutral-800 bg-white/80 dark:bg-[#121212] text-sm text-neutral-900 dark:text-white focus:border-neutral-950 dark:focus:border-white focus:outline-none"
+                />
+              </div>
+            </div>
+
+            {/* Bio */}
+            <div className="space-y-1.5">
+              <label className="font-mono text-[11px] font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
+                Author Bio / Byline
+              </label>
               <textarea
+                rows={3}
                 value={bio}
                 onChange={(e) => setBio(e.target.value)}
-                disabled={loading}
-                placeholder="Tell readers about yourself..."
-                rows={3}
-                className="w-full rounded-lg border border-gray-200 dark:border-neutral-800 bg-transparent p-3 text-sm text-gray-900 dark:text-white outline-none focus:border-violet-600 dark:focus:border-cyan-400 transition resize-none leading-relaxed"
+                placeholder="Tell other readers about yourself..."
+                className="w-full p-3.5 rounded-xl border border-neutral-200/90 dark:border-neutral-800 bg-white/80 dark:bg-[#121212] text-sm text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:border-neutral-950 dark:focus:border-white focus:outline-none resize-none"
               />
+            </div>
+
+            {/* Social Links Editor with Individual Toggle Controls */}
+            <div className="space-y-4 pt-3 border-t border-neutral-100 dark:border-neutral-900">
+              <div className="flex items-center justify-between">
+                <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 flex items-center gap-1.5">
+                  <ShieldCheck size={14} className="text-emerald-500" />
+                  <span>Verified Social Icons &amp; Toggles</span>
+                </span>
+                <span className="text-[10px] font-mono text-neutral-400">Enable/disable individually</span>
+              </div>
+
+              <div className="space-y-3.5">
+                {/* GitHub */}
+                <div className="p-3 rounded-2xl bg-neutral-50/80 dark:bg-[#141414] border border-neutral-200/70 dark:border-neutral-800/70 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-neutral-800 dark:text-neutral-200 flex items-center gap-1.5">
+                      <span>GitHub</span>
+                      {formatSocialUrl('github', githubInput).isValid && (
+                        <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 flex items-center gap-0.5">
+                          <Check size={11} /> Verified
+                        </span>
+                      )}
+                    </span>
+                    <label className="flex items-center gap-1.5 text-[11px] font-mono font-medium text-neutral-500 cursor-pointer">
+                      <span>{showGithub ? 'Visible' : 'Hidden'}</span>
+                      <input
+                        type="checkbox"
+                        checked={showGithub}
+                        onChange={(e) => setShowGithub(e.target.checked)}
+                        className="w-4 h-4 rounded accent-neutral-950 dark:accent-white cursor-pointer"
+                      />
+                    </label>
+                  </div>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={githubInput}
+                      onChange={(e) => setGithubInput(e.target.value)}
+                      placeholder="GitHub username (e.g. mayalin)"
+                      className={`w-full h-10 px-3 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-[#101010] text-xs text-neutral-900 dark:text-white focus:outline-none ${
+                        !showGithub ? 'opacity-50' : ''
+                      }`}
+                    />
+                  </div>
+                  {formatSocialUrl('github', githubInput).isValid && (
+                    <div className="flex items-center justify-between px-1">
+                      <a
+                        href={formatSocialUrl('github', githubInput).url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 truncate"
+                      >
+                        <ExternalLink size={9} />
+                        <span>{formatSocialUrl('github', githubInput).url}</span>
+                      </a>
+                      <span className="text-[9px] font-mono text-neutral-400">Click to verify link</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* LinkedIn */}
+                <div className="p-3 rounded-2xl bg-neutral-50/80 dark:bg-[#141414] border border-neutral-200/70 dark:border-neutral-800/70 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-neutral-800 dark:text-neutral-200 flex items-center gap-1.5">
+                      <span>LinkedIn</span>
+                      {formatSocialUrl('linkedin', linkedinInput).isValid && (
+                        <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 flex items-center gap-0.5">
+                          <Check size={11} /> Verified
+                        </span>
+                      )}
+                    </span>
+                    <label className="flex items-center gap-1.5 text-[11px] font-mono font-medium text-neutral-500 cursor-pointer">
+                      <span>{showLinkedin ? 'Visible' : 'Hidden'}</span>
+                      <input
+                        type="checkbox"
+                        checked={showLinkedin}
+                        onChange={(e) => setShowLinkedin(e.target.checked)}
+                        className="w-4 h-4 rounded accent-neutral-950 dark:accent-white cursor-pointer"
+                      />
+                    </label>
+                  </div>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={linkedinInput}
+                      onChange={(e) => setLinkedinInput(e.target.value)}
+                      placeholder="LinkedIn handle (e.g. mayalin)"
+                      className={`w-full h-10 px-3 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-[#101010] text-xs text-neutral-900 dark:text-white focus:outline-none ${
+                        !showLinkedin ? 'opacity-50' : ''
+                      }`}
+                    />
+                  </div>
+                  {formatSocialUrl('linkedin', linkedinInput).isValid && (
+                    <div className="flex items-center justify-between px-1">
+                      <a
+                        href={formatSocialUrl('linkedin', linkedinInput).url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 truncate"
+                      >
+                        <ExternalLink size={9} />
+                        <span>{formatSocialUrl('linkedin', linkedinInput).url}</span>
+                      </a>
+                      <span className="text-[9px] font-mono text-neutral-400">Click to verify link</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Twitter / X */}
+                <div className="p-3 rounded-2xl bg-neutral-50/80 dark:bg-[#141414] border border-neutral-200/70 dark:border-neutral-800/70 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-neutral-800 dark:text-neutral-200 flex items-center gap-1.5">
+                      <span>Twitter / X</span>
+                      {formatSocialUrl('twitter', twitterInput).isValid && (
+                        <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 flex items-center gap-0.5">
+                          <Check size={11} /> Verified
+                        </span>
+                      )}
+                    </span>
+                    <label className="flex items-center gap-1.5 text-[11px] font-mono font-medium text-neutral-500 cursor-pointer">
+                      <span>{showTwitter ? 'Visible' : 'Hidden'}</span>
+                      <input
+                        type="checkbox"
+                        checked={showTwitter}
+                        onChange={(e) => setShowTwitter(e.target.checked)}
+                        className="w-4 h-4 rounded accent-neutral-950 dark:accent-white cursor-pointer"
+                      />
+                    </label>
+                  </div>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={twitterInput}
+                      onChange={(e) => setTwitterInput(e.target.value)}
+                      placeholder="Twitter / X handle (@handle)"
+                      className={`w-full h-10 px-3 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-[#101010] text-xs text-neutral-900 dark:text-white focus:outline-none ${
+                        !showTwitter ? 'opacity-50' : ''
+                      }`}
+                    />
+                  </div>
+                  {formatSocialUrl('twitter', twitterInput).isValid && (
+                    <div className="flex items-center justify-between px-1">
+                      <a
+                        href={formatSocialUrl('twitter', twitterInput).url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 truncate"
+                      >
+                        <ExternalLink size={9} />
+                        <span>{formatSocialUrl('twitter', twitterInput).url}</span>
+                      </a>
+                      <span className="text-[9px] font-mono text-neutral-400">Click to verify link</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Instagram */}
+                <div className="p-3 rounded-2xl bg-neutral-50/80 dark:bg-[#141414] border border-neutral-200/70 dark:border-neutral-800/70 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-neutral-800 dark:text-neutral-200 flex items-center gap-1.5">
+                      <span>Instagram</span>
+                      {formatSocialUrl('instagram', instagramInput).isValid && (
+                        <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 flex items-center gap-0.5">
+                          <Check size={11} /> Verified
+                        </span>
+                      )}
+                    </span>
+                    <label className="flex items-center gap-1.5 text-[11px] font-mono font-medium text-neutral-500 cursor-pointer">
+                      <span>{showInstagram ? 'Visible' : 'Hidden'}</span>
+                      <input
+                        type="checkbox"
+                        checked={showInstagram}
+                        onChange={(e) => setShowInstagram(e.target.checked)}
+                        className="w-4 h-4 rounded accent-neutral-950 dark:accent-white cursor-pointer"
+                      />
+                    </label>
+                  </div>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={instagramInput}
+                      onChange={(e) => setInstagramInput(e.target.value)}
+                      placeholder="Instagram handle (@handle)"
+                      className={`w-full h-10 px-3 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-[#101010] text-xs text-neutral-900 dark:text-white focus:outline-none ${
+                        !showInstagram ? 'opacity-50' : ''
+                      }`}
+                    />
+                  </div>
+                  {formatSocialUrl('instagram', instagramInput).isValid && (
+                    <div className="flex items-center justify-between px-1">
+                      <a
+                        href={formatSocialUrl('instagram', instagramInput).url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 truncate"
+                      >
+                        <ExternalLink size={9} />
+                        <span>{formatSocialUrl('instagram', instagramInput).url}</span>
+                      </a>
+                      <span className="text-[9px] font-mono text-neutral-400">Click to verify link</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Website */}
+                <div className="p-3 rounded-2xl bg-neutral-50/80 dark:bg-[#141414] border border-neutral-200/70 dark:border-neutral-800/70 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-neutral-800 dark:text-neutral-200 flex items-center gap-1.5">
+                      <span>Website / Portfolio</span>
+                      {formatSocialUrl('website', websiteInput).isValid && (
+                        <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 flex items-center gap-0.5">
+                          <Check size={11} /> Verified
+                        </span>
+                      )}
+                    </span>
+                    <label className="flex items-center gap-1.5 text-[11px] font-mono font-medium text-neutral-500 cursor-pointer">
+                      <span>{showWebsite ? 'Visible' : 'Hidden'}</span>
+                      <input
+                        type="checkbox"
+                        checked={showWebsite}
+                        onChange={(e) => setShowWebsite(e.target.checked)}
+                        className="w-4 h-4 rounded accent-neutral-950 dark:accent-white cursor-pointer"
+                      />
+                    </label>
+                  </div>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={websiteInput}
+                      onChange={(e) => setWebsiteInput(e.target.value)}
+                      placeholder="https://yourportfolio.com"
+                      className={`w-full h-10 px-3 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-[#101010] text-xs text-neutral-900 dark:text-white focus:outline-none ${
+                        !showWebsite ? 'opacity-50' : ''
+                      }`}
+                    />
+                  </div>
+                  {formatSocialUrl('website', websiteInput).isValid && (
+                    <div className="flex items-center justify-between px-1">
+                      <a
+                        href={formatSocialUrl('website', websiteInput).url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 truncate"
+                      >
+                        <ExternalLink size={9} />
+                        <span>{formatSocialUrl('website', websiteInput).url}</span>
+                      </a>
+                      <span className="text-[9px] font-mono text-neutral-400">Click to verify link</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Global Visibility & Mailto Controls */}
+              <div className="space-y-2.5 pt-2">
+                <label className="flex items-center justify-between p-3.5 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-[#141414] cursor-pointer">
+                  <div>
+                    <span className="text-xs font-bold text-neutral-900 dark:text-white block">
+                      Mailto Contact Button
+                    </span>
+                    <span className="text-[10.5px] text-neutral-500">
+                      Allow visitors to contact you directly via email ({currentUser.email || 'your account email'})
+                    </span>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={showEmail}
+                    onChange={(e) => setShowEmail(e.target.checked)}
+                    className="w-4 h-4 rounded accent-neutral-950 dark:accent-white cursor-pointer shrink-0 ml-3"
+                  />
+                </label>
+
+                <label className="flex items-center justify-between p-3.5 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-[#141414] cursor-pointer">
+                  <div>
+                    <span className="text-xs font-bold text-neutral-900 dark:text-white block">
+                      Master Social Visibility
+                    </span>
+                    <span className="text-[10.5px] text-neutral-500">
+                      Master toggle to show or hide all social media icons from your public profile
+                    </span>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={showSocialLinks}
+                    onChange={(e) => setShowSocialLinks(e.target.checked)}
+                    className="w-4 h-4 rounded accent-neutral-950 dark:accent-white cursor-pointer shrink-0 ml-3"
+                  />
+                </label>
+              </div>
             </div>
           </div>
 
-          {/* Footer Actions */}
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-100 dark:border-neutral-800">
+          {/* Fixed Footer */}
+          <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-neutral-100 dark:border-neutral-900 bg-neutral-50/90 dark:bg-[#0e0e0e]/90 shrink-0">
             <button
               type="button"
               onClick={onClose}
               disabled={loading}
-              className="py-2 px-5 border border-gray-200 dark:border-neutral-800 rounded-full text-xs font-bold text-gray-700 dark:text-neutral-300 hover:bg-gray-50 dark:hover:bg-neutral-800 transition"
+              className="px-4 py-2 text-xs font-bold text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="inline-flex items-center gap-2 py-2 px-6 bg-black dark:bg-white text-white dark:text-black rounded-full text-xs font-bold hover:bg-gray-900 dark:hover:bg-gray-100 transition shadow-sm disabled:opacity-70"
+              onClick={(e) => {
+                // Ensure submit fires whether triggered by form or button click
+                handleSubmit(e);
+              }}
+              className="px-6 py-2.5 rounded-xl bg-neutral-950 dark:bg-white text-white dark:text-neutral-950 text-xs font-bold shadow-md hover:shadow-lg transition cursor-pointer flex items-center gap-2 disabled:opacity-50"
             >
-              {loading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-              Save Changes
+              {loading && <Loader2 size={13} className="animate-spin" />}
+              <span>{loading ? 'Saving Changes...' : 'Save Profile'}</span>
             </button>
           </div>
         </form>
       </div>
-    </div>
+
+      {/* 1:1 Square Image Cropper Modal */}
+      {isCropperOpen && rawImageSrc && (
+        <ImageCropperModal
+          isOpen={isCropperOpen}
+          imageSrc={rawImageSrc}
+          aspectRatio={1}
+          aspectPresetLabel="Square (1:1)"
+          allowRatioSelection={false}
+          onCropComplete={handleCropComplete}
+          onCancel={() => {
+            setIsCropperOpen(false);
+            setRawImageSrc(null);
+          }}
+        />
+      )}
+    </>
   );
 }

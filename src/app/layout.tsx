@@ -1,6 +1,15 @@
 // src/app/layout.tsx
 import type { Metadata } from 'next';
-import { Outfit, Lora, Geist, Geist_Mono, Playfair_Display } from 'next/font/google';
+import {
+  Outfit,
+  Lora,
+  Geist,
+  Geist_Mono,
+  Playfair_Display,
+  Rozha_One,
+  Martel,
+  Noto_Serif_Devanagari,
+} from 'next/font/google';
 import './globals.css';
 import SessionProvider from '@/components/providers/SessionProvider';
 import { ThemeProvider } from '@/components/providers/ThemeProvider';
@@ -30,6 +39,27 @@ const lora = Lora({
   display: 'swap',
 });
 
+const rozhaOne = Rozha_One({
+  variable: '--font-rozha',
+  subsets: ['devanagari', 'latin'],
+  weight: ['400'],
+  display: 'swap',
+});
+
+const martel = Martel({
+  variable: '--font-martel',
+  subsets: ['devanagari', 'latin'],
+  weight: ['300', '400', '600', '700', '800'],
+  display: 'swap',
+});
+
+const notoSerifDevanagari = Noto_Serif_Devanagari({
+  variable: '--font-noto-devanagari',
+  subsets: ['devanagari'],
+  weight: ['400', '500', '600', '700'],
+  display: 'swap',
+});
+
 export const metadata: Metadata = {
   title: 'Excelsior Literary Club',
   description: 'Digital ecosystem of the Excelsior literary society. Discover articles, poetry, stories, and connect with other writers.',
@@ -50,6 +80,9 @@ export default function RootLayout({
         outfit.variable,
         lora.variable,
         playfair.variable,
+        rozhaOne.variable,
+        martel.variable,
+        notoSerifDevanagari.variable,
         geistSans.variable,
         geistMono.variable,
         "font-sans"

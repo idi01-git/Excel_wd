@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { ArrowBigUp, ArrowBigDown, MessageSquare, Plus } from 'lucide-react';
 import { InteractionButton } from '@/components/ui/interaction-button';
+import { isStaff } from '@/lib/rbac';
 import CommentInput from './CommentInput';
 
 function formatDistanceToNow(date: Date) {
@@ -71,7 +72,7 @@ export default function CommentNode({
   const currentUser = session?.user;
   const isPostAuthor = comment.authorId === postAuthorId;
   const isOwnComment = currentUser ? currentUser.id === comment.authorId : false;
-  const isStaff = currentUser ? (currentUser.role === 'MODERATOR' || currentUser.role === 'ADMIN') : false;
+  const isStaffUser = currentUser ? isStaff(currentUser.role) : false;
   
   const hasUpvotedInitial = currentUser ? comment.upvotes.some(u => u.userId === currentUser.id) : false;
   const hasDownvotedInitial = currentUser ? comment.downvotes?.some(u => u.userId === currentUser.id) : false;
@@ -178,11 +179,11 @@ export default function CommentNode({
 
   const renderCommentContent = (txt: string) => {
     if (comment.isDeleted) {
-      return <p className="text-gray-500 italic font-mono text-xs">{txt}</p>;
+      return <p className="text-muted-foreground italic font-mono text-xs">{txt}</p>;
     }
     const parts = txt.split(/(@[a-zA-Z0-9_]+)/g);
     return (
-      <p className="text-gray-800 whitespace-pre-line">
+      <p className="text-neutral-800 dark:text-neutral-200 whitespace-pre-line">
         {parts.map((part, index) => {
           if (part.startsWith('@') && part.length > 1) {
             const username = part.slice(1);
@@ -190,7 +191,7 @@ export default function CommentNode({
               <Link
                 key={index}
                 href={`/profile/${username}`}
-                className="text-link hover:underline font-semibold"
+                className="text-blue-600 dark:text-blue-400 hover:underline font-semibold"
               >
                 {part}
               </Link>
@@ -206,21 +207,21 @@ export default function CommentNode({
     <div className="bg-transparent group">
       {/* Comment Header */}
       <div 
-        className="flex items-center justify-between mb-1 cursor-pointer select-none rounded-md hover:bg-gray-50/50 transition-colors"
+        className="flex items-center justify-between mb-1 cursor-pointer select-none rounded-md hover:bg-neutral-100/60 dark:hover:bg-neutral-800/60 transition-colors"
         onClick={onToggleCollapse}
       >
         <div className="flex items-center gap-1.5 flex-wrap w-full">
-          <span className="text-[12px] font-bold text-gray-900 leading-none">{comment.author.name}</span>
+          <span className="text-[12px] font-bold text-neutral-900 dark:text-neutral-100 leading-none">{comment.author.name}</span>
           {isPostAuthor && (
-            <span className="text-[#0052cc] font-bold text-[10px] leading-none">
+            <span className="text-blue-600 dark:text-blue-400 font-bold text-[10px] leading-none">
               OP
             </span>
           )}
-          <span className="text-[11px] text-gray-500 leading-none">
+          <span className="text-[11px] text-muted-foreground leading-none">
             &bull; {formatDistanceToNow(new Date(comment.createdAt))} {new Date(comment.createdAt).getTime() > Date.now() - 60000 ? '' : 'ago'}
           </span>
           {collapsed && (
-            <span className="inline-flex items-center justify-center w-4 h-4 bg-gray-100 border border-gray-200 text-gray-500 rounded hover:bg-gray-200 hover:text-black transition-colors ml-1.5 shadow-sm" title="Expand thread">
+            <span className="inline-flex items-center justify-center w-4 h-4 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-neutral-600 dark:text-neutral-300 rounded hover:bg-neutral-200 dark:hover:bg-neutral-700 hover:text-black dark:hover:text-white transition-colors ml-1.5 shadow-sm" title="Expand thread">
               <Plus size={10} strokeWidth={3} />
             </span>
           )}
@@ -238,7 +239,7 @@ export default function CommentNode({
           }}
         >
           {/* Comment Body */}
-          <div className="text-gray-900 text-[13.5px] leading-relaxed mb-1.5 pr-2">
+          <div className="text-neutral-800 dark:text-neutral-200 text-[13.5px] leading-relaxed mb-1.5 pr-2">
             {isEditing ? (
               <div onClick={(e) => e.stopPropagation()}>
                 <CommentInput
@@ -260,23 +261,23 @@ export default function CommentNode({
               onClick={(e) => e.stopPropagation()} // Prevent actions from collapsing the comment
             >
               {/* Reddit Style Grouped Vote Button */}
-              <div className="flex items-center bg-gray-100 hover:bg-gray-200/80 rounded-full overflow-hidden transition-colors">
+              <div className="flex items-center bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200/80 dark:hover:bg-neutral-700/80 rounded-full overflow-hidden transition-colors">
                 <InteractionButton
                   icon={ArrowBigUp}
                   active={optimisticUpvoted}
                   onClick={(e) => { e.preventDefault(); handleUpvote(); }}
                   activeColor="text-[#ff4500]"
-                  defaultColor="text-gray-600"
+                  defaultColor="text-neutral-500 dark:text-neutral-400"
                   withConfetti
                   size={16}
-                  className="hover:bg-gray-300/50 px-2 py-1"
+                  className="hover:bg-neutral-300/50 dark:hover:bg-neutral-600/50 px-2 py-1"
                 />
                 <span className={`text-[12px] font-bold px-1 select-none min-w-[12px] text-center ${
                   optimisticUpvoted 
                     ? 'text-[#ff4500]' 
                     : optimisticDownvoted 
                       ? 'text-[#7193ff]' 
-                      : 'text-gray-800'
+                      : 'text-neutral-800 dark:text-neutral-200'
                 }`}>
                   {optimisticUpvotesCount - optimisticDownvotesCount}
                 </span>
@@ -285,16 +286,16 @@ export default function CommentNode({
                   active={optimisticDownvoted}
                   onClick={(e) => { e.preventDefault(); handleDownvote(); }}
                   activeColor="text-[#7193ff]"
-                  defaultColor="text-gray-600"
+                  defaultColor="text-neutral-500 dark:text-neutral-400"
                   size={16}
-                  className="hover:bg-gray-300/50 px-2 py-1"
+                  className="hover:bg-neutral-300/50 dark:hover:bg-neutral-600/50 px-2 py-1"
                 />
               </div>
               
               {currentUser && (
                 <button
                   onClick={() => setIsReplying(!isReplying)}
-                  className="flex items-center gap-1.5 bg-gray-100 hover:bg-gray-200/80 rounded-full px-3 py-1.5 transition-colors text-[12px] font-bold text-gray-700"
+                  className="flex items-center gap-1.5 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200/80 dark:hover:bg-neutral-700/80 rounded-full px-3 py-1.5 transition-colors text-[12px] font-bold text-neutral-700 dark:text-neutral-300"
                 >
                   <MessageSquare size={14} />
                   Reply
@@ -304,16 +305,16 @@ export default function CommentNode({
               {isOwnComment && (
                 <button
                   onClick={() => setIsEditing(true)}
-                  className="flex items-center gap-1.5 hover:bg-gray-100 rounded-full px-3 py-1 transition-colors text-[12px] font-bold text-gray-500 opacity-0 group-hover:opacity-100"
+                  className="flex items-center gap-1.5 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-full px-3 py-1 transition-colors text-[12px] font-bold text-muted-foreground opacity-0 group-hover:opacity-100"
                 >
                   Edit
                 </button>
               )}
 
-              {(isOwnComment || isStaff) && (
+              {(isOwnComment || isStaffUser) && (
                 <button
                   onClick={handleDelete}
-                  className="flex items-center gap-1.5 hover:bg-red-50 rounded-full px-3 py-1 transition-colors text-[12px] font-bold text-red-500 opacity-0 group-hover:opacity-100"
+                  className="flex items-center gap-1.5 hover:bg-red-500/10 rounded-full px-3 py-1 transition-colors text-[12px] font-bold text-red-500 opacity-0 group-hover:opacity-100"
                 >
                   Delete
                 </button>
@@ -323,7 +324,7 @@ export default function CommentNode({
 
           {/* Inline Reply input */}
           {isReplying && (
-            <div className="mt-4 pt-4 border-t border-gray-100" onClick={(e) => e.stopPropagation()}>
+            <div className="mt-4 pt-4 border-t border-neutral-200 dark:border-neutral-800" onClick={(e) => e.stopPropagation()}>
               <CommentInput
                 onSubmit={handleReplySubmit}
                 submitLabel="Reply"

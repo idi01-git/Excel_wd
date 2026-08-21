@@ -1,8 +1,4 @@
-import { Resend } from 'resend';
-
-const resend = new Resend(process.env.RESEND_API_KEY || 're_dummy_key');
-
-const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'Excelsior Library <noreply@resend.dev>';
+import nodemailer from 'nodemailer';
 
 export async function sendBookReturnReminder({
   to,
@@ -19,6 +15,14 @@ export async function sendBookReturnReminder({
   isOverdue: boolean;
   daysDiff: number;
 }) {
+  const smtpUser = process.env.SMTP_USER;
+  const smtpPass = process.env.SMTP_PASS;
+
+  if (!smtpUser || !smtpPass) {
+    console.warn('Email skipped: SMTP_USER or SMTP_PASS is not configured.');
+    return { success: true, data: null };
+  }
+
   const dueDateStr = dueDate.toLocaleDateString('en-US', { 
     month: 'long', 
     day: 'numeric', 
@@ -97,19 +101,22 @@ export async function sendBookReturnReminder({
 </html>`;
 
   try {
-    const { data, error } = await resend.emails.send({
-      from: FROM_EMAIL,
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: smtpUser,
+        pass: smtpPass,
+      },
+    });
+
+    const info = await transporter.sendMail({
+      from: `"Excelsior" <${smtpUser}>`,
       to,
       subject,
       html,
     });
 
-    if (error) {
-      console.error('Failed to send email:', error);
-      return { success: false, error };
-    }
-
-    return { success: true, data };
+    return { success: true, data: info };
   } catch (err) {
     console.error('Email send error:', err);
     return { success: false, error: err };

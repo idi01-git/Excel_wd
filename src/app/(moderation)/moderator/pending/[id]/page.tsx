@@ -16,6 +16,15 @@ interface Publication {
   tags: string[];
   updatedAt: string;
   content: any;
+  authorName?: string | null;
+  authorNote?: string | null;
+  alumniProfile?: {
+    id: string;
+    name: string;
+    batch: string;
+    branch?: string | null;
+    photo?: string | null;
+  } | null;
   author: {
     id: string;
     name: string;
@@ -250,22 +259,30 @@ export default function ModeratorDetailReviewPage() {
 
         {/* Action buttons (Top) */}
         <div className="flex items-center gap-3">
-          <button
+          <motion.button
+            type="button"
+            whileHover={{ scale: 1.05, y: -1 }}
+            whileTap={{ scale: 0.95 }}
+            transition={{ type: "spring", stiffness: 400, damping: 17 }}
             onClick={() => handleReview('REJECT')}
             disabled={submitting}
-            className="inline-flex items-center gap-1.5 py-2 px-5 bg-red-50 hover:bg-red-100 dark:bg-red-950/20 hover:dark:bg-red-950/40 text-red-600 dark:text-red-400 border border-red-200/60 dark:border-red-500/20 rounded-full font-bold transition text-xs uppercase tracking-wider cursor-pointer"
+            className="inline-flex items-center gap-1.5 py-2 px-5 bg-red-50 hover:bg-red-100 dark:bg-red-950/30 hover:dark:bg-red-950/60 text-red-600 dark:text-red-400 border border-red-200/80 dark:border-red-500/30 rounded-full font-bold transition-colors text-xs uppercase tracking-wider cursor-pointer shadow-2xs hover:shadow-sm"
           >
             <XCircle className="w-4 h-4" />
             <span className="hidden sm:inline">Reject</span>
-          </button>
-          <button
+          </motion.button>
+          <motion.button
+            type="button"
+            whileHover={{ scale: 1.05, y: -1 }}
+            whileTap={{ scale: 0.95 }}
+            transition={{ type: "spring", stiffness: 400, damping: 17 }}
             onClick={() => handleReview('APPROVE')}
             disabled={submitting}
-            className="inline-flex items-center gap-1.5 py-2 px-6 bg-black dark:bg-white hover:bg-gray-900 dark:hover:bg-neutral-100 text-white dark:text-black text-xs font-semibold rounded-full transition-all duration-200 shadow-sm cursor-pointer"
+            className="inline-flex items-center gap-1.5 py-2 px-6 bg-neutral-950 dark:bg-white hover:bg-neutral-800 dark:hover:bg-neutral-100 text-white dark:text-neutral-950 text-xs font-bold rounded-full transition-colors shadow-sm hover:shadow-md cursor-pointer select-none"
           >
             <CheckCircle2 className="w-4 h-4" />
             <span>Approve & Publish</span>
-          </button>
+          </motion.button>
         </div>
       </div>
 
@@ -303,14 +320,35 @@ export default function ModeratorDetailReviewPage() {
             <div className="flex items-center justify-between py-4 border-y border-gray-200/80 dark:border-white/10 mb-8">
               <div className="flex items-center gap-3">
                 <img
-                  src={pub.author.profilePhoto || `https://api.dicebear.com/7.x/initials/svg?seed=${pub.author.name}`}
-                  alt={pub.author.name}
+                  src={
+                    pub.alumniProfile?.photo && pub.alumniProfile.photo.trim() !== ''
+                      ? pub.alumniProfile.photo
+                      : pub.authorName
+                      ? `https://api.dicebear.com/7.x/initials/svg?seed=${pub.authorName}`
+                      : pub.author.profilePhoto || `https://api.dicebear.com/7.x/initials/svg?seed=${pub.author.name}`
+                  }
+                  alt={pub.authorName || pub.alumniProfile?.name || pub.author.name}
                   className="w-10 h-10 rounded-full object-cover border border-gray-200"
                 />
                 <div>
-                  <span className="block text-sm font-semibold text-gray-900 dark:text-white">{pub.author.name}</span>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="block text-sm font-semibold text-gray-900 dark:text-white">
+                      {pub.authorName || pub.alumniProfile?.name || pub.author.name}
+                    </span>
+                    {pub.alumniProfile && (
+                      <span className="text-[10px] font-mono font-medium px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
+                        Alumni · Class of {pub.alumniProfile.batch}
+                      </span>
+                    )}
+                    {pub.authorNote && !pub.alumniProfile && (
+                      <span className="text-[10px] font-mono font-medium px-2 py-0.5 rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 border border-neutral-200 dark:border-neutral-700">
+                        {pub.authorNote}
+                      </span>
+                    )}
+                  </div>
                   <span className="block text-[11px] text-gray-500 dark:text-neutral-500 font-medium">
-                    @{pub.author.username} &middot; Submitted {new Date(pub.updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                    {(pub.authorName || pub.alumniProfile) ? `Submitted by @${pub.author.username} · ` : `@${pub.author.username} · `}
+                    Submitted {new Date(pub.updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                   </span>
                 </div>
               </div>
@@ -432,22 +470,26 @@ export default function ModeratorDetailReviewPage() {
               </div>
 
               <div className="flex justify-end gap-3 mt-6">
-                <button
+                <motion.button
                   type="button"
+                  whileHover={{ scale: 1.04 }}
+                  whileTap={{ scale: 0.96 }}
                   onClick={() => !submitting && setRejectModalOpen(false)}
                   disabled={submitting}
-                  className="py-2 px-5 bg-gray-100 dark:bg-neutral-800 hover:bg-gray-200 dark:hover:bg-neutral-750 text-gray-700 dark:text-neutral-300 text-xs font-semibold rounded-full border border-gray-200 dark:border-white/5 transition cursor-pointer"
+                  className="py-2 px-5 bg-gray-100 dark:bg-neutral-800 hover:bg-gray-200 dark:hover:bg-neutral-700 text-gray-700 dark:text-neutral-300 text-xs font-semibold rounded-full border border-gray-200 dark:border-white/5 transition cursor-pointer"
                 >
                   Cancel
-                </button>
-                <button
+                </motion.button>
+                <motion.button
                   type="button"
+                  whileHover={{ scale: 1.04 }}
+                  whileTap={{ scale: 0.96 }}
                   onClick={submitRejection}
                   disabled={submitting || feedbackNote.trim().length < 10 || charCount > 250}
                   className="inline-flex items-center gap-1.5 py-2 px-6 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold rounded-full transition shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {submitting ? 'Submitting...' : 'Request Revision'}
-                </button>
+                </motion.button>
               </div>
             </motion.div>
           </div>
@@ -477,16 +519,18 @@ export default function ModeratorDetailReviewPage() {
               <p className="text-gray-500 dark:text-neutral-400 text-xs mb-6 leading-relaxed">
                 {successModalMessage}
               </p>
-              <button
+              <motion.button
                 type="button"
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
                 onClick={() => {
                   setSuccessModalOpen(false);
                   router.push('/moderator/pending');
                 }}
-                className="w-full py-2 px-6 bg-black dark:bg-white hover:bg-gray-900 dark:hover:bg-neutral-100 text-white dark:text-black text-xs font-semibold rounded-full transition cursor-pointer shadow-sm"
+                className="w-full py-2.5 px-6 bg-black dark:bg-white hover:bg-gray-900 dark:hover:bg-neutral-100 text-white dark:text-black text-xs font-semibold rounded-full transition cursor-pointer shadow-sm"
               >
                 Return to Queue
-              </button>
+              </motion.button>
             </motion.div>
           </div>
         )}
@@ -516,13 +560,15 @@ export default function ModeratorDetailReviewPage() {
               <p className="text-gray-500 dark:text-neutral-400 text-xs mb-6 leading-relaxed">
                 {errorModalMessage}
               </p>
-              <button
+              <motion.button
                 type="button"
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
                 onClick={() => setErrorModalOpen(false)}
-                className="w-full py-2 px-6 bg-black dark:bg-white hover:bg-gray-900 dark:hover:bg-neutral-100 text-white dark:text-black text-xs font-semibold rounded-full transition cursor-pointer shadow-sm"
+                className="w-full py-2.5 px-6 bg-black dark:bg-white hover:bg-gray-900 dark:hover:bg-neutral-100 text-white dark:text-black text-xs font-semibold rounded-full transition cursor-pointer shadow-sm"
               >
                 Dismiss
-              </button>
+              </motion.button>
             </motion.div>
           </div>
         )}

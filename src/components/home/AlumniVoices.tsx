@@ -36,11 +36,21 @@ const DURATION = 7000;
 
 export default function AlumniVoices() {
   const [index, setIndex] = useState(0);
+  const [voices, setVoices] = useState(VOICES);
+  useEffect(() => {
+    void fetch('/api/site-settings')
+      .then((response) => response.json())
+      .then((data) => {
+        const items = data.settings?.['home.testimonials']?.items;
+        if (Array.isArray(items) && items.length) setVoices(items);
+      })
+      .catch(() => {});
+  }, []);
 
   const go = useCallback(
     (dir: 1 | -1) =>
-      setIndex((prev) => (prev + dir + VOICES.length) % VOICES.length),
-    []
+      setIndex((prev) => (prev + dir + voices.length) % voices.length),
+    [voices.length]
   );
 
   useEffect(() => {
@@ -48,7 +58,7 @@ export default function AlumniVoices() {
     return () => clearTimeout(timer);
   }, [index, go]);
 
-  const current = VOICES[index];
+  const current = voices[index] || voices[0];
 
   return (
     <section className="relative w-full overflow-hidden border-y border-border bg-background px-6 pt-16 pb-16 md:px-10 md:pt-24 md:pb-20">
@@ -102,7 +112,7 @@ export default function AlumniVoices() {
           </AnimatePresence>
         </div>
 
-        {/* Controls (Clean without top line) */}
+        {/* Controls */}
         <div className="mt-12 flex items-center justify-between md:mt-16">
           <div className="flex items-center gap-4">
             <span className="font-mono text-[11px] tracking-[0.2em] text-foreground">
@@ -118,25 +128,31 @@ export default function AlumniVoices() {
               />
             </div>
             <span className="font-mono text-[11px] tracking-[0.2em] text-muted-foreground">
-              {String(VOICES.length).padStart(2, '0')}
+              {String(voices.length).padStart(2, '0')}
             </span>
           </div>
 
-          <div className="flex gap-3">
-            <button
+          <div className="flex items-center gap-3">
+            <motion.button
+              whileHover={{ scale: 1.06, y: -1 }}
+              whileTap={{ scale: 0.94 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 25 }}
               onClick={() => go(-1)}
               aria-label="Previous testimonial"
-              className="flex h-11 w-11 transform-gpu items-center justify-center rounded-full border border-border text-foreground transition-[border-color,background-color,color,transform] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:border-foreground hover:bg-foreground hover:text-background"
+              className="group relative flex h-11 w-11 items-center justify-center rounded-full border border-border bg-foreground/[0.02] text-foreground shadow-xs transition-colors duration-200 hover:border-foreground hover:bg-foreground hover:text-background cursor-pointer"
             >
-              <ArrowLeft size={15} />
-            </button>
-            <button
+              <ArrowLeft size={16} className="transition-transform duration-200 group-hover:-translate-x-0.5" />
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.06, y: -1 }}
+              whileTap={{ scale: 0.94 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 25 }}
               onClick={() => go(1)}
               aria-label="Next testimonial"
-              className="flex h-11 w-11 transform-gpu items-center justify-center rounded-full border border-border text-foreground transition-[border-color,background-color,color,transform] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:border-foreground hover:bg-foreground hover:text-background"
+              className="group relative flex h-11 w-11 items-center justify-center rounded-full border border-border bg-foreground/[0.02] text-foreground shadow-xs transition-colors duration-200 hover:border-foreground hover:bg-foreground hover:text-background cursor-pointer"
             >
-              <ArrowLeft size={15} className="rotate-180" />
-            </button>
+              <ArrowLeft size={16} className="rotate-180 transition-transform duration-200 group-hover:translate-x-0.5" />
+            </motion.button>
           </div>
         </div>
       </div>

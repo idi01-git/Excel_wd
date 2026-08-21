@@ -3,7 +3,9 @@
 
 import { useSession } from 'next-auth/react';
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { BellIcon, ChevronDownIcon, ChevronUpIcon } from 'lucide-react';
+import { formatRole } from '@/lib/rbac';
 
 interface NotificationItem {
   id: string;
@@ -13,6 +15,7 @@ interface NotificationItem {
   entityType: string;
   entityId: string;
   targetUrl?: string;
+  entityName?: string;
   actor?: {
     name: string;
     username: string;
@@ -24,36 +27,64 @@ interface NotificationItem {
 
 const getNotificationText = (n: NotificationItem) => {
   const actorName = n.actor?.name || 'Someone';
+  const name = n.entityName || n.bookTitle;
+
   switch (n.type) {
     case 'LIKE':
-      return `${actorName} liked your publication`;
+      return name ? `${actorName} liked "${name}"` : `${actorName} liked your publication`;
     case 'COMMENT_REPLY':
-      return n.entityType === 'PUBLICATION' 
-        ? `${actorName} commented on your publication`
-        : `${actorName} replied to your comment`;
+      if (n.entityType === 'PUBLICATION') {
+        return name ? `${actorName} commented on "${name}"` : `${actorName} commented on your publication`;
+      }
+      return `${actorName} replied to your comment`;
     case 'MENTION':
       return `${actorName} mentioned you in a comment`;
     case 'SUBMISSION_APPROVED':
-      return `Your submission has been approved and published.`;
+      return name ? `"${name}" was approved and published!` : `Your submission has been approved and published.`;
     case 'SUBMISSION_REJECTED':
-      return `Your submission requires revisions.`;
+      return name ? `"${name}" requires revisions` : `Your submission requires revisions.`;
     case 'NEW_FOLLOWED_POST':
       return `${actorName} published a new piece`;
+    case 'EVENT_REGISTRATION_CONFIRMED':
+      return name ? `Your registration for "${name}" is confirmed!` : `Your event registration is confirmed.`;
+    case 'EVENT_UPDATE':
+      return name ? `Update posted for "${name}"` : `An event update was posted.`;
+    case 'EVENT_WINNER_ANNOUNCED':
+      return name ? `Winners announced for "${name}"!` : `Event winners announced!`;
     case 'ISSUE_REQUEST_APPROVED':
-      return `Your loan request for "${n.bookTitle || 'a book'}" has been approved.`;
+      return `Your loan request for "${name || 'book'}" has been approved.`;
     case 'ISSUE_REQUEST_REJECTED':
-      return `Your loan request for "${n.bookTitle || 'a book'}" was rejected.`;
+      return `Your loan request for "${name || 'book'}" was rejected.`;
+    case 'ACCOUNT_VERIFICATION_REQUEST':
+      return `${actorName} submitted a membership verification request.`;
+    case 'ACCOUNT_VERIFIED':
+      return `Congratulations! Your Excelsior membership has been verified.`;
+    case 'ACCOUNT_REJECTED':
+      return `Your membership application was not approved.`;
+    case 'ROLE_CHANGED':
+      return `Your role was updated to ${formatRole(n.message || '')}.`;
     default:
-      return 'New update available';
+      return n.message || 'New update available';
   }
 };
 
-function NotificationItemRow({ n, onRead }: { n: NotificationItem; onRead: (id: string) => void }) {
+function NotificationItemRow({
+  n,
+  onRead,
+  onNavigate,
+}: {
+  n: NotificationItem;
+  onRead: (id: string) => void;
+  onNavigate: (url: string) => void;
+}) {
   const [isExpanded, setIsExpanded] = useState(false);
 
   const handleRowClick = () => {
     if (!n.isRead) {
       onRead(n.id);
+    }
+    if (n.targetUrl && n.targetUrl !== '/' && n.targetUrl !== '#') {
+      onNavigate(n.targetUrl);
     }
   };
 
@@ -67,11 +98,11 @@ function NotificationItemRow({ n, onRead }: { n: NotificationItem; onRead: (id: 
   };
 
   return (
-    <div className="flex flex-col gap-2 p-3 border-b border-gray-100 dark:border-neutral-800 last:border-b-0 transition hover:bg-gray-50/50 dark:hover:bg-neutral-800/30">
-      <div
-        onClick={handleRowClick}
-        className="flex gap-2.5 items-start justify-between w-full cursor-pointer"
-      >
+    <div
+      onClick={handleRowClick}
+      className="flex flex-col gap-2 p-3 border-b border-gray-100 dark:border-neutral-800 last:border-b-0 transition hover:bg-gray-50/50 dark:hover:bg-neutral-800/30 cursor-pointer"
+    >
+      <div className="flex gap-2.5 items-start justify-between w-full">
         <div className="flex gap-2.5 items-start grow min-w-0">
           {n.actor?.profilePhoto ? (
             <img
@@ -87,7 +118,13 @@ function NotificationItemRow({ n, onRead }: { n: NotificationItem; onRead: (id: 
             </div>
           )}
           <div className="grow min-w-0">
-            <p className={`text-[11px] leading-snug transition-colors ${!n.isRead ? 'text-gray-900 dark:text-neutral-100 font-medium' : 'text-gray-400 dark:text-neutral-500'}`}>
+            <p
+              className={`text-[11px] leading-snug transition-colors ${
+                !n.isRead
+                  ? 'text-gray-900 dark:text-neutral-100 font-medium'
+                  : 'text-gray-400 dark:text-neutral-500'
+              }`}
+            >
               {getNotificationText(n)}
             </p>
             <span className="text-[9px] text-gray-400 dark:text-neutral-500 mt-0.5 block">
@@ -95,7 +132,7 @@ function NotificationItemRow({ n, onRead }: { n: NotificationItem; onRead: (id: 
                 month: 'short',
                 day: 'numeric',
                 hour: '2-digit',
-                minute: '2-digit'
+                minute: '2-digit',
               })}
             </span>
           </div>
@@ -109,7 +146,11 @@ function NotificationItemRow({ n, onRead }: { n: NotificationItem; onRead: (id: 
               className="text-gray-500 dark:text-neutral-400 hover:text-black dark:hover:text-white hover:bg-gray-100 dark:hover:bg-neutral-800 transition flex items-center p-0.5 rounded"
               aria-label="Toggle note"
             >
-              {isExpanded ? <ChevronUpIcon size={14} strokeWidth={2.5} /> : <ChevronDownIcon size={14} strokeWidth={2.5} />}
+              {isExpanded ? (
+                <ChevronUpIcon size={14} strokeWidth={2.5} />
+              ) : (
+                <ChevronDownIcon size={14} strokeWidth={2.5} />
+              )}
             </button>
           )}
         </div>
@@ -117,7 +158,9 @@ function NotificationItemRow({ n, onRead }: { n: NotificationItem; onRead: (id: 
 
       {n.message && isExpanded && (
         <div className="mt-1 ml-[38px] p-2.5 rounded bg-gray-50 dark:bg-neutral-800/50 border border-gray-150 dark:border-neutral-800 text-[10px] text-gray-600 dark:text-neutral-400 font-medium italic">
-          <span className="font-bold text-gray-800 dark:text-neutral-200 not-italic block mb-0.5">Admin Note:</span>
+          <span className="font-bold text-gray-800 dark:text-neutral-200 not-italic block mb-0.5">
+            Admin Note:
+          </span>
           {n.message}
         </div>
       )}
@@ -127,14 +170,15 @@ function NotificationItemRow({ n, onRead }: { n: NotificationItem; onRead: (id: 
 
 export default function NotificationBell() {
   const { data: session } = useSession();
+  const router = useRouter();
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const [isOpen, setIsOpen] = useState<boolean>(false);
 
-  const currentUser = session?.user;
+  const userId = session?.user?.id;
 
   const fetchCountAndLatest = async () => {
-    if (!currentUser) return;
+    if (!userId) return;
     try {
       const res = await fetch('/api/notifications');
       const data = await res.json();
@@ -148,12 +192,12 @@ export default function NotificationBell() {
   };
 
   useEffect(() => {
-    if (!currentUser) return;
+    if (!userId) return;
     fetchCountAndLatest();
 
     const interval = setInterval(fetchCountAndLatest, 30000);
     return () => clearInterval(interval);
-  }, [currentUser]);
+  }, [userId]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -183,7 +227,7 @@ export default function NotificationBell() {
       const data = await res.json();
       if (data.success) {
         setUnreadCount(0);
-        setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+        setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
       }
     } catch (error) {
       console.error('Failed to mark notifications read:', error);
@@ -195,21 +239,26 @@ export default function NotificationBell() {
       const res = await fetch('/api/notifications/read', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id })
+        body: JSON.stringify({ id }),
       });
       const data = await res.json();
       if (data.success) {
-        setNotifications(prev =>
-          prev.map(n => (n.id === id ? { ...n, isRead: true } : n))
+        setNotifications((prev) =>
+          prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
         );
-        setUnreadCount(prev => Math.max(0, prev - 1));
+        setUnreadCount((prev) => Math.max(0, prev - 1));
       }
     } catch (error) {
       console.error('Failed to mark single notification read:', error);
     }
   };
 
-  if (!currentUser) return null;
+  const handleNavigate = (url: string) => {
+    setIsOpen(false);
+    router.push(url);
+  };
+
+  if (!userId) return null;
 
   return (
     <div className="relative">
@@ -237,7 +286,9 @@ export default function NotificationBell() {
           className="absolute right-0 mt-3 w-80 bg-white dark:bg-neutral-950 border border-gray-200 dark:border-neutral-800 shadow-2xl rounded-xl overflow-hidden z-200 animate-in fade-in slide-in-from-top-1 duration-200"
         >
           <div className="px-4 py-2.5 bg-gray-50 dark:bg-neutral-900/50 border-b border-gray-100 dark:border-neutral-800 flex items-center justify-between">
-            <span className="text-xs font-semibold text-gray-800 dark:text-neutral-200">Notifications</span>
+            <span className="text-xs font-semibold text-gray-800 dark:text-neutral-200">
+              Notifications
+            </span>
             {unreadCount > 0 && (
               <button
                 onClick={handleMarkAllRead}
@@ -251,7 +302,12 @@ export default function NotificationBell() {
           <div className="divide-y divide-gray-100 dark:divide-neutral-800 max-h-96 overflow-y-auto">
             {notifications.length > 0 ? (
               notifications.map((n) => (
-                <NotificationItemRow key={n.id} n={n} onRead={handleMarkSingleRead} />
+                <NotificationItemRow
+                  key={n.id}
+                  n={n}
+                  onRead={handleMarkSingleRead}
+                  onNavigate={handleNavigate}
+                />
               ))
             ) : (
               <div className="py-8 text-center text-xs text-gray-400 dark:text-neutral-500 italic">

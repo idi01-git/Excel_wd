@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { BookData } from './hardback-data';
 
-export const SERIF_STACK = `"Rozha One", "Martel", "Noto Serif Devanagari", "Playfair Display", "Lora", "Cormorant Garamond", Georgia, serif`;
+export const SERIF_STACK = `"Playfair Display", "Rozha One", "Martel", "Noto Serif Devanagari", "Lora", "Cormorant Garamond", Georgia, serif`;
 export const SANS_STACK = `"Noto Sans Devanagari", "Outfit", "Inter", "Helvetica Neue", Arial, sans-serif`;
 export const MONO_STACK = `"JetBrains Mono", "SF Mono", monospace`;
 export const PAGE_EDGE_COLOR = '#ecdcb0';
@@ -365,17 +365,101 @@ export function drawMotif(
   ctx.restore();
 }
 
+export function getFontStacks(book: BookData) {
+  const isHindi =
+    book.language === 'hi' ||
+    /[ऀ-ॿ]/.test(book.title + book.author + (book.excerpt || ''));
+  return {
+    serif: isHindi
+      ? `"Rozha One", "Martel", "Noto Serif Devanagari", "Lora", Georgia, serif`
+      : `"Playfair Display", "Lora", "Cormorant Garamond", Georgia, serif`,
+    sans: isHindi
+      ? `"Noto Sans Devanagari", "Outfit", "Inter", sans-serif`
+      : `"Outfit", "Inter", "Helvetica Neue", Arial, sans-serif`,
+    mono: MONO_STACK,
+  };
+}
+
+// ── Global In-Memory Caches for 3D Book Assets ──────────────────────────────
+export const BOOK_IMAGE_CACHE = new Map<string, HTMLImageElement>();
+const COVER_TEX_CACHE = new Map<string, THREE.CanvasTexture>();
+const SPINE_TEX_CACHE = new Map<string, THREE.CanvasTexture>();
+const BACK_TEX_CACHE = new Map<string, THREE.CanvasTexture>();
+
+/**
+ * Preload an individual book image into in-memory cache
+ */
+export function preloadBookImage(src: string): Promise<HTMLImageElement> {
+  if (BOOK_IMAGE_CACHE.has(src)) {
+    const cached = BOOK_IMAGE_CACHE.get(src)!;
+    if (cached.complete && cached.naturalWidth > 0) {
+      return Promise.resolve(cached);
+    }
+  }
+
+  return new Promise((resolve) => {
+    const img = new Image();
+    if (src.startsWith('http://') || src.startsWith('https://')) {
+      img.crossOrigin = 'anonymous';
+    }
+    const onDone = async () => {
+      try {
+        if ('decode' in img) {
+          await img.decode();
+        }
+      } catch {
+        // Ignore decode failures (older browser / progressive stream)
+      }
+      BOOK_IMAGE_CACHE.set(src, img);
+      resolve(img);
+    };
+    img.onload = onDone;
+    img.onerror = () => {
+      resolve(img);
+    };
+    img.src = src;
+    if (img.complete && img.naturalWidth > 0) {
+      onDone();
+    }
+  });
+}
+
+/**
+ * Preloads all book textures and cover images for a list of books
+ */
+export async function preloadBookAssets(books: BookData[]): Promise<void> {
+  const promises: Promise<any>[] = [];
+  for (const book of books) {
+    if (book.coverImage) {
+      promises.push(preloadBookImage(book.coverImage));
+    }
+  }
+  await Promise.allSettled(promises);
+  // Pre-generate textures so they are instant in WebGL
+  for (const book of books) {
+    makeSpineTexture(book);
+    makeCoverTexture(book);
+    makeBackCoverTexture(book);
+  }
+}
+
 /**
  * Procedural Spine Texture (240 x 1024)
  * Top-to-bottom vertical title with foil stamped accents, raised bands & imprint
  */
 export function makeSpineTexture(book: BookData): THREE.CanvasTexture {
+  const cacheKey = `${book.id}-${book.spineColor}-${book.spineTextColor}-${book.title}`;
+  if (SPINE_TEX_CACHE.has(cacheKey)) {
+    return SPINE_TEX_CACHE.get(cacheKey)!;
+  }
+
   const W = 240;
   const H = 1024;
   const canvas = document.createElement('canvas');
   canvas.width = W;
   canvas.height = H;
   const ctx = canvas.getContext('2d')!;
+  const fonts = getFontStacks(book);
 
   // Background cloth color
   ctx.fillStyle = book.spineColor;
@@ -413,21 +497,21 @@ export function makeSpineTexture(book: BookData): THREE.CanvasTexture {
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
 
-  // Title
+  // Title with strict bounds clamping
   const titleSize = fitFontSize(
     ctx,
     book.title.toUpperCase(),
-    (s) => `700 ${s}px ${SERIF_STACK}`,
-    H - 260,
-    64,
-    28
+    (s) => `700 ${s}px ${fonts.serif}`,
+    H - 300,
+    58,
+    22
   );
-  ctx.font = `700 ${titleSize}px ${SERIF_STACK}`;
+  ctx.font = `700 ${titleSize}px ${fonts.serif}`;
   ctx.fillText(book.title.toUpperCase(), 0, -12);
 
   // Author below title
-  const authorSize = Math.max(16, Math.min(24, titleSize * 0.44));
-  ctx.font = `600 ${authorSize}px ${SANS_STACK}`;
+  const authorSize = Math.max(14, Math.min(22, titleSize * 0.44));
+  ctx.font = `600 ${authorSize}px ${fonts.sans}`;
   ctx.globalAlpha = 0.85;
   ctx.fillText(book.author.toUpperCase(), 0, titleSize * 0.7 + authorSize * 0.5);
   ctx.globalAlpha = 1;
@@ -436,7 +520,7 @@ export function makeSpineTexture(book: BookData): THREE.CanvasTexture {
 
   // Bottom publisher monogram
   ctx.fillStyle = foil;
-  ctx.font = `700 18px ${MONO_STACK}`;
+  ctx.font = `700 18px ${fonts.mono}`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.globalAlpha = 0.8;
@@ -447,6 +531,7 @@ export function makeSpineTexture(book: BookData): THREE.CanvasTexture {
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = 8;
   tex.needsUpdate = true;
+  SPINE_TEX_CACHE.set(cacheKey, tex);
   return tex;
 }
 
@@ -455,6 +540,11 @@ export function makeSpineTexture(book: BookData): THREE.CanvasTexture {
  * Tactile clothbound board with central foil-stamped motif, debossed frame, and refined typography
  */
 export function makeCoverTexture(book: BookData): THREE.CanvasTexture {
+  const cacheKey = `${book.id}-${book.coverImage || 'procedural'}-${book.coverColor}-${book.motif}`;
+  if (COVER_TEX_CACHE.has(cacheKey)) {
+    return COVER_TEX_CACHE.get(cacheKey)!;
+  }
+
   const W = 720;
   const H = 1080;
   const canvas = document.createElement('canvas');
@@ -463,48 +553,60 @@ export function makeCoverTexture(book: BookData): THREE.CanvasTexture {
   const ctx = canvas.getContext('2d')!;
   const foil = book.foilColor || book.coverTextColor || '#e7b55f';
 
-  // Draw initial procedural cover layout
-  renderProceduralCoverContent(ctx, book, W, H, foil);
+  const drawCoverImg = (img: HTMLImageElement) => {
+    ctx.clearRect(0, 0, W, H);
+    const imgAspect = img.naturalWidth / img.naturalHeight;
+    const canvasAspect = W / H;
+    let drawW = W;
+    let drawH = H;
+    let offsetX = 0;
+    let offsetY = 0;
+
+    if (imgAspect > canvasAspect) {
+      drawW = H * imgAspect;
+      offsetX = (W - drawW) / 2;
+    } else {
+      drawH = W / imgAspect;
+      offsetY = (H - drawH) / 2;
+    }
+
+    ctx.drawImage(img, offsetX, offsetY, drawW, drawH);
+    drawClothWeave(ctx, W, H, 0.05);
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(18, 18, W - 36, H - 36);
+  };
+
+  // If already loaded in cache, draw synchronously right now
+  let drawnFromCache = false;
+  if (book.coverImage && BOOK_IMAGE_CACHE.has(book.coverImage)) {
+    const cached = BOOK_IMAGE_CACHE.get(book.coverImage)!;
+    if (cached.complete && cached.naturalWidth > 0) {
+      drawCoverImg(cached);
+      drawnFromCache = true;
+    }
+  }
+
+  if (!drawnFromCache) {
+    renderProceduralCoverContent(ctx, book, W, H, foil);
+  }
 
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = 8;
   tex.needsUpdate = true;
 
-  // If a real coverImage is provided, asynchronously load and composite with cloth grain
-  if (book.coverImage) {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      ctx.clearRect(0, 0, W, H);
-      // Cover fit calculations
-      const imgAspect = img.naturalWidth / img.naturalHeight;
-      const canvasAspect = W / H;
-      let drawW = W;
-      let drawH = H;
-      let offsetX = 0;
-      let offsetY = 0;
-
-      if (imgAspect > canvasAspect) {
-        drawW = H * imgAspect;
-        offsetX = (W - drawW) / 2;
-      } else {
-        drawH = W / imgAspect;
-        offsetY = (H - drawH) / 2;
+  // Asynchronous backup load in case not yet cached
+  if (book.coverImage && !drawnFromCache) {
+    preloadBookImage(book.coverImage).then((img) => {
+      if (img.complete && img.naturalWidth > 0) {
+        drawCoverImg(img);
+        tex.needsUpdate = true;
       }
-
-      ctx.drawImage(img, offsetX, offsetY, drawW, drawH);
-      // Overlay subtle tactile linen weave texture
-      drawClothWeave(ctx, W, H, 0.05);
-      // Subtle debossed outer frame
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
-      ctx.lineWidth = 2;
-      ctx.strokeRect(18, 18, W - 36, H - 36);
-      tex.needsUpdate = true;
-    };
-    img.src = book.coverImage;
+    });
   }
 
+  COVER_TEX_CACHE.set(cacheKey, tex);
   return tex;
 }
 
@@ -515,6 +617,8 @@ function renderProceduralCoverContent(
   H: number,
   foil: string
 ) {
+  const fonts = getFontStacks(book);
+
   // Board Base Color
   ctx.fillStyle = book.coverColor;
   ctx.fillRect(0, 0, W, H);
@@ -538,7 +642,7 @@ function renderProceduralCoverContent(
   ctx.fillStyle = foil;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.font = `600 20px ${MONO_STACK}`;
+  ctx.font = `600 20px ${fonts.mono}`;
   ctx.globalAlpha = 0.75;
   ctx.fillText('EXCELSIOR EDITIONS', W / 2, 88);
   ctx.globalAlpha = 1;
@@ -548,11 +652,11 @@ function renderProceduralCoverContent(
 
   // Title Block (Lower half of cover)
   const titleAvailable = W - 140;
-  const titleStartSize = book.title.length > 20 ? 60 : 76;
-  const titleFont = (s: number) => `700 ${s}px ${SERIF_STACK}`;
+  const titleStartSize = book.title.length > 20 ? 54 : 70;
+  const titleFont = (s: number) => `700 ${s}px ${fonts.serif}`;
   let lines: string[] = [];
   let titleSize = titleStartSize;
-  for (let s = titleStartSize; s >= 34; s -= 4) {
+  for (let s = titleStartSize; s >= 30; s -= 4) {
     ctx.font = titleFont(s);
     const candidate = wrapLines(ctx, book.title, titleAvailable);
     if (candidate.length <= 3) {
@@ -562,13 +666,13 @@ function renderProceduralCoverContent(
     }
   }
   if (lines.length === 0) {
-    titleSize = 34;
+    titleSize = 28;
     ctx.font = titleFont(titleSize);
     lines = wrapLines(ctx, book.title, titleAvailable);
   }
 
   ctx.font = titleFont(titleSize);
-  const lineHeight = titleSize * 1.12;
+  const lineHeight = titleSize * 1.14;
   const totalH = lineHeight * lines.length;
   const startY = H - 240 - totalH / 2;
 
@@ -588,7 +692,7 @@ function renderProceduralCoverContent(
   ctx.stroke();
 
   // Author at Footer
-  ctx.font = `600 24px ${SANS_STACK}`;
+  ctx.font = `600 22px ${fonts.sans}`;
   ctx.globalAlpha = 0.85;
   ctx.fillText(book.author.toUpperCase(), W / 2, H - 110);
   ctx.globalAlpha = 1;
@@ -599,12 +703,18 @@ function renderProceduralCoverContent(
  * Clothbound back board with stamped foil imprint badge
  */
 export function makeBackCoverTexture(book: BookData): THREE.CanvasTexture {
+  const cacheKey = `${book.id}-${book.coverColor}-${book.foilColor || book.coverTextColor}`;
+  if (BACK_TEX_CACHE.has(cacheKey)) {
+    return BACK_TEX_CACHE.get(cacheKey)!;
+  }
+
   const W = 720;
   const H = 1080;
   const canvas = document.createElement('canvas');
   canvas.width = W;
   canvas.height = H;
   const ctx = canvas.getContext('2d')!;
+  const fonts = getFontStacks(book);
 
   ctx.fillStyle = book.coverColor;
   ctx.fillRect(0, 0, W, H);
@@ -629,11 +739,11 @@ export function makeBackCoverTexture(book: BookData): THREE.CanvasTexture {
   ctx.lineWidth = 1.5;
   ctx.stroke();
 
-  ctx.font = `700 24px ${SERIF_STACK}`;
+  ctx.font = `700 24px ${fonts.serif}`;
   ctx.globalAlpha = 0.9;
   ctx.fillText('EXC', W / 2, H / 2 - 20);
 
-  ctx.font = `600 16px ${MONO_STACK}`;
+  ctx.font = `600 16px ${fonts.mono}`;
   ctx.globalAlpha = 0.7;
   ctx.fillText('THE COMPLETE SHELF', W / 2, H / 2 + 50);
   ctx.fillText('CURATED EDITION', W / 2, H / 2 + 74);
@@ -643,6 +753,7 @@ export function makeBackCoverTexture(book: BookData): THREE.CanvasTexture {
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = 8;
   tex.needsUpdate = true;
+  BACK_TEX_CACHE.set(cacheKey, tex);
   return tex;
 }
 
@@ -672,7 +783,7 @@ export function makeImageCoverTexture(book: BookData): THREE.Texture {
 }
 
 /**
- * Inside Page Texture (640 x 960) — Excerpt Page
+ * Inside Page Texture (640 x 960) — Excerpt Page (Right Page in 3D open spread)
  */
 export function makeInsidePageTexture(book: BookData): THREE.CanvasTexture {
   const W = 640;
@@ -681,6 +792,7 @@ export function makeInsidePageTexture(book: BookData): THREE.CanvasTexture {
   canvas.width = W;
   canvas.height = H;
   const ctx = canvas.getContext('2d')!;
+  const fonts = getFontStacks(book);
 
   ctx.fillStyle = '#f7efd9';
   ctx.fillRect(0, 0, W, H);
@@ -692,26 +804,33 @@ export function makeInsidePageTexture(book: BookData): THREE.CanvasTexture {
   }
 
   // Opening ornament
+  const ornament = book.rightPageOrnament || '— § —';
   ctx.fillStyle = '#3a2a14';
-  ctx.font = `500 52px ${SERIF_STACK}`;
+  ctx.font = `500 52px ${fonts.serif}`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText('— § —', W / 2, 210);
+  ctx.fillText(ornament, W / 2, 210);
 
   // Excerpt
   ctx.fillStyle = '#1a1208';
+  const excerptText = book.excerpt ? `"${book.excerpt.trim()}"` : (book.synopsis ? `"${book.synopsis.trim()}"` : '');
   const excerptAvailable = W - 140;
-  const excerptFont = (s: number) => `italic 500 ${s}px ${SERIF_STACK}`;
+  const excerptFont = (s: number) => `italic 500 ${s}px ${fonts.serif}`;
   let excerptLines: string[] = [];
   let excerptSize = 38;
-  for (let s = 42; s >= 22; s -= 2) {
+  for (let s = 42; s >= 20; s -= 2) {
     ctx.font = excerptFont(s);
-    const candidate = wrapLines(ctx, `"${book.excerpt}"`, excerptAvailable);
+    const candidate = wrapLines(ctx, excerptText, excerptAvailable);
     if (candidate.length <= 6) {
       excerptLines = candidate;
       excerptSize = s;
       break;
     }
+  }
+  if (excerptLines.length === 0) {
+    excerptSize = 20;
+    ctx.font = excerptFont(excerptSize);
+    excerptLines = wrapLines(ctx, excerptText, excerptAvailable);
   }
   ctx.font = excerptFont(excerptSize);
   const lineHeight = excerptSize * 1.45;
@@ -721,7 +840,7 @@ export function makeInsidePageTexture(book: BookData): THREE.CanvasTexture {
 
   // Foot meta
   ctx.fillStyle = '#3a2a14';
-  ctx.font = `600 16px ${MONO_STACK}`;
+  ctx.font = `600 16px ${fonts.mono}`;
   ctx.globalAlpha = 0.75;
   ctx.fillText(
     `${book.title}  ·  ${book.author}`,
@@ -730,7 +849,7 @@ export function makeInsidePageTexture(book: BookData): THREE.CanvasTexture {
   );
   ctx.globalAlpha = 1;
 
-  ctx.font = `500 15px ${SANS_STACK}`;
+  ctx.font = `500 15px ${fonts.sans}`;
   ctx.globalAlpha = 0.5;
   ctx.fillText('· 1 ·', W / 2, H - 56);
   ctx.globalAlpha = 1;
@@ -743,7 +862,7 @@ export function makeInsidePageTexture(book: BookData): THREE.CanvasTexture {
 }
 
 /**
- * Inside Cover (frontispiece) Texture (640 x 960)
+ * Inside Cover (frontispiece) Texture (640 x 960) — Left Page in 3D open spread
  */
 export function makeInsideCoverTexture(book: BookData): THREE.CanvasTexture {
   const W = 640;
@@ -752,6 +871,7 @@ export function makeInsideCoverTexture(book: BookData): THREE.CanvasTexture {
   canvas.width = W;
   canvas.height = H;
   const ctx = canvas.getContext('2d')!;
+  const fonts = getFontStacks(book);
 
   ctx.fillStyle = '#f3ead2';
   ctx.fillRect(0, 0, W, H);
@@ -764,15 +884,40 @@ export function makeInsideCoverTexture(book: BookData): THREE.CanvasTexture {
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
 
-  ctx.font = `600 15px ${MONO_STACK}`;
+  // Eyebrow
+  const headerText = book.leftPageHeader || 'FROM THE SHELF OF EXCELSIOR';
+  ctx.font = `600 15px ${fonts.mono}`;
   ctx.globalAlpha = 0.75;
-  ctx.fillText('FROM THE SHELF OF EXCELSIOR', W / 2, H / 2 - 96);
+  ctx.fillText(headerText, W / 2, H / 2 - 96);
   ctx.globalAlpha = 1;
 
-  ctx.font = `700 36px ${SERIF_STACK}`;
-  ctx.fillText(book.title, W / 2, H / 2);
+  // Title
+  const titleAvailable = W - 120;
+  const titleFont = (s: number) => `700 ${s}px ${fonts.serif}`;
+  let lines: string[] = [];
+  let titleSize = 36;
+  for (let s = 36; s >= 22; s -= 2) {
+    ctx.font = titleFont(s);
+    const candidate = wrapLines(ctx, book.title, titleAvailable);
+    if (candidate.length <= 3) {
+      lines = candidate;
+      titleSize = s;
+      break;
+    }
+  }
+  if (lines.length === 0) {
+    titleSize = 22;
+    ctx.font = titleFont(titleSize);
+    lines = wrapLines(ctx, book.title, titleAvailable);
+  }
+  ctx.font = titleFont(titleSize);
+  const lineH = titleSize * 1.25;
+  const totalH = lineH * lines.length;
+  const startY = H / 2 - totalH / 2 + lineH / 2;
+  lines.forEach((l, i) => ctx.fillText(l, W / 2, startY + i * lineH));
 
-  ctx.font = `600 20px ${SANS_STACK}`;
+  // Author
+  ctx.font = `600 20px ${fonts.sans}`;
   ctx.globalAlpha = 0.85;
   ctx.fillText(book.author, W / 2, H / 2 + 64);
   ctx.globalAlpha = 1;

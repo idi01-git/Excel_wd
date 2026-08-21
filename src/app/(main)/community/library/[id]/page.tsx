@@ -7,6 +7,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, BookOpen, CheckCircle2, AlertCircle, Star, Calendar, Clock, ShieldAlert, ChevronUp, Minus, Plus, Barcode, FileText, Download } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { LoginPromptModal } from '@/components/auth/LoginPromptModal';
 
 interface Review {
   id: string;
@@ -64,6 +65,8 @@ export default function BookDetailPage() {
   const [loanModalOpen, setLoanModalOpen] = useState(false);
   const [expectedReturnDate, setExpectedReturnDate] = useState('');
   const [loanLoading, setLoanLoading] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [borrowNotice, setBorrowNotice] = useState<string | null>(null);
 
   const fetchBookDetail = async () => {
     try {
@@ -205,11 +208,34 @@ export default function BookDetailPage() {
       {/* Back Button */}
       <button 
         onClick={() => router.push('/community/library')} 
-        className="text-xs font-semibold text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors mb-10 flex items-center gap-2 cursor-pointer bg-transparent border-0 group"
+        className="text-xs font-semibold text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors mb-6 flex items-center gap-2 cursor-pointer bg-transparent border-0 group"
       >
         <ArrowLeft className="w-3.5 h-3.5 transform group-hover:-translate-x-0.5 transition-transform" />
         <span>Back to library</span>
       </button>
+
+      {/* Member Borrow Restriction Toast Notice */}
+      <AnimatePresence>
+        {borrowNotice && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="mb-8 p-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400 text-xs font-mono flex items-center justify-between gap-3 shadow-sm"
+          >
+            <div className="flex items-center gap-2.5">
+              <ShieldAlert className="w-5 h-5 shrink-0 text-amber-500" />
+              <span>{borrowNotice}</span>
+            </div>
+            <button
+              onClick={() => setBorrowNotice(null)}
+              className="text-amber-600 dark:text-amber-400 hover:opacity-75 font-bold cursor-pointer px-2 text-sm"
+            >
+              ✕
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Top Section: Balanced Columns */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 mb-20 items-start">
@@ -316,14 +342,22 @@ export default function BookDetailPage() {
                 </button>
               ) : session ? (
                 <button
-                  onClick={() => setLoanModalOpen(true)}
+                  onClick={() => {
+                    const role = (session.user as any)?.role;
+                    const status = (session.user as any)?.verificationStatus;
+                    if (role === 'VISITOR' || status !== 'VERIFIED') {
+                      setBorrowNotice('Physical book loaning is exclusively available to verified Excelsior Society members. External visitors and guests can explore reading excerpts and buy official editions.');
+                      return;
+                    }
+                    setLoanModalOpen(true);
+                  }}
                   className="flex-grow py-3.5 bg-black hover:bg-neutral-900 dark:bg-white dark:hover:bg-neutral-100 dark:text-black text-white rounded-full text-xs font-bold uppercase tracking-widest transition-all duration-300 hover:shadow-lg shadow-black/10 dark:shadow-white/10 cursor-pointer"
                 >
                   Request to Borrow
                 </button>
               ) : (
                 <button
-                  onClick={() => router.push('/login')}
+                  onClick={() => setShowLoginModal(true)}
                   className="flex-grow py-3.5 border border-black dark:border-white text-black dark:text-white hover:bg-neutral-50 dark:hover:bg-neutral-900 rounded-full text-xs font-bold uppercase tracking-widest transition cursor-pointer"
                 >
                   Log In to Borrow
@@ -573,6 +607,13 @@ export default function BookDetailPage() {
           </div>
         )}
       </AnimatePresence>
+
+      {/* Luxury Login Prompt Modal */}
+      <LoginPromptModal
+        isOpen={showLoginModal}
+        onClose={() => setShowLoginModal(false)}
+        action="borrow this book"
+      />
     </div>
   );
 }

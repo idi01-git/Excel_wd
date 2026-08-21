@@ -1,19 +1,12 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import { db } from '@/lib/db';
+import { requirePermission } from '@/lib/api-auth';
 
-export async function GET(req: Request) {
+export async function GET() {
   try {
-    const session = await getServerSession(authOptions);
-    
-    // Allow if user is ADMIN or EDITOR (since editors handle the library)
-    if (!session || (session.user.role !== 'ADMIN' && session.user.role !== 'EDITOR')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const { error } = await requirePermission('MANAGE_SHELF_LIBRARY');
+    if (error) return error;
 
-    // Fetch all books with their issue requests, including requester info
-    // Ordering by latest updated to show most recently active books first
     const books = await db.book.findMany({
       include: {
         issueRequests: {
@@ -23,28 +16,28 @@ export async function GET(req: Request) {
                 id: true,
                 name: true,
                 email: true,
-                profilePhoto: true
-              }
+                profilePhoto: true,
+              },
             },
             approver: {
               select: {
-                name: true
-              }
+                name: true,
+              },
             },
             returner: {
               select: {
-                name: true
-              }
-            }
+                name: true,
+              },
+            },
           },
           orderBy: {
-            createdAt: 'desc'
-          }
-        }
+            createdAt: 'desc',
+          },
+        },
       },
       orderBy: {
-        updatedAt: 'desc'
-      }
+        updatedAt: 'desc',
+      },
     });
 
     return NextResponse.json({ success: true, books });

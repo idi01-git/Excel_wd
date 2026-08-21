@@ -1,32 +1,30 @@
 // src/app/api/admin/events/[id]/winners/route.ts
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { WinnerPosition } from '@prisma/client';
+import { requirePermission } from '@/lib/api-auth';
 
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { session, error } = await requirePermission('MANAGE_EVENTS');
+    if (error || !session) return error;
+
     const { id: eventId } = await params;
-    const session = await getServerSession(authOptions);
-    const role = session?.user?.role;
-
-    if (!session || (role !== 'MODERATOR' && role !== 'ADMIN')) {
-      return NextResponse.json({ error: 'Forbidden: Staff access only' }, { status: 403 });
-    }
-
     const { winners } = await req.json();
 
     if (!winners || !Array.isArray(winners)) {
-      return NextResponse.json({ error: 'Missing winners list data' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Missing winners list data' },
+        { status: 400 }
+      );
     }
 
     // Verify event exists
     const event = await db.event.findUnique({
-      where: { id: eventId }
+      where: { id: eventId },
     });
 
     if (!event) {
@@ -43,18 +41,19 @@ export async function POST(
         participantName: w.participantName,
         position: w.position as WinnerPosition,
         prize: w.prize || null,
-        description: w.description || null
+        description: w.description || null,
+        photoUrl: w.photoUrl || null,
       }));
 
       await tx.eventWinner.createMany({
-        data: winnersData
+        data: winnersData,
       });
     });
 
     // Notify all registered participants
     const registrations = await db.eventRegistration.findMany({
       where: { eventId },
-      select: { userId: true }
+      select: { userId: true },
     });
 
     if (registrations.length > 0) {
@@ -65,7 +64,8 @@ export async function POST(
           'EVENT_WINNER_ANNOUNCED',
           session.user.id,
           'EVENT',
-          eventId
+          eventId,
+          `Winners announced for event: ${event.title}`
         );
       }
     }
@@ -73,6 +73,9 @@ export async function POST(
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error('Record contest winners error:', error);
-    return NextResponse.json({ error: 'Failed to record event winners list' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Failed to record event winners list' },
+      { status: 500 }
+    );
   }
 }

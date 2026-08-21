@@ -59,7 +59,7 @@ export default function CommentThread({
         <img
           src={comment.author.profilePhoto && comment.author.profilePhoto.trim() !== "" ? comment.author.profilePhoto : `https://api.dicebear.com/7.x/initials/svg?seed=${comment.author.name}`}
           alt={comment.author.name}
-          className="w-6 h-6 rounded-full object-cover shadow-sm bg-white"
+          className="w-6 h-6 rounded-full object-cover shadow-sm bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700"
         />
         
         {/* Threading Line (Connects to children) - Expanded clickable area */}
@@ -69,7 +69,7 @@ export default function CommentThread({
             onClick={() => setCollapsed(true)}
             title="Collapse thread"
           >
-            <div className="w-[2px] h-full bg-gray-200 group-hover/line:bg-[#0052cc] transition-colors" />
+            <div className="w-[2px] h-full bg-neutral-200 dark:bg-neutral-800 group-hover/line:bg-blue-600 dark:group-hover/line:bg-blue-400 transition-colors" />
           </div>
         )}
       </div>

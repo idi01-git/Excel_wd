@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { recordAuditEvent } from '@/lib/audit';
+import { isStaff } from '@/lib/rbac';
 
 async function checkAuth() {
   const session = await getServerSession(authOptions);
@@ -78,9 +79,9 @@ export async function DELETE(
     }
 
     const isAuthor = comment.authorId === user.id;
-    const isStaff = user.role === 'MODERATOR' || user.role === 'ADMIN';
+    const isStaffUser = isStaff(user.role);
 
-    if (!isAuthor && !isStaff) {
+    if (!isAuthor && !isStaffUser) {
       return NextResponse.json({ error: 'Unauthorized to delete this comment' }, { status: 403 });
     }
 

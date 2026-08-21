@@ -3,10 +3,11 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
-/* --- Hide Scrollbar Globally --- */
+/* --- Hide Scrollbar Globally & Prevent Layout Shift --- */
 html, body {
   -ms-overflow-style: none !important;
   scrollbar-width: none !important;
+  scrollbar-gutter: stable;
 }
 
 ::-webkit-scrollbar {
@@ -460,14 +461,22 @@ body {
   background: #afafaf;
 }
 
-/* Prose/TipTap content styles */
+/* Prose/TipTap content styles - Theme Adaptive */
 .prose {
-  color: #000000;
+  color: var(--foreground);
 }
 .prose p {
   margin-bottom: 1.5rem;
   line-height: 1.8;
-  color: #000000;
+  color: inherit;
+}
+.prose h1 {
+  font-family: var(--font-sans);
+  font-size: 2rem;
+  font-weight: 700;
+  margin-top: 2rem;
+  margin-bottom: 1rem;
+  color: var(--foreground);
 }
 .prose h2 {
   font-family: var(--font-sans);
@@ -475,7 +484,7 @@ body {
   font-weight: 700;
   margin-top: 2.5rem;
   margin-bottom: 1rem;
-  color: #000000;
+  color: var(--foreground);
 }
 .prose h3 {
   font-family: var(--font-sans);
@@ -483,18 +492,43 @@ body {
   font-weight: 600;
   margin-top: 2rem;
   margin-bottom: 0.75rem;
-  color: #000000;
+  color: var(--foreground);
 }
 .prose blockquote {
-  border-left: 3px solid #000000;
+  border-left: 3px solid var(--foreground);
   padding-left: 1.25rem;
   font-style: italic;
-  color: #5e5e5e;
+  color: var(--muted-foreground);
   margin: 1.5rem 0;
-  background: #f3f3f3;
+  background: color-mix(in oklab, var(--foreground) 4%, transparent);
   padding-top: 0.75rem;
   padding-bottom: 0.75rem;
   border-radius: 0 8px 8px 0;
+}
+.prose ul, .prose ol {
+  color: inherit;
+}
+.prose strong, .prose b {
+  color: var(--foreground);
+}
+
+/* View Transition Theme Toggle Animation - GPU Accelerated */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+  will-change: clip-path;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+::view-transition-group(root) {
+  animation-duration: 1.05s;
+}
+::view-transition-old(root) {
+  z-index: 1;
+}
+::view-transition-new(root) {
+  z-index: 999999;
 }
 
 @theme inline {
@@ -621,22 +655,22 @@ body {
   }
 }
 
+/* --- View Transition Circular Theme Toggle --- */
+::view-transition-group(root) {
+  animation-duration: 0.8s;
+  animation-timing-function: cubic-bezier(0.25, 1, 0.5, 1);
+}
+
 ::view-transition-old(root),
 ::view-transition-new(root) {
   animation: none;
   mix-blend-mode: normal;
 }
-.dark::view-transition-old(root) {
-  z-index: 1;
-}
-.dark::view-transition-new(root) {
-  z-index: 999;
-}
 ::view-transition-old(root) {
-  z-index: 999;
+  z-index: 1;
 }
 ::view-transition-new(root) {
-  z-index: 1;
+  z-index: 9999;
 }
 
 /* --- Marquee --- */
@@ -658,3 +692,20 @@ body {
     animation: none;
   }
 }
+
+/* --- Sub-Select Toggle & Design System Tokens --- */
+:root {
+  --d-bg: 0 0% 100%;
+  --d-muted: 0 0% 90%;
+  --d-fg: 0 0% 0%;
+  --d-border: 0 0% 90%;
+  --d-sheet: 0 0% 98%;
+}
+
+@theme inline {
+  --color-d-bg: hsl(var(--d-bg));
+  --color-d-fg: hsl(var(--d-fg));
+  --color-d-border: hsl(var(--d-border));
+  --color-d-sheet: hsl(var(--d-sheet));
+  --color-d-muted: hsl(var(--d-muted));
+}

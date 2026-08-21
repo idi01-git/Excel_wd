@@ -16,6 +16,13 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    if (session.user.role === 'VISITOR' || session.user.verificationStatus !== 'VERIFIED') {
+      return NextResponse.json(
+        { error: 'Book borrowing is exclusively reserved for verified Excelsior Society members.' },
+        { status: 403 }
+      );
+    }
+
     const { returnDate } = await req.json();
 
     if (!returnDate) {

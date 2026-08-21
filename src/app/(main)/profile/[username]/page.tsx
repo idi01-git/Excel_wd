@@ -1,4 +1,3 @@
-// src/app/(main)/profile/[username]/page.tsx
 import { db } from '@/lib/db';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
@@ -6,7 +5,12 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { PublicationStatus } from '@prisma/client';
 import ProfileHeaderActions from '@/components/profile/ProfileHeaderActions';
+import ProfileSocialLinks from '@/components/profile/ProfileSocialLinks';
 import AuthorCatalogue from '@/components/profile/AuthorCatalogue';
+import WorkspaceDashboard from '@/components/profile/WorkspaceDashboard';
+import { FadeUp, RevealWords } from '@/components/home/primitives';
+import { ArrowUpRight } from 'lucide-react';
+import { formatRole } from '@/lib/rbac';
 
 export default async function ProfilePage({ params }: { params: Promise<{ username: string }> }) {
   const session = await getServerSession(authOptions);
@@ -15,6 +19,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
   const user = await db.user.findUnique({
     where: { username: resolvedParams.username.toLowerCase() },
     include: {
+      alumniProfile: true,
       publications: {
         include: {
           _count: { select: { interactions: true, comments: true } }
@@ -43,6 +48,40 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
   }
 
   const isOwnProfile = !!(session?.user && (session.user as any).id === user.id);
+  const currentUserId = (session?.user as any)?.id;
+
+  let isFollowing = false;
+  if (currentUserId && !isOwnProfile) {
+    const followRecord = await db.follow.findUnique({
+      where: {
+        followerId_followingId: {
+          followerId: currentUserId,
+          followingId: user.id
+        }
+      }
+    });
+    isFollowing = !!followRecord;
+  }
+
+  const [followersCount, followingCount] = await Promise.all([
+    db.follow.count({ where: { followingId: user.id } }),
+    db.follow.count({ where: { followerId: user.id } }),
+  ]);
+
+  // Fetch Liked Publications
+  const likedInteractions = await db.interaction.findMany({
+    where: { userId: user.id, type: 'LIKE' },
+    include: {
+      publication: {
+        include: {
+          author: true,
+          _count: { select: { interactions: true, comments: true } }
+        }
+      }
+    },
+    orderBy: { createdAt: 'desc' }
+  });
+  const liked = likedInteractions.map(i => i.publication).filter(Boolean);
 
   let bookmarks: any[] = [];
   if (isOwnProfile) {
@@ -65,133 +104,137 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
   const drafts = user.publications.filter(p => p.status === PublicationStatus.DRAFT || p.status === PublicationStatus.REJECTED);
   const pending = user.publications.filter(p => p.status === PublicationStatus.PENDING);
 
+  // Shorthand Batch string formatting (e.g. Batch: CS-28)
+  const rawBranch = (user.alumniProfile?.branch || 'CS').toUpperCase().trim();
+  const branchMap: Record<string, string> = {
+    'COMPUTER SCIENCE': 'CS',
+    'CSE': 'CS',
+    'CHEMICAL': 'CHE',
+    'CHEMICAL ENGINEERING': 'CHE',
+    'MECHANICAL': 'ME',
+    'MECHANICAL ENGINEERING': 'ME',
+    'ELECTRICAL': 'EE',
+    'ELECTRICAL ENGINEERING': 'EE',
+    'ELECTRONICS': 'ECE',
+    'CIVIL': 'CE',
+    'CIVIL ENGINEERING': 'CE',
+    'BIOTECHNOLOGY': 'BT',
+    'BIOTECH': 'BT',
+  };
+  const branch = branchMap[rawBranch] || rawBranch;
+
+  let passoutYear = '28';
+  if (user.alumniProfile?.batch) {
+    const raw = user.alumniProfile.batch.trim();
+    const match = raw.match(/(\d{2,4})$/);
+    if (match) {
+      passoutYear = match[1].slice(-2);
+    }
+  }
+  const batchDisplay = `Batch: ${branch}-${passoutYear}`;
+
   return (
-    <div className="max-w-4xl mx-auto py-8">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 md:px-8 py-6 sm:py-10">
       {/* Editorial Profile Header */}
-      <div className="flex flex-col-reverse md:flex-row gap-8 items-start justify-between mb-12 border-b border-gray-200/80 dark:border-neutral-800 pb-12">
-        <div className="flex-grow max-w-2xl">
-          <div className="flex flex-col md:flex-row md:items-center gap-4 justify-start mb-2">
-            <h1 className="font-serif text-4xl md:text-5xl text-black dark:text-white font-bold leading-tight">{user.name}</h1>
-            <span className="inline-block px-2.5 py-0.5 bg-gray-100 dark:bg-neutral-800 text-gray-700 dark:text-neutral-300 border border-gray-200 dark:border-neutral-700 text-[10px] uppercase font-bold rounded self-start md:self-center">
-              {user.role}
-            </span>
+      <div className="mb-6 sm:mb-8 border-b border-gray-200/80 dark:border-neutral-800 pb-5 sm:pb-7">
+        {/* Top Section: Balanced Profile Picture + Responsive Name & Metrics in 2 Clean Rows */}
+        <FadeUp delay={0.05} y={16}>
+          <div className="flex flex-row items-center gap-3.5 sm:gap-6 md:gap-8">
+            {/* Balanced Profile Avatar (15% scaled down) */}
+            <div className="shrink-0 relative">
+              <img
+                src={user.profilePhoto && user.profilePhoto.trim() !== "" ? user.profilePhoto : `https://api.dicebear.com/7.x/initials/svg?seed=${user.name}`}
+                alt={user.name}
+                className="w-28 h-28 sm:w-32 sm:h-32 md:w-36 md:h-36 lg:w-40 lg:h-40 rounded-full object-cover shadow-md border-4 border-white dark:border-[#0a0a0a]"
+              />
+            </div>
+
+            {/* Identity & Metrics in exactly 2 rows */}
+            <div className="flex-grow min-w-0 flex-col justify-center gap-1 sm:gap-2">
+              {/* Row 1: Responsive Fluid Name & Role Badge */}
+              <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
+                <h1 className="font-serif text-[clamp(1.6rem,5.5vw,3.25rem)] text-black dark:text-white font-bold leading-[1.08] tracking-tight break-words">
+                  {user.name}
+                </h1>
+                <span className="inline-block px-2.5 py-0.5 bg-gray-100 dark:bg-neutral-800 text-gray-700 dark:text-neutral-300 border border-gray-200 dark:border-neutral-700 text-[10px] uppercase font-bold rounded shrink-0">
+                  {formatRole(user.role)}
+                </span>
+              </div>
+
+              {/* Row 2: @handle • Followers • Following */}
+              <div className="flex flex-wrap items-center gap-x-2.5 sm:gap-x-3 gap-y-0.5 text-xs sm:text-sm font-medium text-gray-500 dark:text-neutral-400">
+                <span className="text-gray-700 dark:text-neutral-300 font-semibold">@{user.username}</span>
+                <span className="text-gray-300 dark:text-neutral-700">•</span>
+                <span><strong className="text-black dark:text-white font-bold">{followersCount}</strong> Followers</span>
+                <span className="text-gray-300 dark:text-neutral-700">•</span>
+                <span><strong className="text-black dark:text-white font-bold">{followingCount}</strong> Following</span>
+              </div>
+            </div>
           </div>
-          <p className="text-gray-500 dark:text-neutral-500 text-sm font-medium">@{user.username}</p>
-          <p className="text-gray-800 dark:text-neutral-300 font-serif text-lg md:text-xl italic mt-6 leading-relaxed">
+        </FadeUp>
+
+        {/* Bio Quote */}
+        <FadeUp delay={0.12} y={12}>
+          <p className="text-gray-800 dark:text-neutral-300 font-serif text-base sm:text-lg md:text-xl italic mt-4 sm:mt-5 leading-relaxed">
             "{user.bio || 'Reading is dreaming with open eyes.'}"
           </p>
-          <div className="flex items-center gap-6 mt-8">
-            <div className="text-xs text-gray-500 dark:text-neutral-500 uppercase tracking-wider font-semibold">
-              Member since: {new Date(user.createdAt).toLocaleDateString(undefined, {
-                month: 'long',
-                year: 'numeric'
-              })}
-            </div>
+
+          {/* Batch Indicator placed just below bio */}
+          <div className="mt-2.5 sm:mt-3">
+            <span className="inline-block text-[11px] sm:text-xs font-semibold text-gray-600 dark:text-neutral-400 bg-gray-100 dark:bg-neutral-800/80 px-2.5 py-1 rounded-full border border-gray-200/60 dark:border-neutral-700/60">
+              {batchDisplay}
+            </span>
+          </div>
+        </FadeUp>
+
+        {/* Action Row: Social Media Icons on Left, Action Buttons on Right (Compact & Tight) */}
+        <FadeUp delay={0.18} y={12}>
+          <div className="flex flex-wrap items-center justify-between gap-3 sm:gap-4 mt-4 sm:mt-5">
+            {/* Social Media Links with Verified Auto-Formatting & Privacy Toggles */}
+            <ProfileSocialLinks
+              socialLinks={user.socialLinks}
+              showSocialLinks={user.showSocialLinks}
+              email={user.email}
+              instagram={user.alumniProfile?.instagram}
+              linkedin={user.alumniProfile?.linkedin}
+            />
             
             <ProfileHeaderActions
               isOwnProfile={isOwnProfile}
+              targetUserId={user.id}
+              initialIsFollowing={isFollowing}
               currentUser={{
                 name: user.name,
                 username: user.username,
                 bio: user.bio,
-                profilePhoto: user.profilePhoto
+                profilePhoto: user.profilePhoto,
+                socialLinks: user.socialLinks,
+                showSocialLinks: user.showSocialLinks,
+                email: user.email,
               }}
             />
           </div>
-        </div>
-
-        <div className="flex-shrink-0 relative">
-          <img
-            src={user.profilePhoto && user.profilePhoto.trim() !== "" ? user.profilePhoto : `https://api.dicebear.com/7.x/initials/svg?seed=${user.name}`}
-            alt={user.name}
-            className="w-24 h-24 md:w-32 md:h-32 rounded-full object-cover shadow-md border-4 border-white dark:border-[#0a0a0a]"
-          />
-        </div>
+        </FadeUp>
       </div>
 
       {/* Publications segment */}
-      <div className="space-y-12">
-        <AuthorCatalogue 
-          initialPublications={published} 
-          bookReviews={user.bookReviews}
-          comments={user.comments}
-          bookmarks={bookmarks}
-          isOwnProfile={isOwnProfile} 
-        />
+      <FadeUp delay={0.22} y={16}>
+        <div className="space-y-10 sm:space-y-12">
+          <AuthorCatalogue 
+            initialPublications={published} 
+            bookReviews={user.bookReviews}
+            comments={user.comments}
+            liked={liked}
+            bookmarks={bookmarks}
+            isOwnProfile={isOwnProfile} 
+          />
 
-        {/* Private Dashboard Section for Owner */}
-        {isOwnProfile && (
-          <section className="pt-12 border-t-2 border-dashed border-gray-200 dark:border-neutral-800">
-            <h2 className="font-serif text-2xl text-black dark:text-white font-bold mb-8">Workspace Status</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-              {/* Drafts */}
-              <div>
-                <div className="flex items-center justify-between mb-5">
-                  <h3 className="font-sans text-sm font-bold text-gray-500 dark:text-neutral-400 uppercase tracking-widest">Active Drafts</h3>
-                  <span className="bg-gray-100 dark:bg-neutral-800 text-gray-800 dark:text-neutral-300 text-xs font-bold px-2.5 py-0.5 rounded-full">{drafts.length}</span>
-                </div>
-                {drafts.length > 0 ? (
-                  <ul className="divide-y divide-gray-100 dark:divide-neutral-800 border-y border-gray-100 dark:border-neutral-800">
-                    {drafts.map(d => (
-                      <li key={d.id} className="py-4 flex justify-between items-center group">
-                        <div className="flex flex-col max-w-[75%] pr-4">
-                          <span className="text-base font-semibold text-gray-900 dark:text-gray-100 truncate group-hover:text-black dark:group-hover:text-white transition-colors">{d.title}</span>
-                          <div className="flex items-center gap-2 mt-1.5">
-                            <span className="w-1.5 h-1.5 rounded-full bg-yellow-500"></span>
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-neutral-500">Draft</span>
-                            {d.status === 'REJECTED' && (
-                              <>
-                                <span className="w-1 h-1 rounded-full bg-gray-300 dark:bg-neutral-700"></span>
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-red-500">Changes Req</span>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                        <Link
-                          href={`/workspace/editor/${d.id}`}
-                          className="flex-shrink-0 text-[11px] font-bold uppercase tracking-wider text-black dark:text-white hover:text-violet-600 dark:hover:text-cyan-400 py-1.5 px-3 rounded bg-gray-50 dark:bg-neutral-800/50 hover:bg-gray-100 dark:hover:bg-neutral-800 transition-colors"
-                        >
-                          Continue
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-sm text-gray-400 dark:text-neutral-600 italic py-4">No drafts in progress.</p>
-                )}
-              </div>
-
-              {/* Pending reviews */}
-              <div>
-                <div className="flex items-center justify-between mb-5">
-                  <h3 className="font-sans text-sm font-bold text-gray-500 dark:text-neutral-400 uppercase tracking-widest">Pending Review</h3>
-                  <span className="bg-gray-100 dark:bg-neutral-800 text-gray-800 dark:text-neutral-300 text-xs font-bold px-2.5 py-0.5 rounded-full">{pending.length}</span>
-                </div>
-                {pending.length > 0 ? (
-                  <ul className="divide-y divide-gray-100 dark:divide-neutral-800 border-y border-gray-100 dark:border-neutral-800">
-                    {pending.map(p => (
-                      <li key={p.id} className="py-4 flex justify-between items-center">
-                        <div className="flex flex-col max-w-[75%] pr-4">
-                          <span className="text-base font-semibold text-gray-900 dark:text-gray-100 truncate">{p.title}</span>
-                          <div className="flex items-center gap-2 mt-1.5">
-                            <span className="w-1.5 h-1.5 rounded-full bg-cyan-500"></span>
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-neutral-500">In Queue</span>
-                          </div>
-                        </div>
-                        <span className="flex-shrink-0 text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-neutral-500 py-1.5 px-3 rounded bg-gray-50 dark:bg-neutral-800/30">
-                          Locked
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-sm text-gray-400 dark:text-neutral-600 italic py-4">No pieces waiting for review.</p>
-                )}
-              </div>
-            </div>
-          </section>
-        )}
-      </div>
+          {/* Private Dashboard Section for Owner */}
+          {isOwnProfile && (
+            <WorkspaceDashboard drafts={drafts} pending={pending} />
+          )}
+        </div>
+      </FadeUp>
     </div>
   );
 }

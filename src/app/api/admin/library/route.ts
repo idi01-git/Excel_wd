@@ -1,18 +1,37 @@
 // src/app/api/admin/library/route.ts
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { BookAvailabilityStatus } from '@prisma/client';
+import { requirePermission } from '@/lib/api-auth';
+
+export async function GET() {
+  try {
+    const { error } = await requirePermission('MANAGE_SHELF_LIBRARY');
+    if (error) return error;
+
+    const books = await db.book.findMany({
+      orderBy: { createdAt: 'desc' },
+      include: {
+        _count: {
+          select: { reviews: true, issueRequests: true },
+        },
+      },
+    });
+
+    return NextResponse.json({ success: true, books });
+  } catch (error: unknown) {
+    console.error('List library books error:', error);
+    return NextResponse.json(
+      { error: 'Failed to retrieve books' },
+      { status: 500 }
+    );
+  }
+}
 
 export async function POST(req: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    const role = session?.user?.role;
-
-    if (!session || role !== 'ADMIN') {
-      return NextResponse.json({ error: 'Forbidden: Admin access only' }, { status: 403 });
-    }
+    const { error } = await requirePermission('MANAGE_SHELF_LIBRARY');
+    if (error) return error;
 
     const {
       title,
@@ -27,15 +46,23 @@ export async function POST(req: Request) {
       totalCopies,
       availabilityStatus,
       amazonLink,
-      downloadLink
+      downloadLink,
+      clubReview,
+      editorPickType,
     } = await req.json();
 
     if (!title || !author || !description || !totalCopies) {
-      return NextResponse.json({ error: 'Missing required book details (title, author, description, totalCopies)' }, { status: 400 });
+      return NextResponse.json(
+        {
+          error:
+            'Missing required book details (title, author, description, totalCopies)',
+        },
+        { status: 400 }
+      );
     }
 
-    const genresArray = Array.isArray(genre) 
-      ? genre 
+    const genresArray = Array.isArray(genre)
+      ? genre
       : typeof genre === 'string'
       ? genre.split(',').map((g: string) => g.trim()).filter(Boolean)
       : [];
@@ -55,15 +82,21 @@ export async function POST(req: Request) {
         publishedYear: publishedYear ? parseInt(publishedYear) : null,
         totalCopies: parseInt(totalCopies),
         issuedCopies: 0,
-        availabilityStatus: availabilityStatus || BookAvailabilityStatus.AVAILABLE,
+        availabilityStatus:
+          availabilityStatus || BookAvailabilityStatus.AVAILABLE,
         amazonLink: amazonLink || null,
-        downloadLink: downloadLink || null
-      }
+        downloadLink: downloadLink || null,
+        clubReview: clubReview || null,
+        editorPickType: editorPickType || null,
+      },
     });
 
     return NextResponse.json({ success: true, book });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Add book error:', error);
-    return NextResponse.json({ error: 'Failed to add book to library' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Failed to add book to library' },
+      { status: 500 }
+    );
   }
 }

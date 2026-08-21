@@ -8,6 +8,8 @@ import React, {
   useMemo,
 } from 'react';
 import gsap from 'gsap';
+import { motion } from 'framer-motion';
+import { ArrowUpRight, X } from 'lucide-react';
 import {
   BOOKS,
   BookData,
@@ -27,13 +29,18 @@ type Mode = 'entering' | 'browsing' | 'opening' | 'open' | 'closing';
 const clamp = (val: number, min: number, max: number) =>
   Math.max(min, Math.min(max, val));
 
-export default function Hardback() {
+export default function Hardback({
+  initialBooks,
+}: {
+  initialBooks?: BookData[];
+} = {}) {
   const sectionRef = useRef<HTMLElement>(null);
   const topChromeRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLDivElement>(null);
   const subtitleRef = useRef<HTMLDivElement>(null);
   const activeLineRef = useRef<HTMLDivElement>(null);
   const buyPanelRef = useRef<HTMLElement>(null);
+  const [isCtaHovered, setIsCtaHovered] = useState(false);
 
   // ── Theme State with MutationObserver & Custom Event ─────────────────────
   const [isDark, setIsDark] = useState<boolean>(() => {
@@ -74,6 +81,33 @@ export default function Hardback() {
     };
   }, []);
 
+  // ── Dynamic Books State from Database ────────────────────────────────────
+  const [books, setBooks] = useState<BookData[]>(() => {
+    if (initialBooks && initialBooks.length > 0) return initialBooks;
+    return BOOKS;
+  });
+
+  useEffect(() => {
+    if (initialBooks && initialBooks.length > 0) {
+      setBooks(initialBooks);
+      return;
+    }
+
+    let isMounted = true;
+    fetch('/api/editors-shelf')
+      .then((res) => res.json())
+      .then((data) => {
+        if (!isMounted) return;
+        if (data.success && Array.isArray(data.items) && data.items.length > 0) {
+          setBooks(data.items);
+        }
+      })
+      .catch((err) => console.error('Failed to load shelf books:', err));
+    return () => {
+      isMounted = false;
+    };
+  }, [initialBooks]);
+
   // ── Mobile Responsive State ──────────────────────────────────────────────
   const [isMobile, setIsMobile] = useState(false);
   useEffect(() => {
@@ -90,21 +124,33 @@ export default function Hardback() {
     modeRef.current = mode;
   }, [mode]);
 
+  const initialCenterIndex = Math.floor(books.length / 2);
+
   const [selectedIndex, setSelectedIndex] = useState<number>(-1);
   const selectedIndexRef = useRef<number>(-1);
 
-  const [activeIndex, setActiveIndex] = useState<number>(INITIAL_INDEX);
+  const [activeIndex, setActiveIndex] = useState<number>(initialCenterIndex);
   const [hoverIndex, setHoverIndex] = useState<number>(-1);
   const hoverIndexRef = useRef<number>(-1);
 
-  const positionRef = useRef<number>(INITIAL_INDEX);
-  const targetRef = useRef<number>(INITIAL_INDEX);
+  const positionRef = useRef<number>(initialCenterIndex);
+  const targetRef = useRef<number>(initialCenterIndex);
   const velocityRef = useRef<number>(0);
   const enterProgressRef = useRef<number>(0);
   const openProgressRef = useRef<number>(0);
 
   const [showPanel, setShowPanel] = useState<boolean>(false);
   const panelRevealTweenRef = useRef<gsap.core.Tween | null>(null);
+
+  // When books change, re-align initial center if not browsing yet
+  useEffect(() => {
+    const center = Math.floor(books.length / 2);
+    if (mode === 'entering') {
+      positionRef.current = center;
+      targetRef.current = center;
+      setActiveIndex(center);
+    }
+  }, [books.length, mode]);
 
   // ── Entrance Animation ───────────────────────────────────────────────────
   useEffect(() => {
@@ -126,11 +172,12 @@ export default function Hardback() {
 
   // ── Active Book Derivation (Polling rAF for integer snap) ────────────────
   useEffect(() => {
-    let last = INITIAL_INDEX;
+    let last = Math.floor(books.length / 2);
     let raf = 0;
+    const numBooks = books.length || 1;
     const tick = () => {
       const rounded = Math.round(positionRef.current);
-      const idx = ((rounded % BOOKS.length) + BOOKS.length) % BOOKS.length;
+      const idx = ((rounded % numBooks) + numBooks) % numBooks;
       if (idx !== last) {
         last = idx;
         setActiveIndex(idx);
@@ -139,7 +186,7 @@ export default function Hardback() {
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, []);
+  }, [books.length]);
 
   // ── Hero Title Cascade (700ms delayed GSAP 3D page flip) ─────────────────
   useEffect(() => {
@@ -273,15 +320,13 @@ export default function Hardback() {
       positionRef.current = index; // snap sub-pixel drift
       startOpening();
     } else {
-      // Side click: smoothly slide to centre first, then open
-      const snapDur = clamp(0.22 + distance * 0.08, 0.32, 0.7);
+      // Side click: briskly center and immediately bloom open without lag
+      const snapDur = Math.min(0.26, 0.12 + distance * 0.04);
       gsap.to(positionRef, {
         current: index,
         duration: snapDur,
-        ease: 'power3.out',
-        onComplete: () => {
-          gsap.delayedCall(0.12, startOpening);
-        },
+        ease: 'power2.out',
+        onComplete: startOpening,
       });
     }
   }, []);
@@ -306,7 +351,7 @@ export default function Hardback() {
         y: 0,
         duration: 0.85,
         delay: CLOSE_DURATION * 0.35,
-        ease: 'power3.out',
+        ease: 'power2.out',
       });
     }
 
@@ -477,7 +522,7 @@ export default function Hardback() {
           section.releasePointerCapture(e.pointerId);
         } catch {}
         const snapped = Math.round(targetRef.current);
-        targetRef.current = clamp(snapped, 0, BOOKS.length - 1);
+        targetRef.current = clamp(snapped, 0, books.length - 1);
       }
     };
 
@@ -500,7 +545,7 @@ export default function Hardback() {
       if (e.key === 'ArrowRight') {
         e.preventDefault();
         targetRef.current = Math.min(
-          BOOKS.length - 1,
+          books.length - 1,
           Math.round(positionRef.current) + 1
         );
       }
@@ -509,7 +554,7 @@ export default function Hardback() {
         openBook(
           Math.max(
             0,
-            Math.min(BOOKS.length - 1, Math.round(positionRef.current))
+            Math.min(books.length - 1, Math.round(positionRef.current))
           )
         );
       }
@@ -531,7 +576,7 @@ export default function Hardback() {
       section.removeEventListener('pointercancel', onPointerUp);
       window.removeEventListener('keydown', onKey);
     };
-  }, [closeBook, openBook]);
+  }, [closeBook, openBook, books.length]);
 
   // ── Flip Title Helper ────────────────────────────────────────────────────
   const renderFlipTitle = (
@@ -558,12 +603,12 @@ export default function Hardback() {
   };
 
   const activeBook: BookData = useMemo(() => {
-    return BOOKS[activeIndex] || BOOKS[0];
-  }, [activeIndex]);
+    return books[activeIndex] || books[0] || BOOKS[0];
+  }, [books, activeIndex]);
 
   const selectedBook: BookData = useMemo(() => {
-    return BOOKS[selectedIndex] || activeBook;
-  }, [selectedIndex, activeBook]);
+    return books[selectedIndex] || activeBook;
+  }, [books, selectedIndex, activeBook]);
 
   return (
     <section
@@ -585,7 +630,9 @@ export default function Hardback() {
           backgroundPosition: 'center bottom',
           backgroundRepeat: 'no-repeat',
           opacity: isDark ? 1 : 0,
-          transition: 'opacity 600ms ease',
+          filter: mode === 'open' || mode === 'opening' ? 'blur(10px)' : 'blur(0px)',
+          transform: mode === 'open' || mode === 'opening' ? 'scale(1.04)' : 'scale(1)',
+          transition: 'opacity 600ms ease, filter 700ms ease, transform 700ms ease',
         }}
       />
 
@@ -598,7 +645,9 @@ export default function Hardback() {
           backgroundPosition: 'center bottom',
           backgroundRepeat: 'no-repeat',
           opacity: isDark ? 0 : 1,
-          transition: 'opacity 600ms ease',
+          filter: mode === 'open' || mode === 'opening' ? 'blur(10px)' : 'blur(0px)',
+          transform: mode === 'open' || mode === 'opening' ? 'scale(1.04)' : 'scale(1)',
+          transition: 'opacity 600ms ease, filter 700ms ease, transform 700ms ease',
         }}
       />
 
@@ -614,6 +663,7 @@ export default function Hardback() {
       {/* 4. WebGL R3F Canvas */}
       <div className="absolute inset-0 z-10">
         <HardbackScene
+          books={books}
           isDark={isDark}
           isMobile={isMobile}
           positionRef={positionRef}
@@ -636,49 +686,49 @@ export default function Hardback() {
       >
         <div
           ref={titleRef}
-          className="text-[clamp(42px,6.2vw,100px)] leading-[0.96] tracking-[-0.02em] font-medium"
+          className="text-[clamp(38px,5.6vw,92px)] leading-[0.92] tracking-[-0.04em] font-medium"
           style={{
-            fontFamily:
-              'var(--font-hardback-serif, "Cormorant Garamond"), Georgia, serif',
+            fontFamily: 'var(--font-playfair), serif',
             color: isDark ? '#f3ecd8' : '#1a1310',
-            perspective: '1400px',
+            perspective: '1200px',
             perspectiveOrigin: '50% 90%',
             transformStyle: 'preserve-3d',
           }}
         >
-          {renderFlipTitle('The ', { italic: true, baseKey: 'ti-1' })}
-          {renderFlipTitle('Reading', { italic: false, baseKey: 'ti-2' })}
-          {renderFlipTitle(' Hour', { italic: true, baseKey: 'ti-3' })}
+          {renderFlipTitle('The Excelsior Shelf', { italic: false, baseKey: 'ti-shelf' })}
         </div>
 
         <div
           ref={subtitleRef}
-          className="mt-4 max-w-[44rem] leading-[1.6] italic"
+          className="mt-3 text-center whitespace-nowrap tracking-[0.025em] italic font-normal"
           style={{
             color: isDark
-              ? 'rgba(245, 239, 226, 0.55)'
-              : 'rgba(26, 19, 16, 0.58)',
-            fontFamily:
-              'var(--font-hardback-serif, "Cormorant Garamond"), Georgia, serif',
-            fontSize: 'clamp(14px, 1.15vw, 18px)',
-            fontWeight: 400,
+              ? 'rgba(245, 239, 226, 0.72)'
+              : 'rgba(26, 19, 16, 0.75)',
+            fontFamily: 'var(--font-lora), Georgia, serif',
+            fontSize: 'clamp(13px, 1.15vw, 16px)',
           }}
         >
-          {BOOKS.length} Excelsior’s picks on building, growing, and lasting — pulled from the shelf, the lamp's on.
+          {books.length} {books.length === 1 ? 'essential read' : 'essential reads'} — from midnight essays to timeless volumes.
         </div>
 
         <div
           ref={activeLineRef}
-          className="mt-6 flex flex-col md:flex-row items-center gap-1.5 md:gap-3 text-[11.5px] tracking-[0.24em] uppercase font-medium"
-          style={{ color: isDark ? '#d4a25a' : '#9a5e2c' }}
+          className="mt-6 flex flex-col md:flex-row items-center gap-2 md:gap-3 text-[13px] md:text-[14px] font-medium"
+          style={{
+            color: isDark ? '#d4a25a' : '#9a5e2c',
+            fontFamily:
+              'var(--font-martel), var(--font-noto-devanagari), var(--font-lora), Georgia, serif',
+            letterSpacing: '0.03em',
+          }}
         >
-          <span className="hidden md:block h-px w-10 bg-current opacity-50" />
-          <span>{activeBook.title}</span>
-          <span className="hidden md:inline opacity-55">·</span>
-          <span className="text-[10.5px] md:text-[11.5px] opacity-75 md:opacity-100">
+          <span className="hidden md:block h-px w-10 bg-current opacity-40" />
+          <span className="font-semibold tracking-[0.02em]">{activeBook.title}</span>
+          <span className="hidden md:inline opacity-50">·</span>
+          <span className="text-[12px] md:text-[13px] opacity-85 tracking-[0.02em]">
             {activeBook.author}
           </span>
-          <span className="hidden md:block h-px w-10 bg-current opacity-50" />
+          <span className="hidden md:block h-px w-10 bg-current opacity-40" />
         </div>
       </div>
 
@@ -688,8 +738,8 @@ export default function Hardback() {
         aria-label={`${selectedBook.title} — details`}
         className="absolute pointer-events-auto opacity-0 z-30
           md:top-1/2 md:-translate-y-1/2 md:translate-x-0 md:left-[calc(50%+3.5vw)]
-          md:w-[min(420px,37vw)] md:max-h-[78vh] md:bottom-auto
-          top-[48vh] bottom-[3vh] left-1/2 -translate-x-1/2 w-[88vw] max-w-[480px]
+          md:w-[min(440px,38vw)] md:max-h-[78vh] md:bottom-auto
+          top-[44vh] bottom-[3vh] left-1/2 -translate-x-1/2 w-[92vw] max-w-[520px]
           overflow-y-auto"
         style={{
           visibility: 'hidden',
@@ -697,141 +747,152 @@ export default function Hardback() {
         }}
         data-no-drag
       >
-        <div className="buy-panel-content px-2 py-3 md:px-1 md:py-2">
-          {/* Top row: Eyebrow + Close pill */}
-          <div className="flex items-start justify-between gap-4">
-            <div className="text-[10px] tracking-[0.24em] uppercase opacity-55 pt-1">
-              Hardback · {selectedBook.author.split(' ').pop()}
+        <div className="buy-panel-content px-2 py-2 md:px-1 md:py-2">
+          {/* Top row: Eyebrow + Close icon */}
+          <div className="flex items-center justify-between gap-4">
+            <div
+              className="text-[10.5px] md:text-[11px] tracking-[0.24em] uppercase font-medium"
+              style={{
+                color: isDark ? 'rgba(243, 236, 216, 0.75)' : 'rgba(26, 19, 16, 0.65)',
+              }}
+            >
+              {selectedBook.categoryBadge || (selectedBook.language === 'hi' ? 'साप्ताहिक कृति · फरवरी २०२५' : 'Read of the Week · Feb 2025')}
             </div>
-            <button
+            <motion.button
               onClick={closeBook}
-              className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full
-                         border border-current/30 hover:border-current/65
-                         text-[10.5px] tracking-[0.22em] uppercase font-medium
-                         opacity-75 hover:opacity-100 transition-all cursor-pointer"
-              style={{ color: isDark ? '#f3ecd8' : '#1a1310' }}
+              whileHover={{ scale: 1.15, rotate: 90 }}
+              whileTap={{ scale: 0.88 }}
+              transition={{ type: 'spring', stiffness: 420, damping: 18 }}
+              className="flex items-center justify-center w-9 h-9 rounded-full
+                         border border-neutral-300 dark:border-white/30
+                         bg-neutral-100/90 dark:bg-white/10 backdrop-blur-sm
+                         text-foreground dark:text-[#f3ecd8]
+                         hover:bg-foreground hover:text-background dark:hover:bg-white dark:hover:text-black dark:hover:border-white hover:border-foreground
+                         transition-colors duration-200 cursor-pointer"
               aria-label="Close book"
             >
-              <span>Close</span>
-              <span aria-hidden className="text-[15px] leading-none -mr-0.5">
-                ×
-              </span>
-            </button>
+              <X size={17} strokeWidth={2} />
+            </motion.button>
           </div>
 
-          {/* Title */}
+          {/* Title with fluid responsive clamp */}
           <h2
-            className="mt-3 text-[clamp(26px,2.3vw,40px)] leading-[1.05] tracking-[-0.012em] font-medium"
+            className="mt-2.5 md:mt-3.5 text-[clamp(25px,7vw,42px)] leading-[1.12] tracking-[-0.025em] font-medium text-foreground w-full line-clamp-2 md:line-clamp-none"
             style={{
               fontFamily:
-                'var(--font-hardback-serif, "Cormorant Garamond"), Georgia, serif',
+                'var(--font-playfair), var(--font-rozha), var(--font-martel), Georgia, serif',
             }}
           >
             {selectedBook.title}
           </h2>
 
           {/* Author */}
-          <div className="mt-1.5 text-[13px] tracking-[0.06em] opacity-70">
-            by {selectedBook.author}
+          <div
+            className="mt-1.5 md:mt-2 text-[clamp(14px,3.8vw,16px)] tracking-[0.02em]"
+            style={{
+              color: isDark ? 'rgba(243, 236, 216, 0.95)' : 'rgba(26, 19, 16, 0.9)',
+              fontFamily:
+                'var(--font-lora), var(--font-martel), Georgia, serif',
+            }}
+          >
+            <span className="italic opacity-70 font-normal">by</span>{' '}
+            <span className="font-medium">{selectedBook.author}</span>
           </div>
 
-          {/* Synopsis */}
+          {/* Synopsis filling available space with fluid sizing */}
           <p
-            className="mt-5 max-w-[36ch] opacity-80"
+            className="mt-4 md:mt-5 w-full leading-[1.7] line-clamp-4 md:line-clamp-none text-[clamp(14px,3.8vw,16.5px)]"
             style={{
+              color: isDark ? 'rgba(243, 236, 216, 0.90)' : 'rgba(26, 19, 16, 0.88)',
               fontFamily:
-                'var(--font-hardback-serif, "Cormorant Garamond"), Georgia, serif',
-              fontSize: 'clamp(14.5px, 1.02vw, 16.5px)',
-              lineHeight: 1.55,
+                'var(--font-lora), var(--font-martel), Georgia, serif',
             }}
           >
             {selectedBook.synopsis}
           </p>
 
-          {/* Excerpt blockquote */}
+          {/* Excerpt blockquote filling available space */}
           <blockquote
-            className="mt-5 pl-4 border-l border-current/25 italic opacity-75"
+            className="mt-4 md:mt-5 w-full pl-3.5 md:pl-4 border-l-2 border-amber-500/50 dark:border-amber-300/40 italic leading-[1.65] line-clamp-3 md:line-clamp-none text-[clamp(13px,3.5vw,15.5px)]"
             style={{
+              color: isDark ? 'rgba(243, 236, 216, 0.88)' : 'rgba(26, 19, 16, 0.82)',
               fontFamily:
-                'var(--font-hardback-serif, "Cormorant Garamond"), Georgia, serif',
-              fontSize: 'clamp(13px, 0.92vw, 15px)',
-              lineHeight: 1.5,
+                'var(--font-lora), var(--font-martel), Georgia, serif',
             }}
           >
             "{selectedBook.excerpt}"
           </blockquote>
 
-          {/* Retailer Links if available */}
-          {selectedBook.retailers && selectedBook.retailers.length > 0 && (
-            <div className="mt-5 flex flex-wrap gap-2">
-              {selectedBook.retailers.map((r, idx) => (
-                <a
-                  key={idx}
-                  href={r.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] border border-current/20 hover:border-current/50 opacity-70 hover:opacity-100 transition-opacity"
-                >
-                  <span>{r.name}</span>
-                  <span className="opacity-50">·</span>
-                  <span className="font-medium">{r.price}</span>
-                </a>
-              ))}
-            </div>
-          )}
-
-          {/* Primary Buy CTA button */}
+          {/* Primary Read Now CTA button with Signature Micro-Animation from Gallery Section */}
           <a
-            href={
-              selectedBook.retailers?.[0]?.url || '#'
-            }
+            href={selectedBook.readLink || selectedBook.retailers?.[0]?.url || '/publications'}
             target="_blank"
             rel="noopener noreferrer"
-            className="group mt-6 flex w-fit items-center justify-center gap-3
-                       rounded-full px-7 py-3.5
-                       text-[12px] tracking-[0.2em] uppercase font-medium cursor-pointer
-                       hover:gap-4
-                       [transition:gap_220ms_ease,opacity_220ms_ease,box-shadow_220ms_ease]"
-            style={{
-              backgroundColor: isDark ? '#f3ecd8' : '#1a1310',
-              color: isDark ? '#1a130a' : '#f5efe2',
-            }}
-            aria-label={`Buy ${selectedBook.title}`}
+            onMouseEnter={() => setIsCtaHovered(true)}
+            onMouseLeave={() => setIsCtaHovered(false)}
+            className="group mt-6 md:mt-8 pb-3 md:pb-0 inline-flex items-center gap-4 text-left cursor-pointer select-none"
+            aria-label={`Read ${selectedBook.title}`}
           >
-            <svg
-              width="15"
-              height="15"
-              viewBox="0 0 16 16"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden
-            >
-              <path d="M2.5 4.5h11l-1 9.5H3.5l-1-9.5z" />
-              <path d="M5.5 4.5V3.2a2.5 2.5 0 015 0V4.5" />
-            </svg>
-            <span>Buy this book</span>
-            <svg
-              width="12"
-              height="12"
-              viewBox="0 0 14 14"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.6"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="transition-transform group-hover:translate-x-0.5"
-              aria-hidden
-            >
-              <path d="M2 7h10M8 3l4 4-4 4" />
-            </svg>
-          </a>
+            <div className="font-mono text-[11px] uppercase tracking-[0.24em] font-medium">
+              <motion.span
+                animate={{
+                  color: isCtaHovered
+                    ? isDark
+                      ? '#ffffff'
+                      : '#1a1310'
+                    : isDark
+                    ? 'rgba(243, 236, 216, 0.75)'
+                    : 'rgba(26, 19, 16, 0.65)',
+                  x: isCtaHovered ? 4 : 0,
+                }}
+                transition={{ type: 'spring', stiffness: 340, damping: 22 }}
+                className="inline-block"
+              >
+                {selectedBook.readButtonText || 'Read publication'}
+              </motion.span>
+            </div>
 
-          <div className="mt-4 text-[10px] tracking-[0.24em] uppercase opacity-45 hidden md:block">
-            press esc to close
-          </div>
+            {/* Interactive Circle with Smooth Elastic Spring and Rotate from Gallery Section */}
+            <motion.span
+              animate={{
+                scale: isCtaHovered ? 1.14 : 1.0,
+                backgroundColor: isCtaHovered
+                  ? isDark
+                    ? '#ffffff'
+                    : '#1a1310'
+                  : isDark
+                  ? 'rgba(255, 255, 255, 0.12)'
+                  : 'rgba(26, 19, 16, 0.06)',
+                color: isCtaHovered
+                  ? isDark
+                    ? '#000000'
+                    : '#ffffff'
+                  : isDark
+                  ? '#ffffff'
+                  : '#1a1310',
+                borderColor: isCtaHovered
+                  ? isDark
+                    ? '#ffffff'
+                    : '#1a1310'
+                  : isDark
+                  ? 'rgba(255, 255, 255, 0.32)'
+                  : 'rgba(26, 19, 16, 0.25)',
+              }}
+              transition={{ type: 'spring', stiffness: 360, damping: 20 }}
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border backdrop-blur-sm"
+            >
+              <motion.div
+                animate={{
+                  rotate: isCtaHovered ? 45 : 0,
+                  scale: isCtaHovered ? 1.12 : 1.0,
+                }}
+                transition={{ type: 'spring', stiffness: 320, damping: 18 }}
+                className="flex items-center justify-center pointer-events-none"
+              >
+                <ArrowUpRight size={17} strokeWidth={1.8} />
+              </motion.div>
+            </motion.span>
+          </a>
         </div>
       </aside>
     </section>

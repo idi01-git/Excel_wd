@@ -1,28 +1,32 @@
 // src/types/next-auth.d.ts
-import NextAuth, { DefaultSession, DefaultUser } from "next-auth";
+import { DefaultSession, DefaultUser } from 'next-auth';
+import { Role } from '@/lib/rbac';
 
-declare module "next-auth" {
+declare module 'next-auth' {
   interface Session {
     user: {
       id: string;
-      role: string;
+      role: Role;
       username: string;
       profilePhoto?: string | null;
-    } & DefaultSession["user"]
+      verificationStatus?: 'UNVERIFIED' | 'PENDING' | 'VERIFIED' | 'REJECTED';
+    } & DefaultSession['user'];
   }
 
   interface User extends DefaultUser {
-    role: string;
+    role: Role;
     username: string;
     profilePhoto?: string | null;
+    verificationStatus?: 'UNVERIFIED' | 'PENDING' | 'VERIFIED' | 'REJECTED';
   }
 }
 
-declare module "next-auth/jwt" {
+declare module 'next-auth/jwt' {
   interface JWT {
     id: string;
-    role: string;
+    role: Role;
     username: string;
     profilePhoto?: string | null;
+    verificationStatus?: 'UNVERIFIED' | 'PENDING' | 'VERIFIED' | 'REJECTED';
   }
 }

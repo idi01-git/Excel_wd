@@ -11,10 +11,28 @@ datasource db {
 }
 
 enum Role {
+  COORDINATOR
+  TECH_LEAD
+  CONTENT_LEAD
+  PR_HEAD
+  OPERATIONS_HEAD
+  TREASURER
   MEMBER
-  VERIFIED_AUTHOR
-  MODERATOR
-  ADMIN
+  ALUMNI
+  VISITOR
+}
+
+enum VerificationStatus {
+  UNVERIFIED
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum MemberSection {
+  COORDINATORS
+  CORE
+  TEAM
 }
 
 enum Language {
@@ -43,16 +61,26 @@ enum InteractionType {
 }
 
 model User {
-  id            String    @id @default(uuid())
-  name          String
-  username      String    @unique
-  email         String    @unique
-  passwordHash  String
-  role          Role      @default(MEMBER)
-  profilePhoto  String?
-  bio           String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id                 String             @id @default(uuid())
+  name               String
+  username           String             @unique
+  email              String             @unique
+  passwordHash       String
+  role               Role               @default(VISITOR)
+  verificationStatus VerificationStatus @default(UNVERIFIED)
+  isVerified         Boolean            @default(false)
+  rollNumber         String?
+  branch             String?
+  batch              String?
+  memberSection      MemberSection?     @default(TEAM)
+  memberTitle        String?
+  profilePhoto       String?
+  directoryPhoto     String?
+  bio                String?
+  socialLinks        Json?
+  showSocialLinks    Boolean            @default(true)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
 
   publications       Publication[]
   interactions       Interaction[]
@@ -60,10 +88,10 @@ model User {
   commentUpvotes     CommentUpvote[]
   commentDownvotes   CommentDownvote[]
 
-  followers          Follow[]         @relation("FollowingRelationFollowers")
-  following          Follow[]         @relation("FollowingRelationFollowing")
-  notifications      Notification[]   @relation("RecipientNotifications")
-  actorNotifications Notification[]   @relation("ActorNotifications")
+  followers          Follow[]           @relation("FollowingRelationFollowers")
+  following          Follow[]           @relation("FollowingRelationFollowing")
+  notifications      Notification[]     @relation("RecipientNotifications")
+  actorNotifications Notification[]     @relation("ActorNotifications")
   alumniProfile      AlumniProfile?
 
   eventRegistrations EventRegistration[]
@@ -71,8 +99,8 @@ model User {
   bookReviews        BookReview[]
   bookReviewUpvotes  BookReviewUpvote[]
   issueRequests      IssueRequest[]
-  approvedRequests   IssueRequest[]   @relation("IssueRequestApprover")
-  returnedRequests   IssueRequest[]   @relation("IssueRequestReturner")
+  approvedRequests   IssueRequest[]     @relation("IssueRequestApprover")
+  returnedRequests   IssueRequest[]     @relation("IssueRequestReturner")
   auditLogs          AuditLog[]
 }
 
@@ -85,14 +113,18 @@ model Publication {
   category       PublicationCategory
   language       Language            @default(ENGLISH)
   tags           String[]
-  authorId       String
-  author         User                @relation(fields: [authorId], references: [id])
-  status         PublicationStatus   @default(DRAFT)
-  rejectionNote  String?
-  readingTime    Int                 @default(1)
-  createdAt     DateTime            @default(now())
-  updatedAt     DateTime            @updatedAt
-  publishedAt    DateTime?
+  authorId          String
+  author            User                @relation(fields: [authorId], references: [id])
+  authorName        String?
+  authorNote        String?
+  alumniProfileId   String?
+  alumniProfile     AlumniProfile?      @relation(fields: [alumniProfileId], references: [id])
+  status            PublicationStatus   @default(DRAFT)
+  rejectionNote     String?
+  readingTime       Int                 @default(1)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  publishedAt       DateTime?
 
   interactions   Interaction[]
   comments       Comment[]
@@ -110,7 +142,7 @@ model Interaction {
   type          InteractionType
   createdAt     DateTime        @default(now())
 
-  @@unique([userId, publicationId, type]) // Ensures a user can only have one type of interaction per post
+  @@unique([userId, publicationId, type])
 }
 
 model Comment {
@@ -175,6 +207,10 @@ enum NotificationType {
   EVENT_WINNER_ANNOUNCED
   ISSUE_REQUEST_APPROVED
   ISSUE_REQUEST_REJECTED
+  ACCOUNT_VERIFICATION_REQUEST
+  ACCOUNT_VERIFIED
+  ACCOUNT_REJECTED
+  ROLE_CHANGED
 }
 
 enum GalleryItemType {
@@ -207,11 +243,11 @@ model Notification {
   recipientId     String
   recipient       User             @relation("RecipientNotifications", fields: [recipientId], references: [id])
   type            NotificationType
-  actorId         String?          // User who triggered the notification (null if system)
+  actorId         String?
   actor           User?            @relation("ActorNotifications", fields: [actorId], references: [id])
-  entityType      String           // 'PUBLICATION', 'COMMENT', 'EDITORS_SHELF', 'EVENT', 'BOOK'
-  entityId        String           // ID of the related entity
-  message         String?          // Custom text (e.g., admin note for rejections)
+  entityType      String
+  entityId        String
+  message         String?
   isRead          Boolean          @default(false)
   createdAt       DateTime         @default(now())
 
@@ -221,50 +257,69 @@ model Notification {
   @@index([recipientId, isRead])
 }
 
+// ─── 1. SEPARATE 3D EDITOR'S SHELF SYSTEM ──────────────────────────────────
 model EditorShelfItem {
-  id            String    @id @default(uuid())
-  title         String
-  author        String    // Original author of the work, not a platform user
-  coverImage    String?
-  editorialNote String    // Rich text or markdown
-  genre         String[]
-  slug          String    @unique
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id             String    @id @default(uuid())
+  title          String
+  author         String
+  slug           String    @unique
+  coverImage     String?
+  editorialNote  String
+  synopsis       String?
+  excerpt        String?
+  genre          String[]
+  spineColor     String?   @default("#182b5e")
+  spineTextColor String?   @default("#f3ecd8")
+  coverColor     String?   @default("#1c3370")
+  coverTextColor String?   @default("#f3ecd8")
+  motif          String?   @default("lattice")
+  foilColor      String?   @default("#e7b55f")
+  width          Float?    @default(2.0)
+  height         Float?    @default(3.1)
+  spineThickness Float?    @default(0.42)
+  readLink       String?   @default("/publications")
+  displayOrder   Float     @default(0)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
-  comments      Comment[]
+  comments       Comment[]
+
+  @@index([displayOrder, createdAt])
 }
 
 model AlumniProfile {
   id                String   @id @default(uuid())
-  userId            String?  @unique // Link to User if they have an account
+  userId            String?  @unique
   user              User?    @relation(fields: [userId], references: [id])
   name              String
   photo             String?
-  batch             String   // e.g., "2020-2024"
+  batch             String
   branch            String
-  currentPosition   String?  // Designation Current
-  excelsiorPosition String?  // Position in Excelsior when they left
-  message           String?  // Testimonial
+  currentPosition   String?
+  excelsiorPosition String?
+  message           String?
   
-  // Restricted Contact Info (Moderator/Admin only)
+  // Restricted Contact Info
   instagram         String?
   linkedin          String?
   email             String?
   phone             String?
+  showSocialsToTeam Boolean       @default(true)
+  publications      Publication[]
   
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
 }
 
 model GalleryItem {
-  id          String          @id @default(uuid())
-  type        GalleryItemType
-  url         String
-  caption     String?
-  eventId     String?         // Nullable for Phase 2 (Events in Phase 3)
-  uploadedById String?
-  createdAt   DateTime        @default(now())
+  id               String          @id @default(uuid())
+  type             GalleryItemType
+  url              String
+  caption          String?
+  eventId          String?
+  isFeaturedOnHome Boolean         @default(false)
+  uploadedById     String?
+  createdAt        DateTime        @default(now())
 }
 
 model Achievement {
@@ -273,6 +328,7 @@ model Achievement {
   description String
   category    AchievementCategory
   date        DateTime
+  image       String?
   createdAt   DateTime            @default(now())
 }
 
@@ -305,44 +361,58 @@ enum WinnerPosition {
 }
 
 model Event {
-  id              String      @id @default(uuid())
-  title           String
-  slug            String      @unique
-  description     String      // Rich text or plain description
-  posterImage     String?     // URL to event poster
-  coverImage      String?     // URL to event cover banner (landscape)
-  date            DateTime    // Event date
-  time            String?     // e.g. "3:00 PM - 5:00 PM"
-  venue           String
-  status          EventStatus @default(UPCOMING)
-  isCompetition   Boolean     @default(false)
-  maxCapacity     Int?        // null = unlimited
-  rulebookUrl     String?     // URL to rulebook pdf/document
-  socialLink      String?     // URL to Instagram post or tweet
-  downloadUrl     String?     // URL to download poster/brochure
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
+  id                  String      @id @default(uuid())
+  title               String
+  slug                String      @unique
+  description         String
+  posterImage         String?
+  coverImage          String?
+  date                DateTime
+  time                String?
+  venue               String
+  status              EventStatus @default(UPCOMING)
+  isCompetition       Boolean     @default(false)
+  maxCapacity         Int?
+  rulebookUrl         String?
+  socialLink          String?
+  downloadUrl         String?
+  customFormFields    Json?
+  googleSheetUrl      String?
+  googleSheetId       String?
+  requirePayment      Boolean     @default(false)
+  paymentQrImage      String?
+  paymentAmount       String?
+  paymentInstructions String?
+  internalReportUrl   String?
+  externalReportUrl   String?
+  internalGalleryUrl  String?
+  externalGalleryUrl  String?
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
 
-  registrations   EventRegistration[]
-  winners         EventWinner[]
-  report          EventReport?
-  gallery         EventGalleryItem[]
-  notifications   Notification[]
+  registrations       EventRegistration[]
+  winners             EventWinner[]
+  report              EventReport?
+  gallery             EventGalleryItem[]
+  notifications       Notification[]
 
   @@index([status, date])
 }
 
 model EventRegistration {
-  id           String   @id @default(uuid())
-  eventId      String
-  event        Event    @relation(fields: [eventId], references: [id])
-  userId       String
-  user         User     @relation(fields: [userId], references: [id])
-  name         String
-  email        String
-  phone        String?
-  extraFields  Json?
-  registeredAt DateTime @default(now())
+  id                   String   @id @default(uuid())
+  eventId              String
+  event                Event    @relation(fields: [eventId], references: [id])
+  userId               String
+  user                 User     @relation(fields: [userId], references: [id])
+  name                 String
+  email                String
+  phone                String?
+  extraFields          Json?
+  paymentScreenshotUrl String?
+  paymentStatus        String?  @default("PENDING")
+  paymentVerifiedAt    DateTime?
+  registeredAt         DateTime @default(now())
 
   @@unique([eventId, userId])
   @@index([eventId])
@@ -376,46 +446,44 @@ model EventReport {
 }
 
 model EventGalleryItem {
-  id          String          @id @default(uuid())
-  eventId     String
-  event       Event           @relation(fields: [eventId], references: [id])
-  url         String
-  caption     String?
-  type        GalleryItemType
+  id           String          @id @default(uuid())
+  eventId      String
+  event        Event           @relation(fields: [eventId], references: [id])
+  url          String
+  caption      String?
+  type         GalleryItemType
   uploadedById String?
-  createdAt   DateTime        @default(now())
+  createdAt    DateTime        @default(now())
 
   @@index([eventId])
 }
 
+// ─── 2. SEPARATE PHYSICAL SOCIETY LIBRARY SYSTEM ───────────────────────────
 model Book {
-  id                String                 @id @default(uuid())
-  title             String
-  author            String
-  coverImage        String?
-  description       String
-  genre             String[]
-  language          Language               @default(ENGLISH)
-  isbn              String?
-  pageCount         Int?
-  publishedYear     Int?
+  id                 String                 @id @default(uuid())
+  title              String
+  author             String
+  coverImage         String?
+  description        String
+  genre              String[]
+  language           Language               @default(ENGLISH)
+  isbn               String?
+  pageCount          Int?
+  publishedYear      Int?
   availabilityStatus BookAvailabilityStatus @default(AVAILABLE)
-  totalCopies       Int                    @default(1)
-  issuedCopies      Int                    @default(0)
-  
-  // Shelf Page & Detail Page Fields
-  amazonLink        String?
-  downloadLink      String?
-  clubReview        String?
-  endorseCount      Int                    @default(0)
-  themeColor        String?
-  editorPickType    String?                // e.g. "WEEK", "MONTH", "MAGAZINE"
+  totalCopies        Int                    @default(1)
+  issuedCopies       Int                    @default(0)
+  amazonLink         String?
+  downloadLink       String?
+  clubReview         String?
+  endorseCount       Int                    @default(0)
+  themeColor         String?
+  editorPickType     String?
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
 
-  createdAt         DateTime               @default(now())
-  updatedAt         DateTime               @updatedAt
-
-  reviews           BookReview[]
-  issueRequests     IssueRequest[]
+  reviews            BookReview[]
+  issueRequests      IssueRequest[]
 
   @@index([availabilityStatus])
   @@index([genre])
@@ -424,53 +492,53 @@ model Book {
 }
 
 model BookReview {
-  id          String   @id @default(uuid())
-  bookId      String
-  book        Book     @relation(fields: [bookId], references: [id])
-  reviewerId  String
-  reviewer    User     @relation(fields: [reviewerId], references: [id])
-  rating      Int
-  reviewText  String
-  upvotesCount Int     @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id           String     @id @default(uuid())
+  bookId       String
+  book         Book       @relation(fields: [bookId], references: [id])
+  reviewerId   String
+  reviewer     User       @relation(fields: [reviewerId], references: [id])
+  rating       Int
+  reviewText   String
+  upvotesCount Int        @default(0)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
 
-  upvotes     BookReviewUpvote[]
+  upvotes      BookReviewUpvote[]
 
   @@unique([bookId, reviewerId])
   @@index([bookId])
 }
 
 model BookReviewUpvote {
-  id          String     @id @default(uuid())
-  userId      String
-  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  reviewId    String
-  review      BookReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
-  createdAt   DateTime   @default(now())
+  id        String     @id @default(uuid())
+  userId    String
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reviewId  String
+  review    BookReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  createdAt DateTime   @default(now())
 
   @@unique([userId, reviewId])
 }
 
 model IssueRequest {
-  id          String             @id @default(uuid())
-  bookId      String
-  book        Book               @relation(fields: [bookId], references: [id])
-  requesterId String
-  requester   User               @relation(fields: [requesterId], references: [id])
-  approverId  String?
-  approver    User?              @relation("IssueRequestApprover", fields: [approverId], references: [id])
-  returnerId  String?
-  returner    User?              @relation("IssueRequestReturner", fields: [returnerId], references: [id])
-  status      IssueRequestStatus @default(PENDING)
-  requestDate DateTime           @default(now())
-  issueDate   DateTime?
-  returnDate  DateTime?
-  dueDate     DateTime?          // Expected return date (deadline)
-  lastReminderSent DateTime?     // Last time a reminder email was sent
-  adminNote   String?
-  createdAt   DateTime           @default(now())
-  updatedAt   DateTime           @updatedAt
+  id               String             @id @default(uuid())
+  bookId           String
+  book             Book               @relation(fields: [bookId], references: [id])
+  requesterId      String
+  requester        User               @relation(fields: [requesterId], references: [id])
+  approverId       String?
+  approver         User?              @relation("IssueRequestApprover", fields: [approverId], references: [id])
+  returnerId       String?
+  returner         User?              @relation("IssueRequestReturner", fields: [returnerId], references: [id])
+  status           IssueRequestStatus @default(PENDING)
+  requestDate      DateTime           @default(now())
+  issueDate        DateTime?
+  returnDate       DateTime?
+  dueDate          DateTime?
+  lastReminderSent DateTime?
+  adminNote        String?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
 
   @@index([bookId, status])
   @@index([requesterId, status])
@@ -481,6 +549,8 @@ model AuditLog {
   actorId    String?
   actor      User?    @relation(fields: [actorId], references: [id])
   action     String
+  target     String?
+  meta       Json?
   entityType String
   entityId   String
   metadata   Json?
@@ -490,4 +560,22 @@ model AuditLog {
 
   @@index([actorId])
   @@index([entityType, entityId])
+}
+
+model SiteSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+  updatedBy String?
+}
+
+model EmailOtp {
+  id        String   @id @default(uuid())
+  email     String
+  code      String
+  attempts  Int      @default(0)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([email])
 }

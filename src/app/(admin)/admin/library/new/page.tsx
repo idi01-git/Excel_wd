@@ -7,6 +7,9 @@ import Link from 'next/link';
 import { ArrowLeft, BookOpen, CheckCircle2, AlertCircle, Upload, X, ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
+import { ImageCropperModal } from '@/components/ui/ImageCropperModal';
+import { uploadImageBlob } from '@/lib/upload';
+
 export default function AdminNewBookPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -27,60 +30,39 @@ export default function AdminNewBookPage() {
   const [downloadLink, setDownloadLink] = useState('');
   const [availabilityStatus, setAvailabilityStatus] = useState('AVAILABLE');
 
+  // Image Cropper Modal State
+  const [cropperRawSrc, setCropperRawSrc] = useState<string | null>(null);
+  const [isCropperOpen, setIsCropperOpen] = useState(false);
+
   // Custom feedback states
   const [successModalOpen, setSuccessModalOpen] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
-  const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCoverUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-      if (file.size > 2 * 1024 * 1024) {
-        setErrorMsg('Cover image size must be under 2MB.');
-        return;
-      }
-      setCoverUploading(true);
-      setErrorMsg('');
-      try {
-        const dataUrl = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result as string);
-          reader.onerror = () => reject(new Error('Failed to read file'));
-          reader.readAsDataURL(file);
-        });
+      const reader = new FileReader();
+      reader.onload = () => {
+        setCropperRawSrc(reader.result as string);
+        setIsCropperOpen(true);
+      };
+      reader.readAsDataURL(file);
+      e.target.value = '';
+    }
+  };
 
-        const response = await fetch('/api/uploads/image', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            dataUrl,
-            folder: 'excelsior/library/covers'
-          })
-        });
-
-        const result = await response.json();
-        if (!response.ok || !result.success || typeof result.url !== 'string') {
-          throw new Error(result.error || 'Failed to upload cover image');
-        }
-
-        if (coverImage && coverImage.includes('cloudinary.com')) {
-          try {
-            await fetch('/api/uploads/delete', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ url: coverImage })
-            });
-          } catch (err) {
-            console.error('Failed to clean up old cover image:', err);
-          }
-        }
-
-        setCoverImage(result.url);
-      } catch (err: any) {
-        console.error(err);
-        setErrorMsg(err.message || 'Failed to upload cover image.');
-      } finally {
-        setCoverUploading(false);
-      }
+  const handleCropComplete = async (blob: Blob, previewUrl: string) => {
+    setIsCropperOpen(false);
+    setCoverUploading(true);
+    setErrorMsg('');
+    try {
+      const url = await uploadImageBlob(blob, 'library-covers', `${title || 'book'}_cover.jpg`);
+      setCoverImage(url);
+    } catch (err: any) {
+      console.error(err);
+      setCoverImage(previewUrl);
+    } finally {
+      setCoverUploading(false);
     }
   };
 
@@ -530,6 +512,18 @@ export default function AdminNewBookPage() {
           </div>
         )}
       </AnimatePresence>
+
+      {/* 2:3 Book Cover Cropper */}
+      {cropperRawSrc && (
+        <ImageCropperModal
+          isOpen={isCropperOpen}
+          imageSrc={cropperRawSrc}
+          aspectRatio={2 / 3}
+          aspectPresetLabel="Book Cover (2:3)"
+          onCropComplete={handleCropComplete}
+          onCancel={() => setIsCropperOpen(false)}
+        />
+      )}
     </div>
   );
 }

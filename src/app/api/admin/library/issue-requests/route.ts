@@ -1,27 +1,27 @@
 // src/app/api/admin/library/issue-requests/route.ts
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { IssueRequestStatus } from '@prisma/client';
+import { requirePermission } from '@/lib/api-auth';
 
 export async function GET(req: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    const role = session?.user?.role;
-
-    if (!session || role !== 'ADMIN') {
-      return NextResponse.json({ error: 'Forbidden: Admin access only' }, { status: 403 });
-    }
+    const { error } = await requirePermission('MANAGE_SHELF_LIBRARY');
+    if (error) return error;
 
     const { searchParams } = new URL(req.url);
     const statusQuery = searchParams.get('status');
     const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '20');
+    const limit = parseInt(searchParams.get('limit') || '50');
     const skip = (page - 1) * limit;
 
     const whereClause: any = {};
-    if (statusQuery && Object.values(IssueRequestStatus).includes(statusQuery as IssueRequestStatus)) {
+    if (
+      statusQuery &&
+      Object.values(IssueRequestStatus).includes(
+        statusQuery as IssueRequestStatus
+      )
+    ) {
       whereClause.status = statusQuery as IssueRequestStatus;
     }
 
@@ -33,8 +33,8 @@ export async function GET(req: Request) {
             id: true,
             title: true,
             author: true,
-            coverImage: true
-          }
+            coverImage: true,
+          },
         },
         requester: {
           select: {
@@ -42,15 +42,15 @@ export async function GET(req: Request) {
             name: true,
             username: true,
             email: true,
-            profilePhoto: true
-          }
-        }
+            profilePhoto: true,
+          },
+        },
       },
       orderBy: {
-        requestDate: 'desc'
+        requestDate: 'desc',
       },
       skip,
-      take: limit
+      take: limit,
     });
 
     const total = await db.issueRequest.count({ where: whereClause });
@@ -62,11 +62,14 @@ export async function GET(req: Request) {
         total,
         page,
         limit,
-        pages: Math.ceil(total / limit)
-      }
+        pages: Math.ceil(total / limit),
+      },
     });
   } catch (error: any) {
     console.error('Fetch all loans error:', error);
-    return NextResponse.json({ error: 'Failed to retrieve borrow logs' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Failed to retrieve borrow logs' },
+      { status: 500 }
+    );
   }
 }

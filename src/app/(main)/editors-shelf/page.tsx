@@ -1,44 +1,28 @@
 // src/app/(main)/editors-shelf/page.tsx
-'use client';
+import { db } from '@/lib/db';
+import { ensureSeededShelf, itemToBookData } from '@/lib/editors-shelf-helper';
+import { BOOKS } from '@/components/sections/hardback/hardback-data';
+import EditorsShelfClient from './EditorsShelfClient';
 
-import { useEffect } from 'react';
-import dynamic from 'next/dynamic';
+// Force dynamic server rendering so latest shelf items are always loaded
+export const dynamic = 'force-dynamic';
 
-// Dynamically import the Hardback 3D experience to guarantee client-side canvas initialization
-const Hardback = dynamic(
-  () => import('@/components/sections/hardback/Hardback'),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="w-full h-screen bg-[#1a130a] flex items-center justify-center">
-        <div className="text-center font-serif text-[#f3ecd8] opacity-70 tracking-widest uppercase text-sm">
-          Opening the study…
-        </div>
-      </div>
-    ),
+export default async function EditorsShelfPage() {
+  let initialBooks = BOOKS;
+
+  try {
+    const items = await db.editorShelfItem.findMany({
+      orderBy: {
+        displayOrder: 'asc',
+      },
+    });
+
+    if (items && items.length > 0) {
+      initialBooks = items.map(itemToBookData);
+    }
+  } catch (error) {
+    console.error('Failed to load server-rendered shelf books:', error);
   }
-);
 
-export default function EditorsShelfPage() {
-  // Lock ALL scroll on html + body while on the shelf page
-  useEffect(() => {
-    const html = document.documentElement;
-    const body = document.body;
-
-    html.style.overflow = 'hidden';
-    html.style.height = '100dvh';
-    body.style.overflow = 'hidden';
-    body.style.height = '100dvh';
-
-    window.scrollTo(0, 0);
-
-    return () => {
-      html.style.overflow = '';
-      html.style.height = '';
-      body.style.overflow = '';
-      body.style.height = '';
-    };
-  }, []);
-
-  return <Hardback />;
+  return <EditorsShelfClient initialBooks={initialBooks} />;
 }

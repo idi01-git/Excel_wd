@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { motion, useMotionValue, useSpring, useTransform, AnimatePresence } from 'motion/react';
 import { ArrowUpRight } from 'lucide-react';
@@ -54,7 +54,11 @@ const EVENTS = [
   },
 ];
 
+type HomeEvent = (typeof EVENTS)[number] & { href?: string };
+
 export default function EventsIndex() {
+  const [events, setEvents] = useState<HomeEvent[]>(EVENTS);
+  useEffect(() => { void fetch('/api/site-settings').then((response) => response.json()).then((data) => { const items = data.settings?.['home.eventsStrip']?.items; if (Array.isArray(items) && items.length) setEvents(items.slice(0, 8).map((item: any, index: number) => ({ index: String(index + 1).padStart(2, '0'), title: item.title, kind: item.kind, date: item.date, venue: item.venue, image: item.image, href: item.href || '/events' }))); }).catch(() => {}); }, []);
   const listRef = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState<number | null>(null);
 
@@ -135,7 +139,7 @@ export default function EventsIndex() {
                   transition={{ type: 'spring', stiffness: 320, damping: 25, mass: 0.6 }}
                   className="relative -ml-[130px] -mt-[190px] h-[380px] w-[260px] overflow-hidden rounded-2xl shadow-2xl shadow-black/40 border border-white/15"
                 >
-                  {EVENTS.map((event, i) => (
+                  {events.map((event, i) => (
                     <motion.img
                       key={event.index}
                       src={event.image}
@@ -156,7 +160,7 @@ export default function EventsIndex() {
 
           {/* List items */}
           <div className="relative border-t border-border">
-            {EVENTS.map((event, i) => {
+            {events.map((event, i) => {
               const isHovered = active === i;
 
               return (
@@ -176,22 +180,10 @@ export default function EventsIndex() {
                           : 'rgba(var(--foreground), 0)',
                       }}
                       transition={{ duration: 0.3, ease: 'easeOut' }}
-                      className="relative grid grid-cols-[3rem_1fr_auto] items-center gap-x-4 border-b border-border py-6 md:grid-cols-[5rem_1fr_auto] md:gap-x-8 md:py-8 transition-colors"
+                      className="relative flex items-center justify-between gap-x-4 border-b border-border py-5 md:py-8 transition-colors"
                     >
-                      {/* Index Number */}
-                      <motion.span
-                        animate={{
-                          color: isHovered ? 'var(--foreground)' : 'var(--muted-foreground)',
-                          x: isHovered ? 3 : 0,
-                        }}
-                        transition={{ type: 'spring', stiffness: 350, damping: 24 }}
-                        className="font-mono text-[11px] tracking-[0.2em]"
-                      >
-                        /{event.index}
-                      </motion.span>
-
-                      {/* Title & Mobile Preview */}
-                      <div className="min-w-0">
+                      {/* Title */}
+                      <div className="min-w-0 flex-1">
                         <motion.h3
                           animate={{
                             x: isHovered ? 14 : 0,
@@ -201,16 +193,6 @@ export default function EventsIndex() {
                         >
                           {event.title}
                         </motion.h3>
-
-                        {/* Mobile thumbnail */}
-                        <div className="mt-3 overflow-hidden rounded-lg md:hidden">
-                          <img
-                            src={event.image}
-                            alt={event.title}
-                            loading="lazy"
-                            className="aspect-[16/9] w-full object-cover"
-                          />
-                        </div>
                       </div>
 
                       {/* Category & Interactive Action Circle */}

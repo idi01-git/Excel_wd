@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { SearchIcon, XIcon, Loader2Icon } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { formatRole } from '@/lib/rbac';
 
 interface SearchResultItem {
   id: string;
@@ -241,7 +242,7 @@ export default function GlobalSearchBar() {
                         />
                         <div className="grow min-w-0">
                           <span className="block text-xs font-semibold text-gray-800 dark:text-white truncate">{user.name}</span>
-                          <span className="block text-[10px] text-gray-500 dark:text-neutral-400">@{user.username} &middot; {user.role?.toLowerCase()}</span>
+                          <span className="block text-[10px] text-gray-500 dark:text-neutral-400">@{user.username} &middot; {formatRole(user.role)}</span>
                         </div>
                       </Link>
                     ))}

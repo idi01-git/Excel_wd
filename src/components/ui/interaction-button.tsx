@@ -1,6 +1,6 @@
 "use client";
 
-import { motion } from "motion/react";
+import { motion, useReducedMotion } from "motion/react";
 import { cn } from "@/lib/utils";
 import type { LucideIcon } from "lucide-react";
 import React, { useEffect, useRef, useState } from "react";
@@ -23,6 +23,7 @@ interface InteractionButtonProps {
 }
 
 function Confetti({ colorClass }: { colorClass: string }) {
+  const reduceMotion = useReducedMotion();
   const [show, setShow] = useState(true);
   
   useEffect(() => {
@@ -30,7 +31,7 @@ function Confetti({ colorClass }: { colorClass: string }) {
     return () => clearTimeout(t);
   }, []);
 
-  if (!show) return null;
+  if (!show || reduceMotion) return null;
 
   return (
     <div className={cn("absolute inset-0 pointer-events-none flex items-center justify-center z-10", colorClass)}>
@@ -64,7 +65,7 @@ export function InteractionButton({
   active, 
   onClick, 
   activeColor,
-  defaultColor = "text-gray-400",
+  defaultColor = "text-neutral-400 dark:text-neutral-500",
   withConfetti = false,
   withFill = true,
   fillColor,
@@ -73,6 +74,7 @@ export function InteractionButton({
   className,
   textClassName
 }: InteractionButtonProps) {
+  const reduceMotion = useReducedMotion();
   const [justActivated, setJustActivated] = useState(false);
   const wasActive = useRef(active);
 
@@ -98,30 +100,30 @@ export function InteractionButton({
       disabled={disabled}
       aria-disabled={disabled}
       className={cn(
-        "relative flex items-center gap-1.5 outline-none group transition-colors",
+        "relative flex items-center gap-1.5 outline-none group transition-colors cursor-pointer",
         disabled && "cursor-not-allowed opacity-70",
         className
       )}
-      whileTap={disabled ? undefined : { scale: 0.85 }}
+      whileTap={disabled || reduceMotion ? undefined : { scale: 0.85 }}
     >
       <div className={cn("relative flex items-center justify-center", active ? activeColor : defaultColor)}>
         {withConfetti && justActivated && <Confetti colorClass={activeColor} />}
         <motion.div
           initial={false}
           animate={{ scale: active ? 1.15 : 1 }}
-          transition={{ type: "spring", stiffness: 450, damping: 15 }}
+          transition={reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 450, damping: 15 }}
         >
           <Icon 
             size={size} 
             strokeWidth={active ? 2.5 : 1.5} 
-            className={cn("transition-colors duration-200", !active && "group-hover:text-gray-600")}
+            className={cn("transition-colors duration-200", !active && "group-hover:text-neutral-700 dark:group-hover:text-neutral-200")}
             fill={active && withFill ? (fillColor || "currentColor") : "transparent"}
           />
         </motion.div>
       </div>
       
       {(count !== undefined || label) && (
-        <span className={cn("font-medium transition-colors", textClassName, active ? "text-gray-900" : "text-gray-500 group-hover:text-gray-700")}>
+        <span className={cn("font-medium transition-colors text-xs", textClassName, active ? "text-neutral-900 dark:text-neutral-100 font-semibold" : "text-neutral-500 dark:text-neutral-400 group-hover:text-neutral-800 dark:group-hover:text-neutral-200")}>
           {label && <span className="mr-1">{label}</span>}
           {count !== undefined && count > 0 && count}
         </span>

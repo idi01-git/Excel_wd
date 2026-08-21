@@ -1,21 +1,67 @@
-// src/app/login/page.tsx
-'use client';
+"use client";
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { motion, AnimatePresence } from 'framer-motion';
+import { User, Lock, Eye, EyeOff, ArrowRight, AlertCircle } from 'lucide-react';
+import { Wordmark } from '@/components/Navbar';
+
+// Linear-Style Form Input consistent with Register Page
+const FormInput = ({ label, icon: Icon, required, type = 'text', value, onChange, placeholder, ...props }: any) => {
+  const [show, setShow] = useState(false);
+  const isPassword = type === 'password';
+
+  return (
+    <div className="space-y-1.5 w-full text-left">
+      <div className="flex items-center justify-between px-1">
+        <label className="font-mono text-[11px] font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
+          {label} {required && <span className="text-amber-500">*</span>}
+        </label>
+      </div>
+      <div className="relative group w-full">
+        {Icon && (
+          <Icon
+            size={16}
+            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400 dark:text-neutral-500 group-hover:text-neutral-600 dark:group-hover:text-neutral-300 group-focus-within:text-neutral-950 dark:group-focus-within:text-white transition-colors duration-200 pointer-events-none"
+          />
+        )}
+        <input
+          type={isPassword && show ? 'text' : type}
+          required={required}
+          value={value}
+          onChange={onChange}
+          placeholder={placeholder}
+          className={`w-full h-12 ${
+            Icon ? 'pl-10' : 'pl-3.5'
+          } pr-10 rounded-xl border border-neutral-200/90 dark:border-neutral-800 bg-white/80 dark:bg-[#121212] text-sm text-neutral-900 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-neutral-600 focus:border-neutral-950 dark:focus:border-white focus:bg-white dark:focus:bg-[#161616] focus:ring-2 focus:ring-neutral-950/10 dark:focus:ring-white/10 transition-all duration-200 outline-none shadow-xs hover:border-neutral-300 dark:hover:border-neutral-700`}
+          {...props}
+        />
+        {isPassword && (
+          <button
+            type="button"
+            onClick={() => setShow(!show)}
+            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors cursor-pointer p-1"
+          >
+            {show ? <EyeOff size={15} /> : <Eye size={15} />}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+};
 
 export default function LoginPage() {
   const router = useRouter();
   const [username, setUsername] = useState<string>('');
-  const [password, setPassword] = useState<string>('password');
+  const [password, setPassword] = useState<string>('');
   const [error, setError] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!username.trim() || loading) return;
+    if (!username.trim() || !password || loading) return;
 
     setError('');
     setLoading(true);
@@ -24,119 +70,113 @@ export default function LoginPage() {
       const res = await signIn('credentials', {
         username: username.toLowerCase().trim(),
         password,
-        redirect: false
+        redirect: false,
       });
 
       if (res?.error) {
-        setError('Invalid username or password');
+        setError('Invalid username or password.');
       } else {
         router.push('/workspace');
         router.refresh();
       }
     } catch (err) {
-      setError('An error occurred during sign-in');
+      setError('An error occurred during sign-in.');
     } finally {
       setLoading(false);
     }
   };
 
-  const selectDemoIdentity = (name: string) => {
-    setUsername(name);
-    setPassword('password');
-  };
-
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#0a0b10] bg-[radial-gradient(circle_at_50%_0%,#151829_0%,#08090d_100%)] px-4">
-      <div className="max-w-md w-full bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-2xl p-8 shadow-2xl space-y-6">
+    <div className="min-h-screen relative flex flex-col justify-center items-center py-12 sm:py-16 px-4 sm:px-6 md:px-8 overflow-hidden bg-neutral-50 dark:bg-[#030303] text-neutral-900 dark:text-neutral-100 selection:bg-neutral-900 selection:text-white dark:selection:bg-white dark:selection:text-neutral-950">
+      {/* Ambient Lighting Backdrop */}
+      <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] sm:w-[900px] h-[500px] rounded-full bg-neutral-200/50 dark:bg-neutral-800/20 blur-[140px] opacity-60 dark:opacity-40" />
+      </div>
+
+      <div className="w-full max-w-xl sm:max-w-2xl relative z-10 space-y-6">
         
-        {/* Header */}
-        <div className="text-center">
-          <Link href="/" className="font-serif text-2xl font-bold tracking-widest text-white inline-block">
-            <span className="bg-gradient-to-r from-cyan-400 to-violet-500 bg-clip-text text-transparent">EXCELSIOR</span>
-          </Link>
-          <h2 className="text-xl font-bold text-white mt-2">Welcome Back</h2>
-          <p className="text-xs text-gray-500 mt-1">Log in to publish, critique, and comment.</p>
-        </div>
-
-        {/* Demo Fast Switcher selector */}
-        <div className="bg-slate-950/40 border border-white/5 rounded-xl p-4">
-          <label className="block text-[10px] text-gray-500 uppercase tracking-wider font-semibold mb-2 text-center">
-            Demo Fast-Cycle Accounts
-          </label>
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              onClick={() => selectDemoIdentity('member@excelsior.club')}
-              className="py-1.5 px-3 bg-white/5 hover:bg-white/10 text-xs text-gray-300 rounded font-medium text-left border border-white/5 transition"
-            >
-              Jane Member (MEMBER)
-            </button>
-            <button
-              onClick={() => selectDemoIdentity('author@excelsior.club')}
-              className="py-1.5 px-3 bg-white/5 hover:bg-white/10 text-xs text-gray-300 rounded font-medium text-left border border-white/5 transition"
-            >
-              John Author (WRITER)
-            </button>
-            <button
-              onClick={() => selectDemoIdentity('mod@excelsior.club')}
-              className="py-1.5 px-3 bg-white/5 hover:bg-white/10 text-xs text-gray-300 rounded font-medium text-left border border-white/5 transition"
-            >
-              Mark Moderator (MOD)
-            </button>
-            <button
-              onClick={() => selectDemoIdentity('admin@excelsior.club')}
-              className="py-1.5 px-3 bg-white/5 hover:bg-white/10 text-xs text-gray-300 rounded font-medium text-left border border-white/5 transition"
-            >
-              Sarah Admin (ADMIN)
-            </button>
-          </div>
-        </div>
-
-        {error && (
-          <div className="p-3 bg-red-500/10 border border-red-500/20 text-xs text-red-400 rounded-lg text-center">
-            ️ {error}
-          </div>
-        )}
-
-        {/* Form */}
-        <form onSubmit={handleLogin} className="space-y-4">
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">Username</label>
-            <input
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder="e.g. member"
-              required
-              className="bg-slate-950/40 border border-white/10 text-white rounded-lg p-2.5 outline-none focus:border-violet-600 transition text-sm"
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              className="bg-slate-950/40 border border-white/10 text-white rounded-lg p-2.5 outline-none focus:border-violet-600 transition text-sm"
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading || !username.trim()}
-            className="w-full py-3 px-6 bg-gradient-to-r from-violet-600 to-indigo-600 hover:shadow-lg hover:shadow-indigo-500/20 text-white rounded-full font-semibold text-sm transition"
+        {/* Brand Header */}
+        <div className="flex flex-col items-center text-center space-y-2">
+          <Link
+            href="/"
+            className="hover:opacity-80 transition-opacity"
           >
-            {loading ? 'Logging In...' : 'Log In'}
-          </button>
-        </form>
-
-        <div className="text-center text-xs">
-          <span className="text-gray-500">New to Excelsior? </span>
-          <Link href="/register" className="text-cyan-400 hover:underline">
-            Create an account
+            <Wordmark />
           </Link>
+          <div className="space-y-1">
+            <h1 className="text-3xl sm:text-4xl font-bold text-neutral-900 dark:text-white tracking-tight">
+              Welcome Back
+            </h1>
+            <p className="text-xs sm:text-sm text-neutral-500 dark:text-neutral-400">
+              Access your author workspace, draft pieces, and reviews.
+            </p>
+          </div>
+        </div>
+
+        {/* Main Card */}
+        <div className="bg-white/85 dark:bg-[#0c0c0c]/90 backdrop-blur-3xl border border-neutral-200/90 dark:border-neutral-800/90 rounded-[2.5rem] p-6 sm:p-10 md:p-12 shadow-[0_25px_80px_-15px_rgba(0,0,0,0.1)] dark:shadow-[0_25px_80px_-15px_rgba(0,0,0,0.7)] space-y-7">
+          
+          {/* Error Notice */}
+          <AnimatePresence>
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="overflow-hidden"
+              >
+                <div className="p-3.5 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 text-xs font-mono flex items-center gap-3">
+                  <AlertCircle size={15} className="shrink-0" />
+                  <span>{error}</span>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Login Form */}
+          <form onSubmit={handleLogin} className="space-y-5">
+            <FormInput
+              label="Username or Email"
+              icon={User}
+              required
+              value={username}
+              onChange={(e: any) => setUsername(e.target.value)}
+              placeholder="e.g. mayalin or user@email.com"
+            />
+            <FormInput
+              label="Password"
+              type="password"
+              icon={Lock}
+              required
+              value={password}
+              onChange={(e: any) => setPassword(e.target.value)}
+              placeholder="••••••••"
+            />
+
+            <div className="pt-2">
+              <motion.button
+                type="submit"
+                disabled={loading || !username.trim() || !password}
+                whileHover={{ scale: 1.015 }}
+                whileTap={{ scale: 0.985 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+                className="w-full h-13 rounded-2xl bg-neutral-950 dark:bg-white text-white dark:text-neutral-950 font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transition-all cursor-pointer disabled:opacity-50"
+              >
+                <span>{loading ? 'Authenticating...' : 'Sign In'}</span>
+                {!loading && <ArrowRight size={15} />}
+              </motion.button>
+            </div>
+          </form>
+
+          <div className="text-center pt-2 border-t border-neutral-100 dark:border-neutral-900">
+            <span className="text-xs text-neutral-500 font-medium">New to Excelsior? </span>
+            <Link href="/register" className="text-xs font-bold text-neutral-900 dark:text-white hover:underline underline-offset-4">
+              Create an account
+            </Link>
+          </div>
         </div>
       </div>
     </div>
   );
 }
+

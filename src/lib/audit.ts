@@ -8,6 +8,8 @@ export interface AuditRecordInput {
   action: string;
   entityType: string;
   entityId: string;
+  target?: string;
+  meta?: Prisma.JsonValue;
   metadata?: Prisma.JsonValue;
   request?: RequestLike;
 }
@@ -35,6 +37,8 @@ export async function recordAuditEvent(input: AuditRecordInput) {
       data: {
         actorId: input.actorId ?? null,
         action: input.action,
+        target: input.target ?? input.entityId,
+        meta: input.meta ?? input.metadata ?? undefined,
         entityType: input.entityType,
         entityId: input.entityId,
         metadata: input.metadata ?? undefined,

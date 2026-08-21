@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getToken } from 'next-auth/jwt';
+import { hasPermission } from '@/lib/rbac';
 
 export async function proxy(request: NextRequest) {
   const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
@@ -21,7 +22,7 @@ export async function proxy(request: NextRequest) {
   }
 
   const role = (token as { role?: string }).role;
-  if (isModeratorRoute && role !== 'MODERATOR' && role !== 'ADMIN') {
+  if (isModeratorRoute && !hasPermission(role, 'MODERATE_PUBLICATIONS')) {
     return NextResponse.redirect(new URL('/unauthorized', request.url));
   }
 

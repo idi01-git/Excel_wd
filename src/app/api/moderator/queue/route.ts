@@ -1,22 +1,17 @@
 // src/app/api/moderator/queue/route.ts
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { PublicationStatus } from '@prisma/client';
+import { requirePermission } from '@/lib/api-auth';
 
-export async function GET(req: Request) {
+export async function GET() {
   try {
-    const session = await getServerSession(authOptions);
-    const userRole = session?.user?.role;
-
-    if (!session || (userRole !== 'MODERATOR' && userRole !== 'ADMIN')) {
-      return NextResponse.json({ error: 'Forbidden: Staff access only' }, { status: 403 });
-    }
+    const { error } = await requirePermission('MODERATE_PUBLICATIONS');
+    if (error) return error;
 
     const queue = await db.publication.findMany({
       where: {
-        status: PublicationStatus.PENDING
+        status: PublicationStatus.PENDING,
       },
       include: {
         author: {
@@ -24,18 +19,30 @@ export async function GET(req: Request) {
             id: true,
             name: true,
             username: true,
-            profilePhoto: true
-          }
-        }
+            profilePhoto: true,
+          },
+        },
+        alumniProfile: {
+          select: {
+            id: true,
+            name: true,
+            batch: true,
+            branch: true,
+            photo: true,
+          },
+        },
       },
       orderBy: {
-        updatedAt: 'asc' // Oldest pending review first
-      }
+        updatedAt: 'asc', // Oldest pending review first
+      },
     });
 
     return NextResponse.json({ success: true, queue });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Fetch moderation queue error:', error);
-    return NextResponse.json({ error: 'Failed to retrieve moderation queue' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Failed to retrieve moderation queue' },
+      { status: 500 }
+    );
   }
 }

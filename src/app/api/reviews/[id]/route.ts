@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { db } from '@/lib/db';
+import { hasPermission } from '@/lib/rbac';
 
 export async function PUT(
   req: Request,
@@ -67,7 +68,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Review not found' }, { status: 404 });
     }
 
-    if (review.reviewerId !== session.user.id && session.user.role !== 'ADMIN') {
+    if (review.reviewerId !== session.user.id && !hasPermission(session.user.role, 'MANAGE_SHELF_LIBRARY')) {
       return NextResponse.json({ error: 'Forbidden: You do not own this review' }, { status: 403 });
     }
 

@@ -3,9 +3,9 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
-import { motion, useScroll, useSpring, useTransform } from 'motion/react';
+import { motion, useScroll, useSpring, useTransform } from 'framer-motion';
 import { ArrowRight } from 'lucide-react';
-import { BOOKS } from '@/components/sections/hardback/hardback-data';
+import { BOOKS, BookData } from '@/components/sections/hardback/hardback-data';
 
 // Dynamically load the 3D Book Card with client-only canvas
 const Book3DCard = dynamic(
@@ -28,6 +28,7 @@ export default function LibraryShelf() {
   const [maxX, setMaxX] = useState(0);
   const [totalLibraryCount, setTotalLibraryCount] = useState<number>(62);
   const [totalPicksCount, setTotalPicksCount] = useState<number>(BOOKS.length);
+  const [featuredBooks, setFeaturedBooks] = useState<BookData[]>(BOOKS.slice(0, 5));
 
   // Fetch dynamic library volume count and picks count
   useEffect(() => {
@@ -50,6 +51,7 @@ export default function LibraryShelf() {
         if (!isMounted) return;
         if (data.success && Array.isArray(data.items) && data.items.length > 0) {
           setTotalPicksCount(data.items.length);
+          setFeaturedBooks(data.items.slice(0, 5));
         }
       })
       .catch(() => {});
@@ -139,29 +141,50 @@ export default function LibraryShelf() {
               Explore the clothbound volumes on the Editor’s Shelf, check a
               spine’s whereabouts, or request a borrow from the physical library.
             </p>
-            <div className="mt-8 flex flex-wrap gap-3">
-              <Link
-                href="/editors-shelf"
-                className="inline-flex items-center gap-2 rounded-full bg-foreground px-6 py-3 font-mono text-[11px] uppercase tracking-[0.2em] text-background transition-opacity duration-200 hover:opacity-85"
+            <div className="mt-8 flex flex-wrap items-center gap-3.5">
+              <motion.div
+                whileHover={{ scale: 1.04, y: -1 }}
+                whileTap={{ scale: 0.96 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 25 }}
               >
-                Editor’s Shelf
-                <ArrowRight size={13} />
-              </Link>
-              <Link
-                href="/community/library"
-                className="inline-flex items-center gap-2 rounded-full border border-border px-6 py-3 font-mono text-[11px] uppercase tracking-[0.2em] text-foreground transition-colors duration-200 hover:border-foreground"
+                <Link
+                  href="/editors-shelf"
+                  className="group relative inline-flex items-center gap-2 rounded-full bg-foreground px-6 py-3 font-mono text-[11px] uppercase tracking-[0.2em] text-background overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-300"
+                >
+                  <span className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out bg-gradient-to-r from-transparent via-white/20 dark:via-black/20 to-transparent pointer-events-none" />
+                  <span className="relative z-10">Editor’s Shelf</span>
+                  <ArrowRight
+                    size={13}
+                    className="relative z-10 transition-transform duration-300 ease-out group-hover:translate-x-1"
+                  />
+                </Link>
+              </motion.div>
+
+              <motion.div
+                whileHover={{ scale: 1.04, y: -1 }}
+                whileTap={{ scale: 0.96 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 25 }}
               >
-                Explore Library
-              </Link>
+                <Link
+                  href="/community/library"
+                  className="group relative inline-flex items-center gap-2 rounded-full border border-border/80 bg-background/50 backdrop-blur-xs px-6 py-3 font-mono text-[11px] uppercase tracking-[0.2em] text-foreground transition-colors duration-200 hover:border-foreground/60 hover:bg-foreground/[0.04]"
+                >
+                  <span>Explore Library</span>
+                  <ArrowRight
+                    size={13}
+                    className="opacity-60 transition-all duration-300 ease-out group-hover:opacity-100 group-hover:translate-x-1"
+                  />
+                </Link>
+              </motion.div>
             </div>
             <p className="mt-8 font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
               {totalLibraryCount} Books in Library · {totalPicksCount} Excelsior’s Picks
             </p>
           </div>
 
-          {/* 5 Featured Books */}
-          {BOOKS.slice(0, 5).map((book, i) => (
-            <Book3DCard key={book.id} book={book} index={i} />
+          {/* 5 Featured Books (Dynamic Top 5 from Editor's Shelf) */}
+          {featuredBooks.map((book, i) => (
+            <Book3DCard key={book.id || `feat-${i}`} book={book} index={i} />
           ))}
 
           {/* Outro (Circular Arrow Button connecting to Library) */}

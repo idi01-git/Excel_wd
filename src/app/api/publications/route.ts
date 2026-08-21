@@ -65,40 +65,58 @@ export async function GET(req: Request) {
       };
     }
 
-    const publicationsRaw = await db.publication.findMany({
-      where: whereClause,
-      include: {
-        author: {
-          select: {
-            id: true,
-            name: true,
-            username: true,
-            profilePhoto: true
-          }
-        },
-        _count: {
-          select: {
-            comments: true,
-            interactions: {
-              where: { type: InteractionType.LIKE }
-            }
-          }
-        },
-        ...(userId ? {
-          interactions: {
-            where: {
-              userId: userId,
-              type: { in: [InteractionType.LIKE, InteractionType.BOOKMARK] }
-            },
+    const limit = Math.max(1, parseInt(searchParams.get('limit') || '5', 10));
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
+    const skip = (page - 1) * limit;
+
+    const [total, publicationsRaw] = await Promise.all([
+      db.publication.count({ where: whereClause }),
+      db.publication.findMany({
+        where: whereClause,
+        include: {
+          author: {
             select: {
               id: true,
-              type: true
+              name: true,
+              username: true,
+              profilePhoto: true
             }
-          }
-        } : {})
-      },
-      orderBy
-    });
+          },
+          alumniProfile: {
+            select: {
+              id: true,
+              name: true,
+              batch: true,
+              branch: true,
+              photo: true,
+            }
+          },
+          _count: {
+            select: {
+              comments: true,
+              interactions: {
+                where: { type: InteractionType.LIKE }
+              }
+            }
+          },
+          ...(userId ? {
+            interactions: {
+              where: {
+                userId: userId,
+                type: { in: [InteractionType.LIKE, InteractionType.BOOKMARK] }
+              },
+              select: {
+                id: true,
+                type: true
+              }
+            }
+          } : {})
+        },
+        orderBy,
+        take: limit,
+        skip: skip,
+      })
+    ]);
 
     const publications = publicationsRaw.map(pub => {
       const { interactions, ...rest } = pub as any;
@@ -109,7 +127,16 @@ export async function GET(req: Request) {
       };
     });
 
-    return NextResponse.json({ success: true, publications });
+    const hasMore = skip + publicationsRaw.length < total;
+
+    return NextResponse.json({
+      success: true,
+      publications,
+      total,
+      page,
+      hasMore,
+      limit
+    });
   } catch (error: any) {
     console.error('Fetch publications error:', error);
     return NextResponse.json({ error: 'Failed to fetch publications' }, { status: 500 });

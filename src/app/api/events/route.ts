@@ -24,9 +24,15 @@ export async function GET(req: Request) {
       include: {
         _count: {
           select: {
-            registrations: true
+            registrations: {
+              where: {
+                NOT: {
+                  paymentStatus: { in: ['CANCELLED_REFUND_PENDING', 'CANCELLED', 'REFUNDED'] }
+                }
+              }
+            }
           }
-        }
+        },
       },
       orderBy
     });
