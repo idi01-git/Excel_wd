@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ImagePlus, Plus, Save, Trash2, ArrowLeft, BookOpen, Layers, Type, Clock, FileText } from 'lucide-react';
-import { uploadImageBlob } from '@/lib/upload';
+import { uploadImageBlob, deleteUploadedImage } from '@/lib/upload';
+import { validateUploadFile, ACCEPT_MAP } from '@/lib/file-validation';
 
 type Card = {
   title: string;
@@ -119,7 +120,18 @@ export default function HomepageCmsPage() {
 
   const upload = async (file: File | undefined, index: number) => {
     if (!file) return;
+
+    const validation = validateUploadFile(file, 'MEDIA');
+    if (!validation.valid) {
+      setNotice(validation.error || 'Invalid card image format or size.');
+      return;
+    }
+
     try {
+      const oldImage = cards[index]?.image;
+      if (oldImage && oldImage.includes('cloudinary.com')) {
+        await deleteUploadedImage(oldImage);
+      }
       const url = await uploadImageBlob(file, 'homepage-cards', file.name);
       setCards((all) => all.map((card, i) => (i === index ? { ...card, image: url } : card)));
     } catch {
@@ -457,7 +469,7 @@ export default function HomepageCmsPage() {
                       Custom Image
                       <input
                         type="file"
-                        accept="image/jpeg,image/png,image/webp"
+                        accept={ACCEPT_MAP.MEDIA}
                         className="hidden"
                         onChange={(e) => void upload(e.target.files?.[0], index)}
                       />

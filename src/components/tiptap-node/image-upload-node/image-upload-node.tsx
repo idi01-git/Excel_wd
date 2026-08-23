@@ -8,6 +8,7 @@ import { CloseIcon } from "@/components/tiptap-icons/close-icon"
 import "@/components/tiptap-node/image-upload-node/image-upload-node.scss"
 import { focusNextNode, isValidPosition } from "@/lib/tiptap-utils"
 import { Upload } from "lucide-react"
+import { ImageCropperModal } from "@/components/ui/ImageCropperModal"
 
 export interface FileItem {
   /**
@@ -409,6 +410,10 @@ export const ImageUploadNode: React.FC<NodeViewProps> = (props) => {
   const { fileItems, uploadFiles, removeFileItem, clearAllFiles, errorMessage, setErrorMessage } =
     useFileUpload(uploadOptions)
 
+  const [cropperOpen, setCropperOpen] = useState<boolean>(false)
+  const [cropSrc, setCropSrc] = useState<string>('')
+  const [pendingFile, setPendingFile] = useState<File | null>(null)
+
   const handleUpload = async (files: File[]) => {
     setErrorMessage(null)
     const urls = await uploadFiles(files)
@@ -437,13 +442,38 @@ export const ImageUploadNode: React.FC<NodeViewProps> = (props) => {
     }
   }
 
+  const handleSelectFiles = (files: File[]) => {
+    if (!files || files.length === 0) {
+      extension.options.onError?.(new Error("No file selected"))
+      return
+    }
+    const file = files[0]
+    setPendingFile(file)
+    const reader = new FileReader()
+    reader.onload = () => {
+      setCropSrc(reader.result as string)
+      setCropperOpen(true)
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const handleCropComplete = async (croppedBlob: Blob) => {
+    setCropperOpen(false)
+    const filename = (pendingFile?.name || "image").replace(/\.[^/.]+$/, "") + ".webp"
+    const croppedFile = new File([croppedBlob], filename, { type: "image/webp" })
+    await handleUpload([croppedFile])
+    setPendingFile(null)
+    setCropSrc('')
+    if (inputRef.current) inputRef.current.value = ""
+  }
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
     if (!files || files.length === 0) {
       extension.options.onError?.(new Error("No file selected"))
       return
     }
-    handleUpload(Array.from(files))
+    handleSelectFiles(Array.from(files))
   }
 
   const handleClick = () => {
@@ -462,7 +492,7 @@ export const ImageUploadNode: React.FC<NodeViewProps> = (props) => {
       onClick={handleClick}
     >
       {!hasFiles && (
-        <ImageUploadDragArea onFile={handleUpload}>
+        <ImageUploadDragArea onFile={handleSelectFiles}>
           {({ isDragActive }) => (
             <DropZoneContent maxSize={maxSize} limit={limit} isDragActive={isDragActive} />
           )}
@@ -510,6 +540,22 @@ export const ImageUploadNode: React.FC<NodeViewProps> = (props) => {
         multiple={limit > 1}
         onChange={handleChange}
         onClick={(e: React.MouseEvent<HTMLInputElement>) => e.stopPropagation()}
+      />
+
+      {/* Interactive Custom Aspect Ratio Cropper Modal */}
+      <ImageCropperModal
+        isOpen={cropperOpen}
+        imageSrc={cropSrc}
+        aspectRatio={null}
+        aspectPresetLabel="Article Image Framing & Crop"
+        allowRatioSelection={true}
+        onCropComplete={handleCropComplete}
+        onCancel={() => {
+          setCropperOpen(false);
+          setCropSrc('');
+          setPendingFile(null);
+          if (inputRef.current) inputRef.current.value = "";
+        }}
       />
     </NodeViewWrapper>
   )

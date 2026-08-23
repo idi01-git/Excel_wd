@@ -1,54 +1,83 @@
 // src/app/(main)/page.tsx
-'use client';
-
-import { useState } from 'react';
-import HomePreloader from '@/components/home/HomePreloader';
-import CardwallHero from '@/components/home/CardwallHero';
-import ManifestoStrip from '@/components/home/ManifestoStrip';
-import EventsIndex from '@/components/home/EventsIndex';
-import LibraryShelf from '@/components/home/LibraryShelf';
-import AlumniVoices from '@/components/home/AlumniVoices';
-import GalleryStrip from '@/components/home/GalleryStrip';
+import { db } from '@/lib/db';
+import HomeClientWrapper from '@/components/home/HomeClientWrapper';
 import type { HeroCardInput } from '@/components/sections/cardwall/Cardwall';
+import { itemToBookData } from '@/lib/editors-shelf-helper';
+import type { BookData } from '@/components/sections/hardback/hardback-data';
 
-export default function RootPage() {
-  const [isReady, setIsReady] = useState(false);
-  const [heroCards, setHeroCards] = useState<HeroCardInput[]>([]);
+export const revalidate = 60;
+
+const KEYS = ['home.eventsStrip', 'home.testimonials', 'home.heroCards'] as const;
+
+export default async function RootPage() {
+  let heroCards: HeroCardInput[] = [];
+  let eventsItems: any[] | undefined = undefined;
+  let testimonialsItems: any[] | undefined = undefined;
+  let shelfBooks: BookData[] | undefined = undefined;
+  let totalLibraryCount: number = 62;
+
+  try {
+    const [rows, shelfItems, libraryCount] = await Promise.all([
+      db.siteSetting.findMany({ where: { key: { in: [...KEYS] } } }).catch(() => []),
+      db.editorShelfItem.findMany({ orderBy: { displayOrder: 'asc' } }).catch(() => []),
+      db.book.count().catch(() => 62),
+    ]);
+
+    totalLibraryCount = libraryCount || 62;
+
+    if (shelfItems && shelfItems.length > 0) {
+      shelfBooks = shelfItems.map(itemToBookData);
+    }
+
+    const settings = Object.fromEntries(rows.map((row) => [row.key, row.value]));
+
+    const cards = (settings['home.heroCards'] as any)?.cards;
+    if (Array.isArray(cards) && cards.length > 0) {
+      heroCards = cards;
+    }
+
+    const events = (settings['home.eventsStrip'] as any)?.items;
+    if (Array.isArray(events) && events.length > 0) {
+      eventsItems = events.slice(0, 8).map((item: any, index: number) => ({
+        index: String(index + 1).padStart(2, '0'),
+        title: item.title,
+        kind: item.kind,
+        date: item.date,
+        venue: item.venue,
+        image: item.image,
+        href: item.href || '/events',
+      }));
+    }
+
+    const testimonial = settings['home.testimonials'] as { mode?: string; pinnedIds?: string[]; items?: any[] } | undefined;
+    if (testimonial?.mode === 'RANDOM' || testimonial?.mode === 'CURATED') {
+      const where = testimonial.mode === 'CURATED' ? { id: { in: testimonial.pinnedIds || [] }, message: { not: null } } : { message: { not: null } };
+      const alumni = await db.alumniProfile.findMany({ where, orderBy: { createdAt: 'asc' } }).catch(() => []);
+      if (testimonial.mode === 'RANDOM') {
+        for (let index = alumni.length - 1; index > 0; index -= 1) {
+          const swapIndex = Math.floor(Math.random() * (index + 1));
+          [alumni[index], alumni[swapIndex]] = [alumni[swapIndex], alumni[index]];
+        }
+      }
+      testimonialsItems = alumni.slice(0, 4).map((item) => ({
+        quote: item.message,
+        name: item.name,
+        role: [item.batch, item.currentPosition].filter(Boolean).join(' · '),
+      }));
+    } else if (Array.isArray(testimonial?.items) && testimonial.items.length > 0) {
+      testimonialsItems = testimonial.items;
+    }
+  } catch (error) {
+    console.error('Error loading initial site data on server:', error);
+  }
 
   return (
-    <>
-      <HomePreloader
-        onPrepared={(cards) => setHeroCards(cards)}
-        onComplete={() => setIsReady(true)}
-      />
-
-      <div className="w-full font-sans overflow-x-clip">
-        {/* ── 01 · CARDWALL WAVE 3D HERO (Starts at Frame 1, triggers upon loader exit) ── */}
-        <CardwallHero
-          startEntrance={isReady}
-          heroCards={heroCards}
-        />
-
-        {/* ── SUBSEQUENT PAGE SECTIONS (Opaque Z-300 backdrop cleanly isolating 3D ribbon tail) ── */}
-        <div className="relative z-[300] bg-background">
-          {/* ── 02 · MANIFESTO / SENIOR LEGACY ── */}
-          <ManifestoStrip />
-
-          {/* ── 03 · EVENTS WE HOSTED ── */}
-          <EventsIndex />
-
-          {/* ── 04 · THE SOCIETY LIBRARY (PINNED HORIZONTAL SHELF) ── */}
-          <LibraryShelf />
-
-          {/* ── 05 · ALUMNI VOICES ── */}
-          <AlumniVoices />
-
-          {/* ── 06 · GALLERY FRAGMENTS ── */}
-          <GalleryStrip />
-        </div>
-      </div>
-    </>
+    <HomeClientWrapper
+      initialHeroCards={heroCards}
+      initialEvents={eventsItems}
+      initialTestimonials={testimonialsItems}
+      initialShelfBooks={shelfBooks}
+      initialLibraryCount={totalLibraryCount}
+    />
   );
 }
-
-

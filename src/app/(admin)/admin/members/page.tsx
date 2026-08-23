@@ -28,6 +28,7 @@ import { MemberSection, Role } from '@prisma/client';
 import { formatRole } from '@/lib/rbac';
 import { ImageCropperModal } from '@/components/ui/ImageCropperModal';
 import { uploadImageBlob } from '@/lib/upload';
+import { validateUploadFile, ACCEPT_MAP } from '@/lib/file-validation';
 import { useLenis } from 'lenis/react';
 
 interface MemberUser {
@@ -143,6 +144,13 @@ export default function AdminMembersPage() {
   const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
+      const validation = validateUploadFile(file, 'AVATAR');
+      if (!validation.valid) {
+        setFeedback({ type: 'error', text: validation.error || 'Invalid photo format or size.' });
+        e.target.value = '';
+        return;
+      }
+
       const reader = new FileReader();
       reader.addEventListener('load', () => {
         setSelectedImageSrc(reader.result?.toString() || null);
@@ -548,7 +556,7 @@ export default function AdminMembersPage() {
                       <input
                         id="member-photo-upload"
                         type="file"
-                        accept="image/*"
+                        accept={ACCEPT_MAP.AVATAR}
                         onChange={handlePhotoSelect}
                         className="hidden"
                       />

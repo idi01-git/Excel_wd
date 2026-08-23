@@ -50,8 +50,17 @@ export const isStaff = (role: string | undefined | null): boolean => {
   return (STAFF_ROLES as readonly string[]).includes(role);
 };
 
-export const formatRole = (role?: string | null): string => {
+export const formatRole = (
+  role?: string | null,
+  user?: { branch?: string | null; batch?: string | null; rollNumber?: string | null } | null
+): string => {
   if (!role) return '';
+  if (role === 'VISITOR') {
+    if (user?.branch || user?.batch || user?.rollNumber) {
+      return 'Student';
+    }
+    return 'Visitor';
+  }
   const mapping: Record<string, string> = {
     COORDINATOR: 'Coordinator',
     TECH_LEAD: 'Tech Lead',

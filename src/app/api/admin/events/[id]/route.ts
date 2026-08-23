@@ -5,6 +5,7 @@ import { db } from '@/lib/db';
 import { EventStatus } from '@prisma/client';
 import { recordAuditEvent } from '@/lib/audit';
 import { requirePermission } from '@/lib/api-auth';
+import { deleteImageByUrl } from '@/lib/cloudinary';
 
 export async function GET(
   req: Request,
@@ -150,14 +151,29 @@ export async function PUT(
       changes.push({ field: 'Event Title', oldVal: event.title, newVal: title });
     }
 
+    // Delete replaced images from Cloudinary
+    const nextPoster = posterImage || null;
+    const nextCover = coverImage || null;
+    const nextQr = requirePayment ? (paymentQrImage || null) : null;
+
+    if (nextPoster !== event.posterImage && event.posterImage) {
+      await deleteImageByUrl(event.posterImage);
+    }
+    if (nextCover !== event.coverImage && event.coverImage && event.coverImage !== event.posterImage) {
+      await deleteImageByUrl(event.coverImage);
+    }
+    if (nextQr !== event.paymentQrImage && event.paymentQrImage) {
+      await deleteImageByUrl(event.paymentQrImage);
+    }
+
     const updated = await db.event.update({
       where: { id },
       data: {
         title,
         slug: finalSlug,
         description,
-        posterImage: posterImage || null,
-        coverImage: coverImage || null,
+        posterImage: nextPoster,
+        coverImage: nextCover,
         date: newDate,
         time: time || null,
         venue,
@@ -169,7 +185,7 @@ export async function PUT(
         customFormFields: customFormFields || null,
         googleSheetUrl: googleSheetUrl || null,
         requirePayment: !!requirePayment,
-        paymentQrImage: requirePayment ? (paymentQrImage || null) : null,
+        paymentQrImage: nextQr,
         paymentAmount: requirePayment ? (paymentAmount || null) : null,
         paymentInstructions: requirePayment ? (paymentInstructions || null) : null,
         internalReportUrl: internalReportUrl || null,
@@ -258,9 +274,21 @@ export async function DELETE(
     const { searchParams } = new URL(req.url);
     const force = searchParams.get('force') === 'true';
 
-    const regCount = await db.eventRegistration.count({
-      where: { eventId: id },
+    const eventToDelete = await db.event.findUnique({
+      where: { id },
+      include: {
+        winners: { select: { photoUrl: true } },
+        gallery: { select: { url: true } },
+        report: { select: { coverImage: true } },
+        registrations: { select: { paymentScreenshotUrl: true, id: true } },
+      },
     });
+
+    if (!eventToDelete) {
+      return NextResponse.json({ error: 'Event not found' }, { status: 404 });
+    }
+
+    const regCount = eventToDelete.registrations.length;
 
     if (regCount > 0 && !force) {
       return NextResponse.json(
@@ -282,6 +310,24 @@ export async function DELETE(
       await tx.event.delete({ where: { id } });
     });
 
+    // Cleanup all media files from Cloudinary asynchronously
+    const urlsToDelete = new Set<string>();
+    if (eventToDelete.posterImage) urlsToDelete.add(eventToDelete.posterImage);
+    if (eventToDelete.coverImage) urlsToDelete.add(eventToDelete.coverImage);
+    if (eventToDelete.paymentQrImage) urlsToDelete.add(eventToDelete.paymentQrImage);
+    if (eventToDelete.report?.coverImage) urlsToDelete.add(eventToDelete.report.coverImage);
+    eventToDelete.winners.forEach((w) => {
+      if (w.photoUrl) urlsToDelete.add(w.photoUrl);
+    });
+    eventToDelete.gallery.forEach((g) => {
+      if (g.url) urlsToDelete.add(g.url);
+    });
+    eventToDelete.registrations.forEach((r) => {
+      if (r.paymentScreenshotUrl) urlsToDelete.add(r.paymentScreenshotUrl);
+    });
+
+    await Promise.allSettled(Array.from(urlsToDelete).map((u) => deleteImageByUrl(u)));
+
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error('Delete event error:', error);
@@ -291,3 +337,4 @@ export async function DELETE(
     );
   }
 }
+

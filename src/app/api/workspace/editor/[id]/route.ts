@@ -55,7 +55,8 @@ export async function GET(
       return NextResponse.json({ error: 'Publication not found' }, { status: 404 });
     }
 
-    if (pub.authorId !== user.id) {
+    const canModerate = hasPermission(user.role, 'MODERATE_PUBLICATIONS');
+    if (pub.authorId !== user.id && !canModerate) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
@@ -83,12 +84,13 @@ export async function PUT(
       return NextResponse.json({ error: 'Publication not found' }, { status: 404 });
     }
 
-    if (pub.authorId !== user.id) {
+    const canModerate = hasPermission(user.role, 'MODERATE_PUBLICATIONS');
+    if (pub.authorId !== user.id && !canModerate) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
-    // Locked check: strictly check status === DRAFT or REJECTED
-    if (pub.status === PublicationStatus.PENDING || pub.status === PublicationStatus.PUBLISHED) {
+    // Locked check: only block if not an editorial moderator
+    if (!canModerate && (pub.status === PublicationStatus.PENDING || pub.status === PublicationStatus.PUBLISHED)) {
       return NextResponse.json({ error: 'Locked: Publication is currently under review or published' }, { status: 403 });
     }
 
@@ -157,16 +159,30 @@ export async function PUT(
       }
     }
 
+    const nextCover = coverImage !== undefined ? (coverImage ? String(coverImage).trim() : null) : pub.coverImage;
+    if (nextCover !== pub.coverImage && pub.coverImage) {
+      const { deleteImageByUrl } = await import('@/lib/cloudinary');
+      await deleteImageByUrl(pub.coverImage);
+    }
+
+    let finalTags = pub.tags;
+    if (tags !== undefined && Array.isArray(tags)) {
+      finalTags = tags
+        .map((t: any) => typeof t === 'string' ? t.trim().replace(/^#/, '') : '')
+        .filter((t: string) => t.length > 0)
+        .slice(0, 3);
+    }
+
     const updatedPub = await db.publication.update({
       where: { id },
       data: {
         title: title || pub.title,
         slug,
         content: content || pub.content,
-        coverImage: coverImage !== undefined ? coverImage : pub.coverImage,
+        coverImage: nextCover,
         category: category || pub.category,
         language: language || pub.language,
-        tags: tags || pub.tags,
+        tags: finalTags,
         readingTime,
         authorName: finalAuthorName,
         authorNote: finalAuthorNote,
@@ -189,5 +205,97 @@ export async function PUT(
   } catch (error: any) {
     console.error('Auto-save error:', error);
     return NextResponse.json({ error: 'Failed to save publication' }, { status: 500 });
+  }
+}
+
+export async function DELETE(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const user = await checkAuth();
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+    const pub = await db.publication.findUnique({
+      where: { id },
+      include: {
+        author: { select: { id: true, name: true, username: true } },
+      },
+    });
+
+    if (!pub) {
+      return NextResponse.json({ error: 'Publication not found' }, { status: 404 });
+    }
+
+    const canModerate = hasPermission(user.role, 'MODERATE_PUBLICATIONS');
+    if (pub.authorId !== user.id && !canModerate) {
+      return NextResponse.json({ error: 'Unauthorized to delete this publication' }, { status: 403 });
+    }
+
+    // 1. Delete cover image from Cloudinary if present
+    if (pub.coverImage) {
+      try {
+        const { deleteImageByUrl } = await import('@/lib/cloudinary');
+        await deleteImageByUrl(pub.coverImage);
+      } catch (imgErr) {
+        console.error('Failed to delete cover image on publication deletion:', imgErr);
+      }
+    }
+
+    // 2. Cascade delete dependent records in a transaction
+    await db.$transaction(async (tx) => {
+      // Delete comments & votes
+      const comments = await tx.comment.findMany({
+        where: { publicationId: pub.id },
+        select: { id: true }
+      });
+      const commentIds = comments.map((c) => c.id);
+
+      if (commentIds.length > 0) {
+        await tx.commentUpvote.deleteMany({ where: { commentId: { in: commentIds } } });
+        await tx.commentDownvote.deleteMany({ where: { commentId: { in: commentIds } } });
+        await tx.comment.deleteMany({ where: { publicationId: pub.id } });
+      }
+
+      // Delete interactions (likes, bookmarks, dislikes)
+      await tx.interaction.deleteMany({ where: { publicationId: pub.id } });
+
+      // Delete associated notifications
+      await tx.notification.deleteMany({
+        where: {
+          entityType: 'PUBLICATION',
+          entityId: pub.id
+        }
+      });
+
+      // Delete publication
+      await tx.publication.delete({ where: { id: pub.id } });
+
+      // Record audit log
+      await tx.auditLog.create({
+        data: {
+          actorId: user.id,
+          action: 'DELETE_PUBLICATION',
+          target: pub.title,
+          entityType: 'PUBLICATION',
+          entityId: pub.id,
+          meta: {
+            title: pub.title,
+            slug: pub.slug,
+            authorId: pub.authorId,
+            authorName: pub.author.name,
+            deletedByRole: user.role,
+            alumniProfileId: pub.alumniProfileId,
+            status: pub.status,
+          }
+        }
+      });
+    });
+
+    return NextResponse.json({ success: true, message: 'Publication deleted successfully' });
+  } catch (error: any) {
+    console.error('Delete publication error:', error);
+    return NextResponse.json({ error: 'Failed to delete publication' }, { status: 500 });
   }
 }

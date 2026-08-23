@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Plus } from 'lucide-react';
 import CommentNode from './CommentNode';
+import { getOptimizedAvatarUrl } from '@/lib/image-optimization';
 
 interface CommentAuthor {
   id: string;
@@ -57,7 +58,7 @@ export default function CommentThread({
       {/* Left Track (Avatar + Threading Line) */}
       <div className="flex flex-col items-center w-6 shrink-0 mr-2 relative z-10">
         <img
-          src={comment.author.profilePhoto && comment.author.profilePhoto.trim() !== "" ? comment.author.profilePhoto : `https://api.dicebear.com/7.x/initials/svg?seed=${comment.author.name}`}
+          src={comment.author.profilePhoto && comment.author.profilePhoto.trim() !== "" ? getOptimizedAvatarUrl(comment.author.profilePhoto, 48) : `https://api.dicebear.com/7.x/initials/svg?seed=${comment.author.name}`}
           alt={comment.author.name}
           className="w-6 h-6 rounded-full object-cover shadow-sm bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700"
         />

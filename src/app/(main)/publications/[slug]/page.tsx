@@ -9,10 +9,13 @@ import CommentThread from '@/components/discussion/CommentThread';
 import CommentInput from '@/components/discussion/CommentInput';
 import { InteractionButton } from '@/components/ui/interaction-button';
 import ShareButton from '@/components/social/ShareButton';
-import { Heart, ThumbsDown, Bookmark, ListFilter, ArrowLeft } from 'lucide-react';
+import { Heart, ThumbsDown, Bookmark, ListFilter, ArrowLeft, Edit, Trash2, Loader2 } from 'lucide-react';
 import { LoginPromptModal } from '@/components/auth/LoginPromptModal';
 import { Toast } from '@/components/ui/Toast';
 import { useOptimisticInteract } from '@/hooks/useOptimisticInteract';
+import { hasPermission } from '@/lib/rbac';
+import { motion, AnimatePresence } from 'motion/react';
+import { getOptimizedCoverUrl, getOptimizedAvatarUrl, getOptimizedImageUrl } from '@/lib/image-optimization';
 
 interface Publication {
   id: string;
@@ -96,7 +99,7 @@ function renderTipTapJSON(node: any, index: number = 0): React.ReactNode {
       return (
         <img
           key={index}
-          src={node.attrs?.src}
+          src={getOptimizedImageUrl(node.attrs?.src, { width: 1400, quality: 'auto:good' })}
           alt={node.attrs?.alt || 'Inline image'}
           className="max-w-full h-auto rounded-2xl border border-neutral-200 dark:border-neutral-800 my-8 mx-auto shadow-sm"
         />
@@ -137,18 +140,28 @@ function renderTipTapJSON(node: any, index: number = 0): React.ReactNode {
   }
 }
 
+// Client-side cache for instant publication detail transitions
+const pubDetailCache = new Map<string, { publication: Publication; stats: any; userState: any }>();
+const pubCommentsCache = new Map<string, { comments: any[]; totalCount: number; hasMore: boolean }>();
+
 export default function PublicationDetailPage() {
   const { data: session } = useSession();
   const params = useParams();
   const router = useRouter();
   const slug = params.slug as string;
 
-  const [pub, setPub] = useState<Publication | null>(null);
-  const [comments, setComments] = useState<any[]>([]);
-  const [initialStats, setInitialStats] = useState({ likes: 0, dislikes: 0, bookmarks: 0 });
-  const [initialUserState, setInitialUserState] = useState({ liked: false, disliked: false, bookmarked: false });
+  const cached = slug ? pubDetailCache.get(slug) : null;
+  const initialCachedComments = slug ? pubCommentsCache.get(`${slug}_new_top3`) : null;
+  const [pub, setPub] = useState<Publication | null>(cached?.publication ?? null);
+  const [comments, setComments] = useState<any[]>(initialCachedComments?.comments ?? []);
+  const [hasMoreComments, setHasMoreComments] = useState<boolean>(initialCachedComments?.hasMore ?? false);
+  const [totalCommentsCount, setTotalCommentsCount] = useState<number>(initialCachedComments?.totalCount ?? 0);
+  const [loadingAllComments, setLoadingAllComments] = useState<boolean>(false);
+  const [initialStats, setInitialStats] = useState(cached?.stats ?? { likes: 0, dislikes: 0, bookmarks: 0 });
+  const [initialUserState, setInitialUserState] = useState(cached?.userState ?? { liked: false, disliked: false, bookmarked: false });
   
-  const [loading, setLoading] = useState<boolean>(true);
+  const [loading, setLoading] = useState<boolean>(!cached);
+  const [loadingComments, setLoadingComments] = useState<boolean>(!initialCachedComments);
   const [commentsSort, setCommentsSort] = useState<string>('new');
   const [sortDropdownOpen, setSortDropdownOpen] = useState<boolean>(false);
   const [showLoginModal, setShowLoginModal] = useState<boolean>(false);
@@ -160,45 +173,108 @@ export default function PublicationDetailPage() {
 
   const fetchDetail = async () => {
     try {
+      const cachedData = pubDetailCache.get(slug);
+      if (!cachedData) setLoading(true);
+
       const res = await fetch(`/api/publications/${slug}`);
       const data = await res.json();
       if (data.success) {
+        pubDetailCache.set(slug, {
+          publication: data.publication,
+          stats: data.stats,
+          userState: data.userState
+        });
         setPub(data.publication);
         setInitialStats(data.stats);
         setInitialUserState(data.userState);
+        setLoading(false);
       } else {
         router.push('/404');
       }
     } catch (error) {
       console.error('Fetch publication detail failed:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const fetchComments = async () => {
-    if (!pub) return;
+  const fetchComments = async (fetchAll = false) => {
+    if (!slug) return;
+    const cacheKey = fetchAll ? `${slug}_${commentsSort}_all` : `${slug}_${commentsSort}_top3`;
+    const cachedData = pubCommentsCache.get(cacheKey);
+    if (cachedData) {
+      setComments(cachedData.comments);
+      setTotalCommentsCount(cachedData.totalCount);
+      setHasMoreComments(cachedData.hasMore);
+      setLoadingComments(false);
+    } else {
+      if (fetchAll) setLoadingAllComments(true);
+      else setLoadingComments(true);
+    }
+
     try {
-      const res = await fetch(`/api/publications/${pub.id}/comments?sort=${commentsSort}`);
+      const limitQuery = fetchAll ? '' : '&limit=3';
+      const res = await fetch(`/api/publications/${slug}/comments?sort=${commentsSort}${limitQuery}`);
       const data = await res.json();
       if (data.success) {
+        pubCommentsCache.set(cacheKey, {
+          comments: data.comments,
+          totalCount: data.totalCount ?? data.comments.length,
+          hasMore: Boolean(data.hasMore)
+        });
         setComments(data.comments);
+        setTotalCommentsCount(data.totalCount ?? data.comments.length);
+        setHasMoreComments(Boolean(data.hasMore));
       }
     } catch (error) {
       console.error('Fetch comments failed:', error);
+    } finally {
+      setLoadingComments(false);
+      setLoadingAllComments(false);
     }
   };
 
-  // Initial load
+  // Launch both article detail and top 3 comments in parallel immediately on mount
   useEffect(() => {
-    fetchDetail();
-  }, [slug]);
+    void fetchDetail();
+    void fetchComments(false);
+  }, [slug, commentsSort]);
 
-  // Load comments when pub finishes loading
-  useEffect(() => {
-    if (pub) {
-      fetchComments();
-      setLoading(false);
+  const [showDeleteModal, setShowDeleteModal] = useState<boolean>(false);
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
+  const [actionToast, setActionToast] = useState<string | null>(null);
+
+  const userRole = (session?.user as any)?.role;
+  const currentUserId = (session?.user as any)?.id;
+  const isAuthor = currentUserId && pub && pub.authorId === currentUserId;
+  const canModerate = hasPermission(userRole, 'MODERATE_PUBLICATIONS');
+  const canEdit = canModerate; // Only Content Head / Coordinator / Tech Lead can edit published articles
+  const canDelete = isAuthor || canModerate; // Normal authors can delete their published works
+
+  const handleDeletePublication = async () => {
+    if (!pub || isDeleting) return;
+    setIsDeleting(true);
+    try {
+      const res = await fetch(`/api/workspace/editor/${pub.id}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+      if (data.success) {
+        setActionToast('Publication deleted successfully.');
+        setShowDeleteModal(false);
+        setTimeout(() => {
+          router.push('/publications');
+        }, 600);
+      } else {
+        setActionToast(data.error || 'Failed to delete publication.');
+        setIsDeleting(false);
+      }
+    } catch (error) {
+      console.error('Delete publication error:', error);
+      setActionToast('An error occurred while deleting.');
+      setIsDeleting(false);
     }
-  }, [pub, commentsSort]);
+  };
 
   const handleInteraction = (type: 'LIKE' | 'DISLIKE' | 'BOOKMARK') => {
     if (!session?.user) {
@@ -346,14 +422,14 @@ export default function PublicationDetailPage() {
       <header className="mb-8">
         {pub.coverImage && (
           <div 
-            className="relative w-full h-80 rounded-2xl overflow-hidden border border-neutral-200/80 dark:border-neutral-800 shadow-sm mb-6"
+            className="relative w-full h-56 sm:h-72 md:h-80 rounded-2xl overflow-hidden border border-neutral-200/80 dark:border-neutral-800 shadow-sm mb-6"
             style={{
               maskImage: 'linear-gradient(to bottom, black 70%, transparent 100%)',
               WebkitMaskImage: 'linear-gradient(to bottom, black 70%, transparent 100%)'
             }}
           >
             <img
-              src={pub.coverImage}
+              src={getOptimizedCoverUrl(pub.coverImage, 1400)}
               alt={pub.title}
               className="w-full h-full object-cover"
             />
@@ -365,7 +441,7 @@ export default function PublicationDetailPage() {
           <span>&middot;</span>
           <span>{pub.readingTime} min read</span>
         </div>
-        <h1 className="font-serif text-3xl sm:text-4xl md:text-5xl text-neutral-950 dark:text-neutral-50 font-bold leading-tight mb-6">
+        <h1 className="font-serif text-3xl sm:text-4xl md:text-5xl text-neutral-950 dark:text-neutral-50 font-bold leading-tight mb-6 wrap-break-word text-balance">
           {pub.title}
         </h1>
 
@@ -379,7 +455,7 @@ export default function PublicationDetailPage() {
                   <img
                     src={
                       pub.alumniProfile.photo && pub.alumniProfile.photo.trim() !== ''
-                        ? pub.alumniProfile.photo
+                        ? getOptimizedAvatarUrl(pub.alumniProfile.photo, 96)
                         : `https://api.dicebear.com/7.x/initials/svg?seed=${pub.authorName || pub.alumniProfile.name}`
                     }
                     alt={pub.authorName || pub.alumniProfile.name}
@@ -443,7 +519,7 @@ export default function PublicationDetailPage() {
                   <img
                     src={
                       pub.author.profilePhoto && pub.author.profilePhoto.trim() !== ''
-                        ? pub.author.profilePhoto
+                        ? getOptimizedAvatarUrl(pub.author.profilePhoto, 96)
                         : `https://api.dicebear.com/7.x/initials/svg?seed=${pub.author.name}`
                     }
                     alt={pub.author.name}
@@ -469,6 +545,33 @@ export default function PublicationDetailPage() {
               </>
             )}
           </div>
+
+          {/* Editorial / Moderator Actions */}
+          {(canEdit || canDelete) && (
+            <div className="flex items-center gap-2 shrink-0">
+              {canEdit && (
+                <Link
+                  href={`/workspace/editor/${pub.id}`}
+                  className="inline-flex items-center gap-1.5 py-1.5 px-3.5 bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 text-xs font-semibold rounded-full border border-neutral-200 dark:border-neutral-700 transition-colors shadow-2xs cursor-pointer"
+                  title="Edit this publication"
+                >
+                  <Edit size={13} />
+                  <span>Edit</span>
+                </Link>
+              )}
+              {canDelete && (
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteModal(true)}
+                  className="inline-flex items-center gap-1.5 py-1.5 px-3.5 bg-red-50 hover:bg-red-100 dark:bg-red-950/40 dark:hover:bg-red-900/60 text-red-600 dark:text-red-400 text-xs font-semibold rounded-full border border-red-200 dark:border-red-900/40 transition-colors shadow-2xs cursor-pointer"
+                  title="Delete this publication"
+                >
+                  <Trash2 size={13} />
+                  <span>Delete</span>
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </header>
 
@@ -581,19 +684,46 @@ export default function PublicationDetailPage() {
 
         {/* Recursive Comment Tree lists */}
         <div className="flex flex-col gap-6">
-          {comments.length > 0 ? (
-            comments.map((comm) => (
-              <CommentThread
-                key={comm.id}
-                comment={comm}
-                postAuthorId={pub.authorId}
-                onUpvote={handleUpvoteComment}
-                onDownvote={handleDownvoteComment}
-                onReply={handleReplyComment}
-                onEdit={handleEditComment}
-                onDelete={handleDeleteComment}
-              />
-            ))
+          {loadingComments && comments.length === 0 ? (
+            <div className="space-y-4 animate-pulse">
+              <div className="h-16 bg-neutral-100 dark:bg-neutral-800 rounded-xl" />
+              <div className="h-16 bg-neutral-100 dark:bg-neutral-800 rounded-xl" />
+            </div>
+          ) : comments.length > 0 ? (
+            <>
+              {comments.map((comm) => (
+                <CommentThread
+                  key={comm.id}
+                  comment={comm}
+                  postAuthorId={pub.authorId}
+                  onUpvote={handleUpvoteComment}
+                  onDownvote={handleDownvoteComment}
+                  onReply={handleReplyComment}
+                  onEdit={handleEditComment}
+                  onDelete={handleDeleteComment}
+                />
+              ))}
+
+              {hasMoreComments && (
+                <div className="flex justify-center pt-2">
+                  <button
+                    type="button"
+                    onClick={() => void fetchComments(true)}
+                    disabled={loadingAllComments}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-xs font-semibold text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition cursor-pointer shadow-xs disabled:opacity-50"
+                  >
+                    {loadingAllComments ? (
+                      <>
+                        <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                        <span>Loading remaining comments...</span>
+                      </>
+                    ) : (
+                      <span>View all {totalCommentsCount} comments</span>
+                    )}
+                  </button>
+                </div>
+              )}
+            </>
           ) : (
             <p className="text-center text-sm text-neutral-400 dark:text-neutral-500 italic py-6">No comments posted yet. Start the thread!</p>
           )}
@@ -607,6 +737,69 @@ export default function PublicationDetailPage() {
         action="interact with this publication"
       />
       <Toast message={interactionError} onClose={clearError} />
+
+      <Toast message={actionToast} onClose={() => setActionToast(null)} />
+
+      {/* Delete Confirmation Modal */}
+      <AnimatePresence>
+        {showDeleteModal && (
+          <div className="fixed inset-0 z-1000 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => !isDeleting && setShowDeleteModal(false)}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="relative bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl max-w-md w-full p-6 shadow-2xl z-10"
+            >
+              <div className="flex items-center gap-3 text-red-600 dark:text-red-400 mb-3">
+                <div className="p-2.5 rounded-full bg-red-100 dark:bg-red-950/60 border border-red-200 dark:border-red-800/60">
+                  <Trash2 className="w-5 h-5" />
+                </div>
+                <h3 className="font-serif text-lg font-bold text-neutral-950 dark:text-neutral-50">
+                  Delete Publication?
+                </h3>
+              </div>
+              <p className="text-sm text-neutral-600 dark:text-neutral-400 leading-relaxed mb-6">
+                Are you sure you want to delete <strong className="text-neutral-900 dark:text-neutral-100">"{pub.title}"</strong>? This will permanently remove the publication, all comments, and reader interactions. This action cannot be undone.
+              </p>
+              <div className="flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteModal(false)}
+                  disabled={isDeleting}
+                  className="px-4 py-2 text-xs font-semibold rounded-full border border-neutral-200 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors disabled:opacity-50 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDeletePublication}
+                  disabled={isDeleting}
+                  className="px-5 py-2 text-xs font-semibold rounded-full bg-red-600 hover:bg-red-700 text-white shadow-sm flex items-center gap-1.5 transition-colors disabled:opacity-50 cursor-pointer"
+                >
+                  {isDeleting ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Deleting…</span>
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Permanently Delete</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </article>
   );
 }

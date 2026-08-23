@@ -175,9 +175,11 @@ export default function Hardback({
     let last = Math.floor(books.length / 2);
     let raf = 0;
     const numBooks = books.length || 1;
+    const maxIndex = Math.max(0, numBooks - 1);
     const tick = () => {
       const rounded = Math.round(positionRef.current);
-      const idx = ((rounded % numBooks) + numBooks) % numBooks;
+      // Strictly clamp between 0 and maxIndex so edge books never wrap or bleed over
+      const idx = Math.max(0, Math.min(maxIndex, rounded));
       if (idx !== last) {
         last = idx;
         setActiveIndex(idx);
@@ -458,19 +460,22 @@ export default function Hardback({
       e.preventDefault();
       if (modeRef.current !== 'browsing') return;
 
+      const numBooks = books.length || 1;
+      const maxIndex = Math.max(0, numBooks - 1);
+
       const delta =
         Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
       const slideDelta = delta / WHEEL_PX_PER_SLIDE;
       targetRef.current = clamp(
         targetRef.current + slideDelta,
         0,
-        BOOKS.length - 1
+        maxIndex
       );
 
       if (settleTimer) clearTimeout(settleTimer);
       settleTimer = setTimeout(() => {
         const snapped = Math.round(targetRef.current);
-        targetRef.current = clamp(snapped, 0, BOOKS.length - 1);
+        targetRef.current = clamp(snapped, 0, maxIndex);
       }, SETTLE_IDLE_MS);
     };
 
@@ -502,11 +507,13 @@ export default function Hardback({
       }
       if (!dragState.moved) return;
 
+      const numBooks = books.length || 1;
+      const maxIndex = Math.max(0, numBooks - 1);
       const slideDelta = -dx / (DRAG_THRESHOLD_PX * 1.4);
       const next = clamp(
         dragState.startPosition + slideDelta,
         0,
-        BOOKS.length - 1
+        maxIndex
       );
       positionRef.current = next;
       targetRef.current = next;
@@ -521,8 +528,10 @@ export default function Hardback({
         try {
           section.releasePointerCapture(e.pointerId);
         } catch {}
+        const numBooks = books.length || 1;
+        const maxIndex = Math.max(0, numBooks - 1);
         const snapped = Math.round(targetRef.current);
-        targetRef.current = clamp(snapped, 0, books.length - 1);
+        targetRef.current = clamp(snapped, 0, maxIndex);
       }
     };
 
@@ -603,7 +612,9 @@ export default function Hardback({
   };
 
   const activeBook: BookData = useMemo(() => {
-    return books[activeIndex] || books[0] || BOOKS[0];
+    const maxIdx = Math.max(0, books.length - 1);
+    const clampedIdx = Math.max(0, Math.min(maxIdx, activeIndex));
+    return books[clampedIdx] || books[0] || BOOKS[0];
   }, [books, activeIndex]);
 
   const selectedBook: BookData = useMemo(() => {

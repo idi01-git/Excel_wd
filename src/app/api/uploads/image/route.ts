@@ -38,6 +38,7 @@ export async function POST(req: Request) {
       transformation: [
         { quality: 'auto' },
         { fetch_format: 'auto' },
+        { width: 2000, height: 2000, crop: 'limit' },
       ],
     });
 

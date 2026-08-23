@@ -47,15 +47,17 @@ export async function GET(
     let registrationDetails: any = null;
 
     if (session?.user) {
-      const reg = await db.eventRegistration.findUnique({
+      const reg = await db.eventRegistration.findFirst({
         where: {
-          eventId_userId: {
-            eventId: event.id,
-            userId: session.user.id
-          }
-        }
+          eventId: event.id,
+          userId: session.user.id,
+          NOT: {
+            paymentStatus: { in: ['CANCELLED', 'REFUNDED'] },
+          },
+        },
+        orderBy: { registeredAt: 'desc' },
       });
-      if (reg && reg.paymentStatus !== 'CANCELLED') {
+      if (reg) {
         userRegistered = true;
         registrationDetails = reg;
       }

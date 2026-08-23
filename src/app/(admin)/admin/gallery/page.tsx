@@ -22,7 +22,8 @@ import {
 } from 'lucide-react';
 import { GalleryItemType } from '@prisma/client';
 import { ImageCropperModal } from '@/components/ui/ImageCropperModal';
-import { uploadImageBlob } from '@/lib/upload';
+import { uploadImageBlob, deleteUploadedImage } from '@/lib/upload';
+import { validateUploadFile, ACCEPT_MAP } from '@/lib/file-validation';
 import { useLenis } from 'lenis/react';
 
 interface GalleryItem {
@@ -130,20 +131,28 @@ export default function AdminGalleryPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    const validation = validateUploadFile(file, 'GALLERY');
+    if (!validation.valid) {
+      setFeedback({ type: 'error', text: validation.error || 'Invalid gallery image format or size.' });
+      e.target.value = '';
+      return;
+    }
+
     setUploadingImage(true);
     try {
+      if (url && url.includes('cloudinary.com')) {
+        await deleteUploadedImage(url);
+      }
       const uploadedUrl = await uploadImageBlob(
         file,
         'gallery',
         `gallery_${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`
       );
       setUrl(uploadedUrl);
+      setFeedback({ type: 'success', text: 'Image uploaded to Cloudinary successfully.' });
     } catch (err: any) {
       console.error('Direct upload failed:', err);
-      // Fallback to local object URL
-      const localUrl = URL.createObjectURL(file);
-      setUrl(localUrl);
-      setFeedback({ type: 'error', text: 'Image upload failed. Please try again or use direct URL.' });
+      setFeedback({ type: 'error', text: err.message || 'Image upload to Cloudinary failed. Please try again.' });
     } finally {
       setUploadingImage(false);
       e.target.value = '';
@@ -157,10 +166,10 @@ export default function AdminGalleryPage() {
     try {
       const uploadedUrl = await uploadImageBlob(blob, 'gallery', `gallery_cropped_${Date.now()}.jpg`);
       setUrl(uploadedUrl);
-      setFeedback({ type: 'success', text: 'Cropped image uploaded successfully.' });
-    } catch (err) {
+      setFeedback({ type: 'success', text: 'Cropped image uploaded to Cloudinary successfully.' });
+    } catch (err: any) {
       console.error(err);
-      setUrl(previewUrl);
+      setFeedback({ type: 'error', text: err.message || 'Failed to upload cropped image to Cloudinary.' });
     } finally {
       setUploadingImage(false);
     }
@@ -601,7 +610,7 @@ export default function AdminGalleryPage() {
                         <input
                           id="modal-replace-image"
                           type="file"
-                          accept="image/*"
+                          accept={ACCEPT_MAP.GALLERY}
                           onChange={handleImageFileSelect}
                           className="hidden"
                         />
@@ -622,7 +631,7 @@ export default function AdminGalleryPage() {
                         className="flex flex-col items-center justify-center gap-2 p-6 rounded-xl border border-dashed border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-[#0e0e0e] hover:bg-neutral-100 dark:hover:bg-neutral-850 cursor-pointer transition-colors text-center"
                       >
                         {uploadingImage ? (
-                          <RefreshCw size={20} className="animate-spin text-neutral-600 dark:text-neutral-400" />
+                           <RefreshCw size={20} className="animate-spin text-neutral-600 dark:text-neutral-400" />
                         ) : (
                           <Upload size={20} className="text-neutral-500" />
                         )}
@@ -630,13 +639,13 @@ export default function AdminGalleryPage() {
                           {uploadingImage ? 'Uploading original image...' : 'Choose image to upload (Original Resolution)'}
                         </span>
                         <span className="text-[10px] text-neutral-400">
-                          Supports PNG, JPG, WebP, GIF • Native aspect ratio preserved
+                          Supports PNG, JPG, WebP, GIF • Native aspect ratio preserved (Max 10MB)
                         </span>
                       </label>
                       <input
                         id="gallery-image-file"
                         type="file"
-                        accept="image/*"
+                        accept={ACCEPT_MAP.GALLERY}
                         onChange={handleImageFileSelect}
                         disabled={uploadingImage}
                         className="hidden"

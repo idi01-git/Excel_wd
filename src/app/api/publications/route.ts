@@ -13,10 +13,19 @@ export async function GET(req: Request) {
     const categoryQuery = searchParams.get('category');
     const sortQuery = searchParams.get('sort') || 'latest';
     const searchQuery = searchParams.get('search');
+    const languageQuery = searchParams.get('language');
 
     const whereClause: Prisma.PublicationWhereInput = {
       status: PublicationStatus.PUBLISHED
     };
+
+    // Language mapping
+    if (languageQuery && languageQuery.toLowerCase() !== 'all') {
+      const l = languageQuery.toUpperCase();
+      if (l === 'ENGLISH' || l === 'HINDI') {
+        whereClause.language = l as any;
+      }
+    }
 
     // Category mapping
     if (categoryQuery && categoryQuery.toLowerCase() !== 'all') {
@@ -38,7 +47,11 @@ export async function GET(req: Request) {
       const cleanSearch = searchQuery.trim();
       whereClause.OR = [
         { title: { contains: cleanSearch, mode: 'insensitive' } },
-        { tags: { has: cleanSearch } }
+        { tags: { hasSome: [cleanSearch, cleanSearch.toLowerCase(), cleanSearch.toUpperCase(), cleanSearch.replace(/^#/, '')] } },
+        { author: { name: { contains: cleanSearch, mode: 'insensitive' } } },
+        { author: { username: { contains: cleanSearch, mode: 'insensitive' } } },
+        { authorName: { contains: cleanSearch, mode: 'insensitive' } },
+        { alumniProfile: { name: { contains: cleanSearch, mode: 'insensitive' } } },
       ];
     }
 
@@ -65,7 +78,7 @@ export async function GET(req: Request) {
       };
     }
 
-    const limit = Math.max(1, parseInt(searchParams.get('limit') || '5', 10));
+    const limit = Math.max(1, parseInt(searchParams.get('limit') || '9', 10));
     const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
     const skip = (page - 1) * limit;
 
@@ -119,24 +132,41 @@ export async function GET(req: Request) {
     ]);
 
     const publications = publicationsRaw.map(pub => {
-      const { interactions, ...rest } = pub as any;
+      const { interactions, content, ...rest } = pub as any;
+
+      // Keep only first few blocks for the preview excerpt to drastically reduce JSON size and latency
+      let trimmedContent = content;
+      if (content && typeof content === 'object' && Array.isArray(content.content)) {
+        trimmedContent = {
+          type: 'doc',
+          content: content.content.slice(0, 4)
+        };
+      }
+
       return {
         ...rest,
+        content: trimmedContent,
         hasLiked: interactions ? interactions.some((i: any) => i.type === 'LIKE') : false,
         hasBookmarked: interactions ? interactions.some((i: any) => i.type === 'BOOKMARK') : false
       };
     });
 
-    const hasMore = skip + publicationsRaw.length < total;
+    const totalPages = Math.ceil(total / limit);
+    const hasMore = page < totalPages;
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       publications,
       total,
       page,
+      totalPages,
       hasMore,
       limit
     });
+
+    response.headers.set('Cache-Control', 'public, s-maxage=5, stale-while-revalidate=30');
+
+    return response;
   } catch (error: any) {
     console.error('Fetch publications error:', error);
     return NextResponse.json({ error: 'Failed to fetch publications' }, { status: 500 });

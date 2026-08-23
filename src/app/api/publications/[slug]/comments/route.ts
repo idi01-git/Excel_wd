@@ -24,47 +24,68 @@ export async function GET(
       orderBy = { upvotesCount: 'desc' };
     }
 
-    const comments = await db.comment.findMany({
-      where: {
-        publicationId: publication.id,
-        parentCommentId: null
-      },
-      include: {
-        author: {
-          select: { id: true, name: true, username: true, profilePhoto: true }
+    const limitParam = searchParams.get('limit');
+    const limit = limitParam ? Math.max(1, parseInt(limitParam, 10)) : undefined;
+
+    const [comments, totalCount] = await Promise.all([
+      db.comment.findMany({
+        where: {
+          publicationId: publication.id,
+          parentCommentId: null
         },
-        upvotes: {
-          select: { userId: true }
-        },
-        downvotes: {
-          select: { userId: true }
-        },
-        replies: {
-          include: {
-            author: { select: { id: true, name: true, username: true, profilePhoto: true } },
-            upvotes: { select: { userId: true } },
-            downvotes: { select: { userId: true } },
-            replies: {
-              include: {
-                author: { select: { id: true, name: true, username: true, profilePhoto: true } },
-                upvotes: { select: { userId: true } },
-                downvotes: { select: { userId: true } },
-                replies: {
-                  include: {
-                    author: { select: { id: true, name: true, username: true, profilePhoto: true } },
-                    upvotes: { select: { userId: true } },
-                    downvotes: { select: { userId: true } }
+        include: {
+          author: {
+            select: { id: true, name: true, username: true, profilePhoto: true }
+          },
+          upvotes: {
+            select: { userId: true }
+          },
+          downvotes: {
+            select: { userId: true }
+          },
+          replies: {
+            include: {
+              author: { select: { id: true, name: true, username: true, profilePhoto: true } },
+              upvotes: { select: { userId: true } },
+              downvotes: { select: { userId: true } },
+              replies: {
+                include: {
+                  author: { select: { id: true, name: true, username: true, profilePhoto: true } },
+                  upvotes: { select: { userId: true } },
+                  downvotes: { select: { userId: true } },
+                  replies: {
+                    include: {
+                      author: { select: { id: true, name: true, username: true, profilePhoto: true } },
+                      upvotes: { select: { userId: true } },
+                      downvotes: { select: { userId: true } }
+                    }
                   }
                 }
               }
             }
           }
+        },
+        orderBy,
+        ...(limit ? { take: limit } : {})
+      }),
+      db.comment.count({
+        where: {
+          publicationId: publication.id,
+          parentCommentId: null
         }
-      },
-      orderBy
-    });
+      })
+    ]);
 
-    return NextResponse.json({ success: true, comments });
+    const hasMore = limit ? totalCount > comments.length : false;
+
+    const response = NextResponse.json({
+      success: true,
+      comments,
+      totalCount,
+      hasMore
+    });
+    response.headers.set('Cache-Control', 'public, s-maxage=3, stale-while-revalidate=15');
+    return response;
   } catch (error: any) {
     console.error('Fetch comments error:', error);
     return NextResponse.json({ error: 'Failed to retrieve comments' }, { status: 500 });

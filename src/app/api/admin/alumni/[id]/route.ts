@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requirePermission } from '@/lib/api-auth';
 import { recordAuditEvent } from '@/lib/audit';
+import { deleteImageByUrl } from '@/lib/cloudinary';
 
 function cleanUserId(value: unknown) {
   return typeof value === 'string' && value.trim() ? value.trim() : null;
@@ -32,11 +33,22 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       if (linkError) return NextResponse.json({ error: linkError }, { status: 409 });
     }
 
+    const existing = await db.alumniProfile.findUnique({
+      where: { id },
+      select: { photo: true },
+    });
+
+    const newPhoto = photo !== undefined ? (String(photo).trim() || null) : undefined;
+
+    if (newPhoto !== undefined && newPhoto !== existing?.photo && existing?.photo) {
+      await deleteImageByUrl(existing.photo);
+    }
+
     const updated = await db.alumniProfile.update({
       where: { id },
       data: {
         name: name !== undefined ? String(name).trim() : undefined,
-        photo: photo !== undefined ? String(photo).trim() || null : undefined,
+        photo: newPhoto,
         batch: batch !== undefined ? String(batch).trim() : undefined,
         branch: branch !== undefined ? String(branch).trim() : undefined,
         currentPosition: currentPosition !== undefined ? String(currentPosition).trim() || null : undefined,
@@ -65,7 +77,18 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     const { session, error } = await requirePermission('MANAGE_ALUMNI');
     if (error || !session) return error;
     const { id } = await params;
+
+    const existing = await db.alumniProfile.findUnique({
+      where: { id },
+      select: { photo: true },
+    });
+
     await db.alumniProfile.delete({ where: { id } });
+
+    if (existing?.photo) {
+      await deleteImageByUrl(existing.photo);
+    }
+
     await recordAuditEvent({ actorId: session.user.id, action: 'ALUMNI_DELETE', entityType: 'ALUMNI_PROFILE', entityId: id, request: req });
     return NextResponse.json({ success: true });
   } catch (error: unknown) {

@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { formatRole } from '@/lib/rbac';
+import { getOptimizedCoverUrl, getOptimizedAvatarUrl } from '@/lib/image-optimization';
 
 interface SearchResultItem {
   id: string;
@@ -106,7 +107,7 @@ function SearchResultsContent() {
                 {results.publications.map((pub) => (
                   <div key={pub.id} className="bg-slate-900/30 border border-white/5 hover:border-white/10 p-5 rounded-2xl flex gap-4 transition duration-300">
                     <img
-                      src={pub.coverImage || 'https://images.unsplash.com/photo-1455390582262-044cdead277a?w=400&h=300&fit=crop'}
+                      src={getOptimizedCoverUrl(pub.coverImage || 'https://images.unsplash.com/photo-1455390582262-044cdead277a?w=400&h=300&fit=crop', 240)}
                       alt=""
                       className="w-24 h-24 object-cover rounded-xl border border-white/10"
                     />
@@ -142,7 +143,7 @@ function SearchResultsContent() {
                     className="bg-slate-900/30 border border-white/5 hover:border-white/10 p-5 rounded-2xl flex items-center gap-4 transition duration-300"
                   >
                     <img
-                      src={user.profilePhoto || `https://api.dicebear.com/7.x/adventurer/svg?seed=${user.username}`}
+                      src={user.profilePhoto ? getOptimizedAvatarUrl(user.profilePhoto, 120) : `https://api.dicebear.com/7.x/adventurer/svg?seed=${user.username}`}
                       alt=""
                       className="w-14 h-14 object-cover rounded-full border border-white/10"
                     />
@@ -175,7 +176,7 @@ function SearchResultsContent() {
                 {results.alumni.map((alum) => (
                   <div key={alum.id} className="bg-slate-900/30 border border-white/5 hover:border-white/10 p-5 rounded-2xl flex gap-4 transition duration-300">
                     <img
-                      src={alum.photo || `https://api.dicebear.com/7.x/adventurer/svg?seed=${alum.name}`}
+                      src={alum.photo ? getOptimizedAvatarUrl(alum.photo, 120) : `https://api.dicebear.com/7.x/adventurer/svg?seed=${alum.name}`}
                       alt=""
                       className="w-14 h-14 object-cover rounded-full border border-white/10"
                     />

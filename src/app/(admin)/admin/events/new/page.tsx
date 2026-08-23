@@ -32,6 +32,7 @@ import AccessInclusionPicker from '@/components/admin/AccessInclusionPicker';
 import FormPreviewModal from '@/components/admin/FormPreviewModal';
 import TimeWindowPicker from '@/components/admin/TimeWindowPicker';
 import { uploadImageBlob, deleteUploadedImage } from '@/lib/upload';
+import { validateUploadFile, ACCEPT_MAP } from '@/lib/file-validation';
 import {
   type StandardFieldConfig,
   DEFAULT_STANDARD_FIELDS,
@@ -108,6 +109,14 @@ export default function AdminNewEventPage() {
   const startPosterCrop = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    const validation = validateUploadFile(file, 'MEDIA');
+    if (!validation.valid) {
+      alert(validation.error || 'Invalid poster format or size.');
+      e.target.value = '';
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = () => {
       setPosterCropSrc(reader.result as string);
@@ -124,9 +133,9 @@ export default function AdminNewEventPage() {
       if (posterImage) await deleteUploadedImage(posterImage);
       const url = await uploadImageBlob(blob, 'event-posters', `${title || 'event'}_poster.jpg`);
       setPosterImage(url);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      setPosterImage(previewUrl);
+      alert(err.message || 'Failed to upload event poster to Cloudinary. Please try again.');
     } finally {
       setUploadingPoster(false);
     }
@@ -135,6 +144,14 @@ export default function AdminNewEventPage() {
   const startQrCrop = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    const validation = validateUploadFile(file, 'MEDIA');
+    if (!validation.valid) {
+      alert(validation.error || 'Invalid QR code image format or size.');
+      e.target.value = '';
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = () => {
       setQrCropSrc(reader.result as string);
@@ -151,9 +168,9 @@ export default function AdminNewEventPage() {
       if (paymentQrImage) await deleteUploadedImage(paymentQrImage);
       const url = await uploadImageBlob(blob, 'event-qr', `${title || 'event'}_qr.png`);
       setPaymentQrImage(url);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      setPaymentQrImage(previewUrl);
+      alert(err.message || 'Failed to upload QR code to Cloudinary. Please try again.');
     } finally {
       setUploadingQr(false);
     }
@@ -548,7 +565,7 @@ export default function AdminNewEventPage() {
               </div>
 
               {/* Registration Status: Active vs On Hold */}
-              <div className="rounded-2xl border border-border/80 bg-foreground/[0.02] p-4 space-y-3">
+              <div className="rounded-2xl border border-border/80 bg-foreground/2 p-4 space-y-3">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
                     <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-muted-foreground block">
@@ -566,7 +583,7 @@ export default function AdminNewEventPage() {
                     </div>
                   </div>
 
-                  <div className="inline-flex p-1 bg-foreground/[0.05] rounded-xl border border-border/60">
+                  <div className="inline-flex p-1 bg-foreground/5 rounded-xl border border-border/60">
                     <button
                       type="button"
                       onClick={() => setIsOnHold(false)}
@@ -602,7 +619,7 @@ export default function AdminNewEventPage() {
                       value={holdReason}
                       onChange={(e) => setHoldReason(e.target.value)}
                       placeholder="e.g. Registrations paused temporarily for venue reconciliation"
-                      className="w-full rounded-xl border border-amber-500/40 bg-amber-500/[0.04] px-3 py-2 text-xs font-serif text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-amber-500"
+                      className="w-full rounded-xl border border-amber-500/40 bg-amber-500/4 px-3 py-2 text-xs font-serif text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-amber-500"
                     />
                   </div>
                 )}
@@ -625,23 +642,24 @@ export default function AdminNewEventPage() {
 
               {/* Event Code Slug */}
               <div className="space-y-1 pt-2 border-t border-border/40">
-                <label className={labelCls}>Event Code (public URL slug)</label>
-                <div className="flex items-stretch overflow-hidden rounded-xl border border-border bg-foreground/[0.02] focus-within:border-amber-400">
-                  <span className="flex select-none items-center border-r border-border bg-foreground/[0.04] px-3 font-mono text-xs text-muted-foreground">
-                    {date ? codePrefix : 'EXC-YY-MM-'}
+                <label className={labelCls}>Standard Event Code (URL Slug)</label>
+                <div className="flex items-stretch overflow-hidden rounded-xl border border-border bg-foreground/2 focus-within:border-amber-400">
+                  <span className="flex select-none items-center border-r border-border bg-foreground/4 px-3 font-mono text-xs font-bold text-muted-foreground uppercase">
+                    {date ? codePrefix.toUpperCase() : 'EXC-YY-MM-'}
                   </span>
                   <input
                     type="text"
                     value={codeSuffix}
                     onChange={(e) => setCodeSuffix(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+                    onBlur={() => setCodeSuffix((s) => s.replace(/(^-|-$)/g, ''))}
                     placeholder={autoCodePreview || 'auto-generated from title'}
                     className="min-w-0 flex-1 bg-transparent p-3 font-mono text-xs text-foreground placeholder:text-muted-foreground/50 focus:outline-none"
                   />
                 </div>
-                <p className="text-[10px] text-muted-foreground">
+                <p className="text-[10px] font-mono text-muted-foreground">
                   {date
-                    ? `Final code: ${codePrefix}${codeSuffix || autoCodePreview}`
-                    : 'Pick a date first — the code is prefixed with the event year and month.'}
+                    ? `Public URL: /events/${codePrefix}${codeSuffix || autoCodePreview}`
+                    : 'Pick a date first — standard code starts with EXC-YY-MM- prefix.'}
                 </p>
               </div>
 
@@ -683,7 +701,7 @@ export default function AdminNewEventPage() {
                 {posterImage ? (
                   <div className="relative w-56 overflow-hidden rounded-2xl border border-border">
                     <img src={posterImage} alt="Poster" className="aspect-video w-full object-cover" />
-                    <div className="flex gap-2 p-2 bg-foreground/[0.03]">
+                    <div className="flex gap-2 p-2 bg-foreground/3">
                       <button
                         type="button"
                         onClick={() => void removePoster()}
@@ -693,14 +711,14 @@ export default function AdminNewEventPage() {
                       </button>
                       <label
                         htmlFor="event-poster-upload"
-                        className="flex flex-1 cursor-pointer items-center justify-center gap-1 rounded-lg border border-border px-2 py-1.5 text-[10px] font-mono uppercase text-foreground hover:bg-foreground/[0.06] transition-colors"
+                        className="flex flex-1 cursor-pointer items-center justify-center gap-1 rounded-lg border border-border px-2 py-1.5 text-[10px] font-mono uppercase text-foreground hover:bg-foreground/6 transition-colors"
                       >
                         <Upload size={12} /> Replace
                       </label>
                       <input
                         id="event-poster-upload"
                         type="file"
-                        accept="image/*"
+                        accept={ACCEPT_MAP.MEDIA}
                         onChange={startPosterCrop}
                         className="hidden"
                       />
@@ -710,7 +728,7 @@ export default function AdminNewEventPage() {
                   <div>
                     <label
                       htmlFor="event-poster-upload"
-                      className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-foreground/[0.06] px-3 py-2 text-xs font-mono uppercase text-foreground transition-colors hover:bg-foreground/[0.1]"
+                      className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-foreground/6 px-3 py-2 text-xs font-mono uppercase text-foreground transition-colors hover:bg-foreground/10"
                     >
                       {uploadingPoster ? (
                         <Loader2 size={13} className="animate-spin" />
@@ -722,7 +740,7 @@ export default function AdminNewEventPage() {
                     <input
                       id="event-poster-upload"
                       type="file"
-                      accept="image/*"
+                      accept={ACCEPT_MAP.MEDIA}
                       onChange={startPosterCrop}
                       className="hidden"
                     />
@@ -731,7 +749,7 @@ export default function AdminNewEventPage() {
               </div>
 
               {/* Competition Toggle */}
-              <div className="flex items-center gap-3 rounded-2xl border border-border/40 bg-foreground/[0.02] p-3.5">
+              <div className="flex items-center gap-3 rounded-2xl border border-border/40 bg-foreground/2 p-3.5">
                 <input
                   type="checkbox"
                   id="isComp"
@@ -812,7 +830,7 @@ export default function AdminNewEventPage() {
                     <button
                       type="button"
                       onClick={() => setCustomFormFields((all) => [...all, newField()])}
-                      className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-foreground/[0.03] px-3.5 py-1.5 text-xs font-mono uppercase text-foreground hover:bg-foreground/[0.08] transition-colors"
+                      className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-foreground/3 px-3.5 py-1.5 text-xs font-mono uppercase text-foreground hover:bg-foreground/8 transition-colors"
                     >
                       <Plus size={13} />
                       <span>Add Extra Question</span>
@@ -865,7 +883,7 @@ export default function AdminNewEventPage() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-3 rounded-2xl border border-border/40 bg-foreground/[0.02] p-3.5">
+              <div className="flex items-center gap-3 rounded-2xl border border-border/40 bg-foreground/2 p-3.5">
                 <input
                   type="checkbox"
                   id="requirePaymentCheck"
@@ -900,7 +918,7 @@ export default function AdminNewEventPage() {
                       {paymentQrImage ? (
                         <div className="w-32 overflow-hidden rounded-2xl border border-border">
                           <img src={paymentQrImage} alt="Payment QR" className="aspect-square w-full object-contain bg-white p-1" />
-                          <div className="flex gap-1.5 border-t border-border bg-foreground/[0.03] p-1.5">
+                          <div className="flex gap-1.5 border-t border-border bg-foreground/3 p-1.5">
                             <button
                               type="button"
                               onClick={() => void removeQr()}
@@ -910,14 +928,14 @@ export default function AdminNewEventPage() {
                             </button>
                             <label
                               htmlFor="event-qr-upload"
-                              className="flex flex-1 cursor-pointer items-center justify-center gap-1 rounded-lg px-1 py-1 text-[9px] font-mono uppercase text-foreground hover:bg-foreground/[0.06] transition-colors"
+                              className="flex flex-1 cursor-pointer items-center justify-center gap-1 rounded-lg px-1 py-1 text-[9px] font-mono uppercase text-foreground hover:bg-foreground/6 transition-colors"
                             >
                               <Upload size={11} /> Replace
                             </label>
                             <input
                               id="event-qr-upload"
                               type="file"
-                              accept="image/*"
+                              accept={ACCEPT_MAP.MEDIA}
                               onChange={startQrCrop}
                               className="hidden"
                             />
@@ -927,7 +945,7 @@ export default function AdminNewEventPage() {
                         <div>
                           <label
                             htmlFor="event-qr-upload"
-                            className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-foreground/[0.06] px-3 py-2 text-xs font-mono uppercase text-foreground transition-colors hover:bg-foreground/[0.1]"
+                            className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-foreground/6 px-3 py-2 text-xs font-mono uppercase text-foreground transition-colors hover:bg-foreground/10"
                           >
                             {uploadingQr ? <Loader2 size={13} className="animate-spin" /> : <Upload size={13} />}
                             <span>{uploadingQr ? 'Uploading…' : 'Upload QR Image'}</span>
@@ -935,7 +953,7 @@ export default function AdminNewEventPage() {
                           <input
                             id="event-qr-upload"
                             type="file"
-                            accept="image/*"
+                            accept={ACCEPT_MAP.MEDIA}
                             onChange={startQrCrop}
                             className="hidden"
                           />
@@ -1009,7 +1027,7 @@ export default function AdminNewEventPage() {
                       type="button"
                       onClick={handleTestWebhook}
                       disabled={testingWebhook || !googleSheetUrl.trim()}
-                      className="px-4 py-2.5 rounded-xl border border-border bg-foreground/[0.04] hover:bg-foreground/[0.08] text-xs font-mono font-bold uppercase transition-colors disabled:opacity-40 shrink-0"
+                      className="px-4 py-2.5 rounded-xl border border-border bg-foreground/4 hover:bg-foreground/8 text-xs font-mono font-bold uppercase transition-colors disabled:opacity-40 shrink-0"
                     >
                       {testingWebhook ? 'Pinging…' : 'Verify'}
                     </button>
@@ -1022,8 +1040,8 @@ export default function AdminNewEventPage() {
                 {webhookTestResult && (
                   <div className={`rounded-xl p-3 text-xs flex items-start gap-2 border ${
                     webhookTestResult.success
-                      ? 'bg-emerald-500/[0.06] border-emerald-500/30 text-emerald-700 dark:text-emerald-300'
-                      : 'bg-red-500/[0.06] border-red-500/30 text-red-700 dark:text-red-300'
+                      ? 'bg-emerald-500/6 border-emerald-500/30 text-emerald-700 dark:text-emerald-300'
+                      : 'bg-red-500/6 border-red-500/30 text-red-700 dark:text-red-300'
                   }`}>
                     {webhookTestResult.success ? <CheckCircle2 size={15} className="shrink-0 mt-0.5" /> : <AlertCircle size={15} className="shrink-0 mt-0.5" />}
                     <div>
@@ -1141,6 +1159,7 @@ export default function AdminNewEventPage() {
           isOpen={cropperOpen}
           imageSrc={posterCropSrc}
           aspectRatio={16 / 9}
+          allowRatioSelection={true}
           aspectPresetLabel="Event Banner (16:9)"
           onCropComplete={handlePosterCrop}
           onCancel={() => setCropperOpen(false)}
@@ -1150,8 +1169,9 @@ export default function AdminNewEventPage() {
         <ImageCropperModal
           isOpen={qrCropperOpen}
           imageSrc={qrCropSrc}
-          aspectRatio={1}
-          aspectPresetLabel="UPI QR Code (1:1)"
+          aspectRatio={null}
+          allowRatioSelection={true}
+          aspectPresetLabel="UPI QR Code"
           onCropComplete={handleQrCrop}
           onCancel={() => setQrCropperOpen(false)}
         />

@@ -1,8 +1,8 @@
-// src/app/api/admin/library/[id]/route.ts
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { IssueRequestStatus } from '@prisma/client';
 import { requirePermission } from '@/lib/api-auth';
+import { deleteImageByUrl } from '@/lib/cloudinary';
 
 export async function GET(
   req: Request,
@@ -109,13 +109,19 @@ export async function PUT(
         ? 'ENGLISH'
         : book.language;
 
+    // If coverImage changed, delete old one from Cloudinary
+    const nextCover = coverImage !== undefined ? (coverImage ? String(coverImage).trim() : null) : book.coverImage;
+    if (nextCover !== book.coverImage && book.coverImage) {
+      await deleteImageByUrl(book.coverImage);
+    }
+
     const updated = await db.book.update({
       where: { id },
       data: {
         title: title || book.title,
         author: author || book.author,
         language: bookLanguage,
-        coverImage: coverImage !== undefined ? coverImage : book.coverImage,
+        coverImage: nextCover,
         description: description || book.description,
         genre: genresArray,
         isbn: isbn !== undefined ? isbn : book.isbn,
@@ -153,6 +159,15 @@ export async function DELETE(
 
     const { id } = await params;
 
+    const existing = await db.book.findUnique({
+      where: { id },
+      select: { coverImage: true },
+    });
+
+    if (!existing) {
+      return NextResponse.json({ error: 'Book not found' }, { status: 404 });
+    }
+
     // Check active issue requests
     const activeRequests = await db.issueRequest.count({
       where: {
@@ -177,6 +192,10 @@ export async function DELETE(
     await db.bookReview.deleteMany({ where: { bookId: id } });
     await db.issueRequest.deleteMany({ where: { bookId: id } });
     await db.book.delete({ where: { id } });
+
+    if (existing.coverImage) {
+      await deleteImageByUrl(existing.coverImage);
+    }
 
     return NextResponse.json({ success: true });
   } catch (error: any) {

@@ -11,6 +11,8 @@ import React, {
 import Link from "next/link";
 import gsap from "gsap";
 import { useLenis } from "lenis/react";
+import { getOptimizedCardwallCoverUrl } from "@/lib/image-optimization";
+import { markCardwallSettled, restoreChromeFromModal, yieldChromeToModal } from "@/lib/cardwall-events";
 
 /* ==========================================================================
    Types & Interfaces
@@ -89,7 +91,7 @@ const PALETTE: Omit<CardDesign, "id">[] = [
     accent: "#f3e8d2",
     hue: "rgba(220,210,190,0.45)",
     pattern: "solid",
-    image: "https://images.unsplash.com/photo-1507842217343-583bb7270b66?w=800&h=1200&fit=crop",
+    image: "https://images.unsplash.com/photo-1507842217343-583bb7270b66?w=420&h=666&fit=crop&auto=format&q=75",
   },
   {
     title: "Echoes of the Monsoon",
@@ -103,7 +105,7 @@ const PALETTE: Omit<CardDesign, "id">[] = [
     accent: "#fdf4e7",
     hue: "rgba(255,220,180,0.45)",
     pattern: "band",
-    image: "https://images.unsplash.com/photo-1534274988757-a28bf1a57c17?w=800&h=1200&fit=crop",
+    image: "https://images.unsplash.com/photo-1534274988757-a28bf1a57c17?w=420&h=666&fit=crop&auto=format&q=75",
   },
   {
     title: "If on a winter's night a traveler",
@@ -117,7 +119,7 @@ const PALETTE: Omit<CardDesign, "id">[] = [
     accent: "#ffffff",
     hue: "rgba(255,245,220,0.55)",
     pattern: "solid",
-    image: "https://images.unsplash.com/photo-1543002588-bfa74002ed7e?w=800&h=1200&fit=crop",
+    image: "https://images.unsplash.com/photo-1543002588-bfa74002ed7e?w=420&h=666&fit=crop&auto=format&q=75",
   },
   {
     title: "Neon Dreamers",
@@ -131,7 +133,7 @@ const PALETTE: Omit<CardDesign, "id">[] = [
     accent: "#dce8f8",
     hue: "rgba(190,210,240,0.45)",
     pattern: "lines",
-    image: "https://images.unsplash.com/photo-1515621061946-eff1c2a352bd?w=800&h=1200&fit=crop",
+    image: "https://images.unsplash.com/photo-1515621061946-eff1c2a352bd?w=420&h=666&fit=crop&auto=format&q=75",
   },
   {
     title: "Ficciones & Infinite Labyrinths",
@@ -145,7 +147,7 @@ const PALETTE: Omit<CardDesign, "id">[] = [
     accent: "#fff3dc",
     hue: "rgba(255,225,180,0.5)",
     pattern: "band",
-    image: "https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=800&h=1200&fit=crop",
+    image: "https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=420&h=666&fit=crop&auto=format&q=75",
   },
   {
     title: "Deep Forest Verse",
@@ -159,7 +161,7 @@ const PALETTE: Omit<CardDesign, "id">[] = [
     accent: "#e8eedb",
     hue: "rgba(200,220,180,0.4)",
     pattern: "lines",
-    image: "https://images.unsplash.com/photo-1518495973542-4542c06a5843?w=800&h=1200&fit=crop",
+    image: "https://images.unsplash.com/photo-1518495973542-4542c06a5843?w=420&h=666&fit=crop&auto=format&q=75",
   },
   {
     title: "Architectural Geometry of Classic Verse",
@@ -173,7 +175,7 @@ const PALETTE: Omit<CardDesign, "id">[] = [
     accent: "#f0ece1",
     hue: "rgba(220,220,220,0.45)",
     pattern: "grid",
-    image: "https://images.unsplash.com/photo-1513001900722-370f803f498d?w=800&h=1200&fit=crop",
+    image: "https://images.unsplash.com/photo-1513001900722-370f803f498d?w=420&h=666&fit=crop&auto=format&q=75",
   },
   {
     title: "Correspondence with the Past",
@@ -187,7 +189,7 @@ const PALETTE: Omit<CardDesign, "id">[] = [
     accent: "#f9ede0",
     hue: "rgba(255,210,180,0.4)",
     pattern: "solid",
-    image: "https://images.unsplash.com/photo-1497633762265-9d179a990aa6?w=800&h=1200&fit=crop",
+    image: "https://images.unsplash.com/photo-1497633762265-9d179a990aa6?w=420&h=666&fit=crop&auto=format&q=75",
   },
   {
     title: "Anthology Vintage Reserve",
@@ -201,7 +203,7 @@ const PALETTE: Omit<CardDesign, "id">[] = [
     accent: "#ffffff",
     hue: "rgba(255,240,210,0.55)",
     pattern: "grid",
-    image: "https://images.unsplash.com/photo-1457369804613-52c61a468e7d?w=800&h=1200&fit=crop",
+    image: "https://images.unsplash.com/photo-1457369804613-52c61a468e7d?w=420&h=666&fit=crop&auto=format&q=75",
   },
   {
     title: "Modern Critique Monolith",
@@ -215,7 +217,7 @@ const PALETTE: Omit<CardDesign, "id">[] = [
     accent: "#f5ded0",
     hue: "rgba(230,170,170,0.4)",
     pattern: "band",
-    image: "https://images.unsplash.com/photo-1512820790803-83ca734da794?w=800&h=1200&fit=crop",
+    image: "https://images.unsplash.com/photo-1512820790803-83ca734da794?w=420&h=666&fit=crop&auto=format&q=75",
   },
   {
     title: "Calm Horizons & Prose",
@@ -229,7 +231,7 @@ const PALETTE: Omit<CardDesign, "id">[] = [
     accent: "#f1f8ee",
     hue: "rgba(220,230,200,0.45)",
     pattern: "solid",
-    image: "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800&h=1200&fit=crop",
+    image: "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=420&h=666&fit=crop&auto=format&q=75",
   },
   {
     title: "Ink & Celestial Starlight",
@@ -243,7 +245,7 @@ const PALETTE: Omit<CardDesign, "id">[] = [
     accent: "#e5ddf2",
     hue: "rgba(200,200,230,0.45)",
     pattern: "lines",
-    image: "https://images.unsplash.com/photo-1519791883288-dc8bd696e667?w=800&h=1200&fit=crop",
+    image: "https://images.unsplash.com/photo-1519791883288-dc8bd696e667?w=420&h=666&fit=crop&auto=format&q=75",
   },
   {
     title: "Minimalist Campus Essays",
@@ -257,7 +259,7 @@ const PALETTE: Omit<CardDesign, "id">[] = [
     accent: "#ffffff",
     hue: "rgba(255,245,215,0.5)",
     pattern: "solid",
-    image: "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=800&h=1200&fit=crop",
+    image: "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=420&h=666&fit=crop&auto=format&q=75",
   },
   {
     title: "The Morning Slams",
@@ -271,7 +273,7 @@ const PALETTE: Omit<CardDesign, "id">[] = [
     accent: "#ece2cb",
     hue: "rgba(210,200,180,0.4)",
     pattern: "grid",
-    image: "https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=800&h=1200&fit=crop",
+    image: "https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=420&h=666&fit=crop&auto=format&q=75",
   },
 ];
 
@@ -432,22 +434,26 @@ function CardFace({
   card: CardDesign;
   setShineRef?: (el: HTMLDivElement | null) => void;
 }) {
+  const optimizedImg = card.image ? getOptimizedCardwallCoverUrl(card.image) : "";
+
   return (
     <div
       className="relative h-full w-full overflow-hidden select-none flex flex-col justify-between p-[8%]"
       style={{
         borderRadius: 14,
-        background: card.image ? `url(${card.image}) center/cover no-repeat` : card.bg,
+        background: optimizedImg ? `url(${optimizedImg}) center/cover no-repeat` : card.bg,
         color: card.accent,
         fontFamily: "var(--font-geist-sans), var(--font-sans), ui-sans-serif, system-ui",
       }}
     >
       {/* Optional Custom Card Background Image */}
-      {card.image && (
+      {optimizedImg && (
         <>
           <img
-            src={card.image}
+            src={optimizedImg}
             alt={card.title}
+            decoding="async"
+            loading="eager"
             className="pointer-events-none absolute inset-0 h-full w-full object-cover"
           />
           <div
@@ -494,10 +500,10 @@ function CardFace({
       {/* Noise texture */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 opacity-[0.08] mix-blend-overlay"
+        className="pointer-events-none absolute inset-0 opacity-[0.07] mix-blend-overlay"
         style={{
           backgroundImage:
-            "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.5 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>\")",
+            "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='80' height='80'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='1' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.5 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>\")",
         }}
       />
 
@@ -513,7 +519,7 @@ function CardFace({
           backgroundPosition: "50% 50%",
           opacity: 0,
           mixBlendMode: "screen",
-          willChange: "opacity, background-position",
+          willChange: "opacity",
         }}
       />
 
@@ -650,6 +656,7 @@ function CardBack({ card }: { card: CardDesign }) {
         <img
           src={card.backImage}
           alt={`${card.title} back`}
+          decoding="async"
           className="pointer-events-none absolute inset-0 h-full w-full object-cover"
         />
       )}
@@ -750,12 +757,8 @@ function CardDetail({
 
   // Notify document & Navbar of active modal state
   useEffect(() => {
-    document.documentElement.dataset.cardwallModal = "open";
-    window.dispatchEvent(new CustomEvent("cardwall-modal-toggle"));
-    return () => {
-      document.documentElement.dataset.cardwallModal = "";
-      window.dispatchEvent(new CustomEvent("cardwall-modal-toggle"));
-    };
+    yieldChromeToModal();
+    return () => restoreChromeFromModal();
   }, []);
 
   const applyPerspState = useCallback(() => {
@@ -886,6 +889,10 @@ function CardDetail({
       () => {
         if (deckPerspectiveEl) deckPerspectiveEl.style.zIndex = "200";
         if (chromeRootRef.current) chromeRootRef.current.style.zIndex = "80";
+        // Bring the Navbar back mid-flight (as the backdrop fades) instead of
+        // after the full 0.95s return — otherwise the screen sits header-less.
+        // Idempotent; handleCloseDetail re-asserts it as a safety net.
+        restoreChromeFromModal();
       },
       [],
       0.3
@@ -922,9 +929,23 @@ function CardDetail({
       tl.to(backdropRef.current, { opacity: 0, duration: 0.55, ease: "power2.inOut" }, 0.35);
     }
 
-    // 7. Restore deck shadow under landing card
-    if (shadowEl) {
-      tl.to(shadowEl, { opacity: 0.32, duration: 0.45, ease: "power2.out" }, 0.45);
+    // 7. Restore deck shadows across returning cards
+    const validShadows = shadowEls.filter((el) => el !== null);
+    if (validShadows.length > 0) {
+      gsap.killTweensOf(validShadows);
+      tl.to(
+        validShadows,
+        {
+          opacity: 0.32,
+          duration: 0.45,
+          ease: "power2.out",
+          stagger: {
+            each: 0.006,
+            from: detail.idx,
+          },
+        },
+        0.35
+      );
     }
   }, [slotEl, detail, cardEls, shadowEls, otherEntrances, onClose, applyPerspState]);
 
@@ -1129,9 +1150,11 @@ function CardDetail({
       );
     }
 
-    // 4. Fade deck shadow under the taking-off card
-    if (shadowEl) {
-      tl.to(shadowEl, { opacity: 0, duration: 0.35, ease: "power2.out" }, 0);
+    // 4. Fade ALL deck shadows out so no orphan shadows bleed through the modal or active card
+    const validShadows = shadowEls.filter((el) => el !== null);
+    if (validShadows.length > 0) {
+      gsap.killTweensOf(validShadows);
+      tl.to(validShadows, { opacity: 0, duration: 0.35, ease: "power2.out" }, 0);
     }
 
     // 5. Main Card Flight & 3D transformation (starts immediately, butter smooth)
@@ -1410,25 +1433,28 @@ export default function Cardwall({
   heroCards?: HeroCardInput[];
   startEntrance?: boolean;
 }) {
-  visibleCards = heroCards.length
-    ? Array.from({ length: Math.ceil(DEFAULT_CARDS.length / heroCards.length) }, (_, repeat) =>
-        heroCards.map((item, index) => ({
-          ...PALETTE[index % PALETTE.length],
-          id: repeat * heroCards.length + index,
-          title: item.title,
-          writer: item.writer,
-          category: item.category || PALETTE[index % PALETTE.length].category,
-          readTime: item.readTime || PALETTE[index % PALETTE.length].readTime,
-          words: item.words || PALETTE[index % PALETTE.length].words,
-          description: item.description || PALETTE[index % PALETTE.length].description,
-          slug: item.href || PALETTE[index % PALETTE.length].slug,
-          image: item.image || PALETTE[index % PALETTE.length].image,
-          accent: item.accent || PALETTE[index % PALETTE.length].accent,
-        }))
-      )
-        .flat()
-        .slice(0, DEFAULT_CARDS.length)
-    : DEFAULT_CARDS;
+  const visibleCards: CardDesign[] = React.useMemo(() => {
+    return heroCards.length
+      ? Array.from({ length: Math.ceil(DEFAULT_CARDS.length / heroCards.length) }, (_, repeat) =>
+          heroCards.map((item, index) => ({
+            ...PALETTE[index % PALETTE.length],
+            id: repeat * heroCards.length + index,
+            title: item.title,
+            writer: item.writer,
+            category: item.category || PALETTE[index % PALETTE.length].category,
+            readTime: item.readTime || PALETTE[index % PALETTE.length].readTime,
+            words: item.words || PALETTE[index % PALETTE.length].words,
+            description: item.description || PALETTE[index % PALETTE.length].description,
+            slug: item.href || PALETTE[index % PALETTE.length].slug,
+            image: item.image || PALETTE[index % PALETTE.length].image,
+            accent: item.accent || PALETTE[index % PALETTE.length].accent,
+          }))
+        )
+          .flat()
+          .slice(0, DEFAULT_CARDS.length)
+      : DEFAULT_CARDS;
+  }, [heroCards]);
+
   const sectionRef = useRef<HTMLElement>(null);
   const deckPerspectiveRef = useRef<HTMLDivElement>(null);
   const entranceSettledRef = useRef(false);
@@ -1443,58 +1469,48 @@ export default function Cardwall({
     };
   }, [lenis]);
 
-  const [cfg, setCfg] = useState<ViewConfig>(pickDefaultCfg);
+  const [cfg, setCfg] = useState<ViewConfig>(DEFAULT_CFG);
   const [detail, setDetail] = useState<DetailState | null>(null);
-  const [centers, setCenters] = useState<Array<{ x: number; y: number }>>([]);
-  const [assetsLoaded, setAssetsLoaded] = useState(false);
-
-  // Preload all images and fonts before starting the entrance animation
-  useEffect(() => {
-    let imagesDone = false;
-    let fontsDone = false;
-
-    const checkReady = () => {
-      if (imagesDone && fontsDone) setAssetsLoaded(true);
-    };
-
-    if (typeof document !== "undefined" && document.fonts?.ready) {
-      document.fonts.ready.then(() => {
-        fontsDone = true;
-        checkReady();
-      });
-    } else {
-      fontsDone = true;
-    }
-
-    if (visibleCards.length === 0) {
-      imagesDone = true;
-      checkReady();
-      return;
-    }
-
-    let loadedCount = 0;
-    visibleCards.forEach((card) => {
-      if (!card.image) {
-        loadedCount++;
-        if (loadedCount === visibleCards.length) {
-          imagesDone = true;
-          checkReady();
-        }
-        return;
-      }
-      const img = new Image();
-      const onImgReady = () => {
-        loadedCount++;
-        if (loadedCount === visibleCards.length) {
-          imagesDone = true;
-          checkReady();
-        }
+  const [centers, setCenters] = useState<Array<{ x: number; y: number }>>(() => {
+    const cfgInit = DEFAULT_CFG;
+    const vw = 1440;
+    const vh = 900;
+    const sx = (cfgInit.startX / 100) * vw;
+    const sy = (cfgInit.startY / 100) * vh;
+    const ex = (cfgInit.endX / 100) * vw;
+    const ey = (cfgInit.endY / 100) * vh;
+    const count = visibleCards.length || 18;
+    return Array.from({ length: count }, (_, i) => {
+      const t = i / (count - 1);
+      return {
+        x: sx + t * (ex - sx),
+        y: sy + t * (ey - sy),
       };
-      img.onload = onImgReady;
-      img.onerror = onImgReady;
-      img.src = card.image;
     });
+  });
+  // Sync client responsive cfg on mount without SSR hydration mismatch
+  useEffect(() => {
+    setCfg(pickDefaultCfg());
   }, []);
+
+  // Warm the decoder cache with the EXACT URLs the card faces render, so
+  // custom covers are already decoded before frame 1 of the entrance.
+  // Deliberately stateless: resolving decodes must never re-render this
+  // component (18 cards × deep 3D subtree) mid-flight.
+  useEffect(() => {
+    visibleCards.forEach((card) => {
+      const sources = [card.image ? getOptimizedCardwallCoverUrl(card.image) : "", card.backImage || ""];
+      sources.forEach((src) => {
+        if (!src) return;
+        const img = new Image();
+        img.decoding = "async";
+        img.onload = () => {
+          if ("decode" in img) img.decode().catch(() => {});
+        };
+        img.src = src;
+      });
+    });
+  }, [visibleCards]);
 
   const centersRef = useRef<Array<{ x: number; y: number }>>([]);
   const layoutCentersRef = useRef<Array<{ x: number; y: number }>>([]);
@@ -1519,7 +1535,7 @@ export default function Cardwall({
 
   // Physics state per card
   const physicsStates = useRef<CardPhysicsState[]>(
-    visibleCards.map(() => ({
+    Array.from({ length: 42 }, () => ({
       lift: 0,
       velLift: 0,
       rotX: 0,
@@ -1564,7 +1580,14 @@ export default function Cardwall({
     });
 
     layoutCentersRef.current = layout;
-    setCenters(layout);
+    setCenters((prev) => {
+      if (prev.length === layout.length && prev[0] && layout[0]) {
+        const dx = Math.abs(prev[0].x - layout[0].x);
+        const dy = Math.abs(prev[0].y - layout[0].y);
+        if (dx < 1 && dy < 1) return prev;
+      }
+      return layout;
+    });
 
     const originX = (cfg.originX / 100) * vw;
     const originY = (cfg.originY / 100) * vh;
@@ -1631,7 +1654,7 @@ export default function Cardwall({
 
   // Entrance animation (Helical sky formation -> resting deck)
   useEffect(() => {
-    if (entrancePlayedRef.current || centers.length === 0 || !assetsLoaded) return;
+    if (entrancePlayedRef.current || centers.length === 0) return;
 
     const validEntranceEls = entranceRefs.current.filter((el) => el !== null);
     const letters = sectionRef.current?.querySelectorAll("[data-reveal-letter]");
@@ -1651,10 +1674,10 @@ export default function Cardwall({
     }
 
     if (letters && letters.length > 0) {
-      gsap.set(letters, { opacity: 0, scale: 0.4, rotationY: 90, filter: "blur(24px)" });
+      gsap.set(letters, { opacity: 0, scale: 0.4, rotationY: 90 });
     }
     if (tagline && tagline.length > 0) {
-      gsap.set(tagline, { opacity: 0, y: 20, filter: "blur(6px)" });
+      gsap.set(tagline, { opacity: 0, y: 20 });
     }
     if (meta && meta.length > 0) {
       gsap.set(meta, { opacity: 0, y: 20 });
@@ -1669,6 +1692,9 @@ export default function Cardwall({
         delay: 0.05,
         onComplete: () => {
           entranceSettledRef.current = true;
+          // Let deferred heavy work (WebGL books, texture pre-generation)
+          // start only now that the flight is over.
+          markCardwallSettled();
         },
       });
 
@@ -1680,7 +1706,7 @@ export default function Cardwall({
             y: 0,
             rotation: 0,
             scale: 1,
-            opacity: 0.999,
+            opacity: 1,
             duration: 1.8,
             ease: "power3.out",
             stagger: { each: 0.028, from: "center" },
@@ -1697,10 +1723,10 @@ export default function Cardwall({
             opacity: 1,
             scale: 1,
             rotationY: 0,
-            filter: "blur(0px)",
             duration: 1.1,
             ease: "power3.out",
             stagger: 0.055,
+            force3D: true,
           },
           0.1
         );
@@ -1709,25 +1735,33 @@ export default function Cardwall({
       if (tagline && tagline.length > 0) {
         tl.to(
           tagline,
-          { opacity: 1, y: 0, filter: "blur(0px)", duration: 1.1, ease: "power4.out" },
+          { opacity: 1, y: 0, duration: 1.1, ease: "power4.out", force3D: true },
           0.9
         );
       }
 
       if (meta && meta.length > 0) {
-        tl.to(meta, { opacity: 1, y: 0, duration: 1, ease: "power4.out" }, 1.0);
+        tl.to(meta, { opacity: 1, y: 0, duration: 1, ease: "power4.out", force3D: true }, 1.0);
       }
     };
 
-    requestAnimationFrame(() => requestAnimationFrame(buildTimeline));
-  }, [centers, assetsLoaded, startEntrance]);
+    requestAnimationFrame(buildTimeline);
+  }, [startEntrance]);
 
-  // Physics animation loop (rAF) with delta clamping & micro-thresholding
+  // Physics animation loop (rAF) with delta clamping & micro-thresholding.
+  // The loop is parked via IntersectionObserver while the hero is scrolled
+  // out of view so it never competes with below-the-fold scrolling.
   useEffect(() => {
-    let animId: number;
+    let animId = 0;
+    let running = false;
     let lastT = performance.now();
 
     const tick = (now: number) => {
+      if (!entranceSettledRef.current) {
+        animId = requestAnimationFrame(tick);
+        return;
+      }
+
       const dt = clamp(0.1, (now - lastT) / 16.667, 1.5);
       lastT = now;
 
@@ -1822,14 +1856,40 @@ export default function Cardwall({
       animId = requestAnimationFrame(tick);
     };
 
-    animId = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(animId);
+    const start = () => {
+      if (running) return;
+      running = true;
+      lastT = performance.now();
+      animId = requestAnimationFrame(tick);
+    };
+
+    const stop = () => {
+      running = false;
+      cancelAnimationFrame(animId);
+    };
+
+    const visibilityObserver = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) start();
+        else stop();
+      },
+      { rootMargin: "10% 0px 10% 0px" }
+    );
+
+    if (sectionRef.current) visibilityObserver.observe(sectionRef.current);
+
+    start();
+    return () => {
+      stop();
+      visibilityObserver.disconnect();
+    };
   }, []);
 
   // Pointer event handlers
   const handlePointerMove = (e: React.PointerEvent) => {
     if (
       lockedIdxRef.current !== null ||
+      !entranceSettledRef.current ||
       !sectionRef.current ||
       (typeof window !== "undefined" && window.innerWidth < 768)
     ) {
@@ -1937,10 +1997,7 @@ export default function Cardwall({
   const handleCloseDetail = () => {
     lockedIdxRef.current = null;
     setDetail(null);
-    if (typeof document !== "undefined") {
-      document.documentElement.dataset.cardwallModal = "";
-      window.dispatchEvent(new CustomEvent("cardwall-modal-toggle"));
-    }
+    restoreChromeFromModal();
     // Reset the opened card's elevated stacking
     cardRefs.current.forEach((el) => {
       if (el) el.style.zIndex = "";
@@ -1993,7 +2050,13 @@ export default function Cardwall({
         <p
           data-reveal-tagline
           className="text-center text-sm md:text-base tracking-[0.02em] text-muted-foreground/90 font-medium mb-1.5 md:mb-3"
-          style={{ fontFamily: "var(--font-playfair), serif", fontStyle: "italic" }}
+          style={{
+            fontFamily: "var(--font-playfair), serif",
+            fontStyle: "italic",
+            transform: "translateZ(0)",
+            backfaceVisibility: "hidden",
+            willChange: "transform, opacity",
+          }}
         >
           Appreciate Literature?
         </p>
@@ -2017,7 +2080,9 @@ export default function Cardwall({
               className="inline-block"
               style={{
                 transformOrigin: "50% 50%",
-                willChange: "transform, filter, opacity",
+                transform: "translateZ(0)",
+                backfaceVisibility: "hidden",
+                willChange: "transform, opacity",
               }}
             >
               {char === " " ? "\u00A0" : char}
@@ -2029,13 +2094,13 @@ export default function Cardwall({
       {/* Deck Perspective Container */}
       <div
         ref={deckPerspectiveRef}
+        suppressHydrationWarning
         className={`pointer-events-none absolute inset-0 ${detail !== null ? "z-[500]" : "z-[200]"}`}
         style={{
           perspective: cfg.perspective,
           perspectiveOrigin: `${cfg.originX}% ${cfg.originY}%`,
           transform: "translateZ(0)",
           transformStyle: "preserve-3d",
-          willChange: "transform",
         }}
       >
         {visibleCards.map((card, i) => {
@@ -2049,6 +2114,7 @@ export default function Cardwall({
             <div
               key={card.id}
               data-card-slot={i}
+              suppressHydrationWarning
               ref={(el) => {
                 slotRefs.current[i] = el;
               }}
@@ -2073,9 +2139,8 @@ export default function Cardwall({
                   height: 24,
                   marginLeft: -94.5,
                   background:
-                    "radial-gradient(ellipse at center, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0) 70%)",
-                  filter: "blur(12px)",
-                  willChange: "transform, filter, opacity",
+                    "radial-gradient(ellipse 50% 50% at center, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.24) 40%, rgba(0,0,0,0.06) 65%, transparent 80%)",
+                  willChange: "transform, opacity",
                 }}
               />
 
@@ -2101,7 +2166,6 @@ export default function Cardwall({
                     transformStyle: "preserve-3d",
                     transformOrigin: "50% 50%",
                     transform: "translateZ(0)",
-                    willChange: "transform",
                   }}
                 >
                   {/* Scale wrapper */}
@@ -2114,7 +2178,6 @@ export default function Cardwall({
                       transformStyle: "preserve-3d",
                       transformOrigin: "50% 50%",
                       transform: "translateZ(0)",
-                      willChange: "transform",
                     }}
                   >
                     {/* Physics card wrapper */}
@@ -2255,23 +2318,6 @@ export default function Cardwall({
           cardEls={cardRefs.current}
         />
       )}
-
-      {/* Preloader overlay to mask initialization and loading lag */}
-      <div
-        className={`pointer-events-none fixed inset-0 z-[1000] flex items-center justify-center bg-background transition-opacity duration-1000 ${
-          assetsLoaded ? "opacity-0" : "opacity-100"
-        }`}
-      >
-        <div className="flex flex-col items-center gap-4">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-foreground/20 border-t-foreground" />
-          <p
-            className="text-sm text-foreground/60 uppercase tracking-widest"
-            style={{ fontFamily: "var(--font-inter), sans-serif" }}
-          >
-            Loading Environment
-          </p>
-        </div>
-      </div>
     </section>
   );
 }

@@ -230,9 +230,9 @@ enum AchievementCategory {
 model Follow {
   id          String   @id @default(uuid())
   followerId  String
-  follower    User     @relation("FollowingRelationFollowers", fields: [followerId], references: [id])
+  follower    User     @relation("FollowingRelationFollowers", fields: [followerId], references: [id], onDelete: Cascade)
   followingId String
-  following   User     @relation("FollowingRelationFollowing", fields: [followingId], references: [id])
+  following   User     @relation("FollowingRelationFollowing", fields: [followingId], references: [id], onDelete: Cascade)
   createdAt   DateTime @default(now())
 
   @@unique([followerId, followingId])
@@ -241,10 +241,10 @@ model Follow {
 model Notification {
   id              String           @id @default(uuid())
   recipientId     String
-  recipient       User             @relation("RecipientNotifications", fields: [recipientId], references: [id])
+  recipient       User             @relation("RecipientNotifications", fields: [recipientId], references: [id], onDelete: Cascade)
   type            NotificationType
   actorId         String?
-  actor           User?            @relation("ActorNotifications", fields: [actorId], references: [id])
+  actor           User?            @relation("ActorNotifications", fields: [actorId], references: [id], onDelete: Cascade)
   entityType      String
   entityId        String
   message         String?
@@ -252,7 +252,7 @@ model Notification {
   createdAt       DateTime         @default(now())
 
   eventId         String?
-  event           Event?           @relation(fields: [eventId], references: [id])
+  event           Event?           @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
   @@index([recipientId, isRead])
 }
@@ -336,6 +336,10 @@ enum EventStatus {
   UPCOMING
   PAST
   CANCELLED
+  POSTPONED
+  DELAYED
+  LIVE
+  RESCHEDULED
 }
 
 enum BookAvailabilityStatus {
@@ -402,9 +406,9 @@ model Event {
 model EventRegistration {
   id                   String   @id @default(uuid())
   eventId              String
-  event                Event    @relation(fields: [eventId], references: [id])
+  event                Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
   userId               String
-  user                 User     @relation(fields: [userId], references: [id])
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   name                 String
   email                String
   phone                String?
@@ -414,7 +418,7 @@ model EventRegistration {
   paymentVerifiedAt    DateTime?
   registeredAt         DateTime @default(now())
 
-  @@unique([eventId, userId])
+  @@index([eventId, userId])
   @@index([eventId])
 }
 

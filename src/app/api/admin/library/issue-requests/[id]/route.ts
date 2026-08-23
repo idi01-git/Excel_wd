@@ -139,6 +139,15 @@ export async function PATCH(
         request.bookId,
         adminNote || request.adminNote
       );
+    } else if (action === 'RETURN') {
+      await createNotification(
+        request.requesterId,
+        'ISSUE_REQUEST_APPROVED',
+        session.user.id,
+        'BOOK',
+        request.bookId,
+        `📖 Return Confirmed: "${request.book.title}" was marked as returned to the library.`
+      );
     }
 
     return NextResponse.json({ success: true, request: updated });

@@ -1,9 +1,9 @@
 // src/components/ui/ImageCropperModal.tsx
 'use client';
 
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useId } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ZoomIn, ZoomOut, RotateCw, Check, Crop, RefreshCcw } from 'lucide-react';
+import { X, ZoomIn, ZoomOut, RotateCw, Check, Crop, RefreshCcw, Circle, Square, User } from 'lucide-react';
 
 export const ASPECT_RATIOS = {
   AVATAR: 1,
@@ -20,6 +20,8 @@ export interface ImageCropperModalProps {
   imageSrc: string;
   aspectRatio?: number | null; // e.g. 1 for square, 2/3 for books
   aspectPresetLabel?: string;
+  cropShape?: 'rect' | 'round'; // 'round' for circular avatar framing
+  circular?: boolean; // Convenience flag for circular crop
   allowRatioSelection?: boolean; // Show interactive ratio switcher toolbar
   onCropComplete: (croppedBlob: Blob, croppedUrl: string) => void;
   onCancel: () => void;
@@ -39,10 +41,24 @@ export function ImageCropperModal({
   imageSrc,
   aspectRatio = 1,
   aspectPresetLabel = 'Square (1:1)',
+  cropShape: initialCropShape,
+  circular = false,
   allowRatioSelection = false,
   onCropComplete,
   onCancel,
 }: ImageCropperModalProps) {
+  const maskId = useId();
+  const isProfilePreset = Boolean(
+    circular ||
+    initialCropShape === 'round' ||
+    aspectPresetLabel?.toLowerCase().includes('avatar') ||
+    aspectPresetLabel?.toLowerCase().includes('profile')
+  );
+
+  const [cropShape, setCropShape] = useState<'rect' | 'round'>(
+    initialCropShape || (isProfilePreset ? 'round' : 'rect')
+  );
+
   const [scale, setScale] = useState<number>(1);
   const [rotation, setRotation] = useState<number>(0);
   const [position, setPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -76,14 +92,18 @@ export function ImageCropperModal({
       } else if (aspectRatio) {
         setActiveRatio(aspectRatio);
       }
+      setCropShape(initialCropShape || (isProfilePreset ? 'round' : 'rect'));
     };
     img.src = imageSrc;
-  }, [imageSrc, aspectRatio]);
+  }, [imageSrc, aspectRatio, initialCropShape, isProfilePreset]);
 
   // Compute framing dimensions based on current active ratio
   const targetRatio = activeRatio === 'ORIGINAL' ? naturalAspect : (activeRatio || 1);
+  const isSquareRatio = Math.abs(targetRatio - 1) < 0.01;
+  const isCircular = isSquareRatio && cropShape === 'round';
+
   const maxViewH = 260;
-  const maxViewW = 300;
+  const maxViewW = 280;
 
   let frameWidth: number;
   let frameHeight: number;
@@ -104,6 +124,19 @@ export function ImageCropperModal({
     }
   }
 
+  // Exact base dimensions that cover the frame centered
+  const imgAspect = naturalAspect || 1;
+  let baseW: number;
+  let baseH: number;
+
+  if (imgAspect > targetRatio) {
+    baseH = frameHeight;
+    baseW = Math.round(frameHeight * imgAspect);
+  } else {
+    baseW = frameWidth;
+    baseH = Math.round(frameWidth / imgAspect);
+  }
+
   // Pointer drag event handlers for pan
   const handlePointerDown = (e: React.PointerEvent) => {
     setIsDragging(true);
@@ -117,8 +150,8 @@ export function ImageCropperModal({
     const dx = e.clientX - dragStartRef.current.x;
     const dy = e.clientY - dragStartRef.current.y;
     
-    const boundX = (frameWidth * scale) * 0.9;
-    const boundY = (frameHeight * scale) * 0.9;
+    const boundX = (baseW * scale) * 0.9;
+    const boundY = (baseH * scale) * 0.9;
     
     const nextX = Math.max(-boundX, Math.min(boundX, posStartRef.current.x + dx));
     const nextY = Math.max(-boundY, Math.min(boundY, posStartRef.current.y + dy));
@@ -141,7 +174,7 @@ export function ImageCropperModal({
     setPosition({ x: 0, y: 0 });
   };
 
-  // Generate cropped output canvas
+  // Generate cropped output canvas with 100% exact mathematical parity
   const handleCrop = useCallback(() => {
     if (!imageRef.current || !imageLoaded) return;
 
@@ -150,36 +183,45 @@ export function ImageCropperModal({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const outputWidth = 600;
-    const outputHeight = Math.round(outputWidth / targetRatio);
+    const outputSize = Math.min(1200, Math.max(800, Math.round(frameWidth * 3)));
+    const outputWidth = outputSize;
+    const outputHeight = Math.round(outputSize / targetRatio);
+
     canvas.width = outputWidth;
     canvas.height = outputHeight;
+
+    const factor = outputWidth / frameWidth;
 
     ctx.fillStyle = '#000000';
     ctx.fillRect(0, 0, outputWidth, outputHeight);
 
     ctx.save();
-    ctx.translate(outputWidth / 2, outputHeight / 2);
-    ctx.rotate((rotation * Math.PI) / 180);
-    ctx.scale(scale, scale);
-
-    const scaleFactorX = outputWidth / frameWidth;
-    const scaleFactorY = outputHeight / frameHeight;
-    ctx.translate(position.x * scaleFactorX, position.y * scaleFactorY);
-
-    const imgAspect = img.naturalWidth / img.naturalHeight;
-    let drawW: number;
-    let drawH: number;
-
-    if (imgAspect > targetRatio) {
-      drawH = outputHeight;
-      drawW = drawH * imgAspect;
-    } else {
-      drawW = outputWidth;
-      drawH = drawW / imgAspect;
+    
+    // Circular crop clipping
+    if (isCircular) {
+      ctx.beginPath();
+      ctx.arc(outputWidth / 2, outputHeight / 2, Math.min(outputWidth, outputHeight) / 2, 0, Math.PI * 2);
+      ctx.closePath();
+      ctx.clip();
     }
 
+    // 1. Move to canvas center
+    ctx.translate(outputWidth / 2, outputHeight / 2);
+
+    // 2. Apply user pan position
+    ctx.translate(position.x * factor, position.y * factor);
+
+    // 3. Apply user rotation
+    ctx.rotate((rotation * Math.PI) / 180);
+
+    // 4. Apply user zoom scale
+    ctx.scale(scale, scale);
+
+    // 5. Draw image centered
+    const drawW = baseW * factor;
+    const drawH = baseH * factor;
     ctx.drawImage(img, -drawW / 2, -drawH / 2, drawW, drawH);
+
     ctx.restore();
 
     canvas.toBlob(
@@ -189,17 +231,20 @@ export function ImageCropperModal({
         onCropComplete(blob, croppedUrl);
       },
       'image/webp',
-      0.92
+      0.95
     );
-  }, [imageLoaded, targetRatio, frameWidth, frameHeight, rotation, scale, position, onCropComplete]);
+  }, [imageLoaded, targetRatio, frameWidth, frameHeight, baseW, baseH, rotation, scale, position, onCropComplete, isCircular]);
 
   if (!isOpen) return null;
+
+  const preview40Factor = 40 / frameWidth;
+  const preview24Factor = 24 / frameWidth;
 
   return (
     <AnimatePresence>
       <div 
         data-lenis-prevent
-        className="fixed inset-0 z-[100] flex items-center justify-center p-4 overflow-y-auto"
+        className="fixed inset-0 z-1100 flex items-center justify-center p-4 overflow-y-auto"
       >
         {/* Frosted Backdrop */}
         <motion.div
@@ -223,14 +268,22 @@ export function ImageCropperModal({
           <div className="flex items-center justify-between border-b border-neutral-200 dark:border-neutral-800 pb-3">
             <div className="flex items-center gap-2.5">
               <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-neutral-100 dark:bg-neutral-900 text-neutral-900 dark:text-white border border-neutral-200 dark:border-neutral-800">
-                <Crop size={15} />
+                {isCircular ? <Circle size={15} className="text-purple-600 dark:text-purple-400" /> : <Crop size={15} />}
               </div>
               <div>
                 <h3 className="font-serif text-base sm:text-lg font-bold text-neutral-900 dark:text-white">
-                  Portrait Cropper
+                  {isCircular
+                    ? 'Profile Photo Framing'
+                    : aspectPresetLabel
+                    ? aspectPresetLabel
+                    : (allowRatioSelection ? 'Image Cropper & Framing' : 'Image Cropper')}
                 </h3>
                 <p className="font-mono text-[10px] uppercase tracking-wider text-neutral-500">
-                  {allowRatioSelection ? 'Select aspect ratio or framing' : `Aspect: ${aspectPresetLabel}`}
+                  {isCircular
+                    ? 'Circular Avatar View (1:1)'
+                    : allowRatioSelection
+                    ? 'Select aspect ratio or custom framing'
+                    : `Aspect: ${aspectPresetLabel}`}
                 </p>
               </div>
             </div>
@@ -242,36 +295,72 @@ export function ImageCropperModal({
             </button>
           </div>
 
-          {/* Interactive Ratio Switcher (if enabled) */}
-          {allowRatioSelection && (
-            <div className="flex items-center gap-1.5 p-1 rounded-xl bg-neutral-100 dark:bg-[#141414] border border-neutral-200 dark:border-neutral-800 overflow-x-auto">
-              {RATIO_PRESETS.map((preset) => {
-                const isSelected = activeRatio === preset.value;
-                return (
-                  <button
-                    key={preset.label}
-                    onClick={() => setActiveRatio(preset.value as any)}
-                    className={`px-2.5 py-1 rounded-lg text-[10.5px] font-mono font-bold transition-all cursor-pointer whitespace-nowrap ${
-                      isSelected
-                        ? 'bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 shadow-xs'
-                        : 'text-neutral-500 hover:text-neutral-900 dark:hover:text-white'
-                    }`}
-                  >
-                    {preset.label}
-                  </button>
-                );
-              })}
-            </div>
-          )}
+          {/* Interactive Ratio Switcher & Shape Toggle Toolbar */}
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            {allowRatioSelection ? (
+              <div className="flex items-center gap-1.5 p-1 rounded-xl bg-neutral-100 dark:bg-[#141414] border border-neutral-200 dark:border-neutral-800 overflow-x-auto">
+                {RATIO_PRESETS.map((preset) => {
+                  const isSelected = activeRatio === preset.value;
+                  return (
+                    <button
+                      key={preset.label}
+                      onClick={() => setActiveRatio(preset.value as any)}
+                      className={`px-2.5 py-1 rounded-lg text-[10.5px] font-mono font-bold transition-all cursor-pointer whitespace-nowrap ${
+                        isSelected
+                          ? 'bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 shadow-xs'
+                          : 'text-neutral-500 hover:text-neutral-900 dark:hover:text-white'
+                      }`}
+                    >
+                      {preset.label}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : <div />}
+
+            {/* Shape Switcher for 1:1 square crops (Circle Avatar vs Square Box) */}
+            {isSquareRatio && (
+              <div className="flex items-center gap-1 p-1 rounded-xl bg-neutral-100 dark:bg-[#141414] border border-neutral-200 dark:border-neutral-800 ml-auto">
+                <button
+                  type="button"
+                  onClick={() => setCropShape('round')}
+                  className={`px-2.5 py-1 rounded-lg text-[10.5px] font-mono flex items-center gap-1.5 transition-all cursor-pointer ${
+                    cropShape === 'round'
+                      ? 'bg-purple-600 text-white font-bold shadow-xs'
+                      : 'text-neutral-500 hover:text-neutral-900 dark:hover:text-white'
+                  }`}
+                  title="Circular Avatar Mask"
+                >
+                  <Circle size={12} />
+                  <span>Circle</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCropShape('rect')}
+                  className={`px-2.5 py-1 rounded-lg text-[10.5px] font-mono flex items-center gap-1.5 transition-all cursor-pointer ${
+                    cropShape === 'rect'
+                      ? 'bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 font-bold shadow-xs'
+                      : 'text-neutral-500 hover:text-neutral-900 dark:hover:text-white'
+                  }`}
+                  title="Square Mask"
+                >
+                  <Square size={12} />
+                  <span>Square</span>
+                </button>
+              </div>
+            )}
+          </div>
 
           {/* Framing Canvas Stage */}
-          <div className="flex flex-col items-center justify-center p-2 rounded-2xl bg-neutral-100 dark:bg-[#070707] border border-neutral-200/80 dark:border-neutral-800/80 select-none">
+          <div className="flex flex-col items-center justify-center p-3 rounded-2xl bg-neutral-100 dark:bg-[#070707] border border-neutral-200/80 dark:border-neutral-800/80 select-none relative">
             <div
-              className="relative overflow-hidden cursor-grab active:cursor-grabbing flex items-center justify-center touch-none rounded-2xl shadow-inner"
+              className={`relative overflow-hidden cursor-grab active:cursor-grabbing flex items-center justify-center touch-none shadow-inner ${
+                isCircular ? 'rounded-full' : 'rounded-2xl'
+              }`}
               style={{
                 width: `${frameWidth}px`,
                 height: `${frameHeight}px`,
-                backgroundColor: '#000000',
+                backgroundColor: '#0a0a0a',
               }}
               onPointerDown={handlePointerDown}
               onPointerMove={handlePointerMove}
@@ -281,48 +370,200 @@ export function ImageCropperModal({
               {/* Image Transform Layer */}
               {imageSrc && (
                 <div
-                  className="absolute pointer-events-none transition-transform duration-75 ease-out will-change-transform"
                   style={{
+                    position: 'absolute',
+                    width: `${baseW}px`,
+                    height: `${baseH}px`,
                     transform: `translate(${position.x}px, ${position.y}px) rotate(${rotation}deg) scale(${scale})`,
+                    transformOrigin: 'center center',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    pointerEvents: 'none',
+                    willChange: 'transform',
                   }}
                 >
                   <img
                     src={imageSrc}
                     alt="Source Crop"
-                    className="max-w-none block select-none pointer-events-none"
                     style={{
-                      height: `${frameHeight}px`,
-                      width: 'auto',
-                      objectFit: 'contain',
+                      width: `${baseW}px`,
+                      height: `${baseH}px`,
+                      maxWidth: 'none',
+                      maxHeight: 'none',
+                      objectFit: 'fill',
+                      display: 'block',
+                      pointerEvents: 'none',
+                      userSelect: 'none',
                     }}
                     draggable={false}
                   />
                 </div>
               )}
 
-              {/* Grid Lines */}
-              <div className="absolute inset-0 pointer-events-none grid grid-cols-3 grid-rows-3 opacity-25 border border-white/40">
-                <div className="border-r border-b border-white/30" />
-                <div className="border-r border-b border-white/30" />
-                <div className="border-b border-white/30" />
-                <div className="border-r border-b border-white/30" />
-                <div className="border-r border-b border-white/30" />
-                <div className="border-b border-white/30" />
-                <div className="border-r border-white/30" />
-                <div className="border-r border-white/30" />
-                <div />
-              </div>
+              {/* Square Grid Lines for Rectangular framing */}
+              {!isCircular && (
+                <div className="absolute inset-0 pointer-events-none grid grid-cols-3 grid-rows-3 opacity-25 border border-white/40">
+                  <div className="border-r border-b border-white/30" />
+                  <div className="border-r border-b border-white/30" />
+                  <div className="border-b border-white/30" />
+                  <div className="border-r border-b border-white/30" />
+                  <div className="border-r border-b border-white/30" />
+                  <div className="border-b border-white/30" />
+                  <div className="border-r border-b border-white/30" />
+                  <div className="border-r border-b border-white/30" />
+                  <div />
+                </div>
+              )}
 
-              {/* Circular Avatar Framing Guide (1:1 mode) */}
-              {targetRatio === 1 && (
-                <div className="absolute inset-2 rounded-full border-2 border-dashed border-white/40 pointer-events-none shadow-[0_0_0_9999px_rgba(0,0,0,0.4)]" />
+              {/* Circular Avatar Framing Guide with SVG Mask & Rule-of-Thirds Crosshairs */}
+              {isCircular && (
+                <svg
+                  className="absolute inset-0 w-full h-full pointer-events-none z-10"
+                  width="100%"
+                  height="100%"
+                >
+                  <defs>
+                    <mask id={maskId}>
+                      <rect width="100%" height="100%" fill="white" />
+                      <circle cx="50%" cy="50%" r="48.5%" fill="black" />
+                    </mask>
+                  </defs>
+                  
+                  {/* Frosted Dark Shadow Outside the Circle */}
+                  <rect
+                    width="100%"
+                    height="100%"
+                    fill="rgba(0, 0, 0, 0.65)"
+                    mask={`url(#${maskId})`}
+                  />
+
+                  {/* High-visibility Circular Frame Ring */}
+                  <circle
+                    cx="50%"
+                    cy="50%"
+                    r="48.5%"
+                    fill="none"
+                    stroke="rgba(255, 255, 255, 0.9)"
+                    strokeWidth="2"
+                    strokeDasharray="6 4"
+                  />
+
+                  {/* Center Alignment Crosshairs for Precision Face Framing */}
+                  <line
+                    x1="50%"
+                    y1="38%"
+                    x2="50%"
+                    y2="62%"
+                    stroke="rgba(255, 255, 255, 0.35)"
+                    strokeWidth="1"
+                    strokeDasharray="3 3"
+                  />
+                  <line
+                    x1="38%"
+                    y1="50%"
+                    x2="62%"
+                    y2="50%"
+                    stroke="rgba(255, 255, 255, 0.35)"
+                    strokeWidth="1"
+                    strokeDasharray="3 3"
+                  />
+                </svg>
               )}
             </div>
 
             <p className="font-mono text-[10px] text-neutral-400 mt-2">
-              Click and drag inside to pan &amp; frame
+              {isCircular
+                ? 'Drag inside circle to position your face'
+                : 'Click and drag inside to pan & frame'}
             </p>
           </div>
+
+          {/* Live Circular Avatar Preview Strip */}
+          {isCircular && (
+            <div className="flex items-center justify-between px-3.5 py-2.5 rounded-2xl bg-neutral-100 dark:bg-[#141414] border border-neutral-200 dark:border-neutral-800 text-xs">
+              <div className="flex items-center gap-2">
+                <User size={13} className="text-purple-600 dark:text-purple-400" />
+                <span className="text-[11px] font-semibold text-neutral-700 dark:text-neutral-300">
+                  Live Avatar Preview
+                </span>
+              </div>
+
+              <div className="flex items-center gap-4">
+                {/* 40px preview (Navbar/Profile size) */}
+                <div className="flex items-center gap-1.5">
+                  <div className="relative w-10 h-10 rounded-full overflow-hidden border-2 border-purple-500/80 bg-black shadow-sm flex items-center justify-center shrink-0">
+                    {imageSrc && (
+                      <div
+                        style={{
+                          position: 'absolute',
+                          width: `${baseW * preview40Factor}px`,
+                          height: `${baseH * preview40Factor}px`,
+                          transform: `translate(${position.x * preview40Factor}px, ${position.y * preview40Factor}px) rotate(${rotation}deg) scale(${scale})`,
+                          transformOrigin: 'center center',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          pointerEvents: 'none',
+                        }}
+                      >
+                        <img
+                          src={imageSrc}
+                          alt="Preview"
+                          style={{
+                            width: `${baseW * preview40Factor}px`,
+                            height: `${baseH * preview40Factor}px`,
+                            maxWidth: 'none',
+                            maxHeight: 'none',
+                            objectFit: 'fill',
+                            display: 'block',
+                            pointerEvents: 'none',
+                          }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                  <span className="text-[9px] font-mono text-neutral-500">Header</span>
+                </div>
+
+                {/* 24px preview (Comment/List size) */}
+                <div className="flex items-center gap-1.5">
+                  <div className="relative w-6 h-6 rounded-full overflow-hidden border border-purple-500/60 bg-black shadow-xs flex items-center justify-center shrink-0">
+                    {imageSrc && (
+                      <div
+                        style={{
+                          position: 'absolute',
+                          width: `${baseW * preview24Factor}px`,
+                          height: `${baseH * preview24Factor}px`,
+                          transform: `translate(${position.x * preview24Factor}px, ${position.y * preview24Factor}px) rotate(${rotation}deg) scale(${scale})`,
+                          transformOrigin: 'center center',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          pointerEvents: 'none',
+                        }}
+                      >
+                        <img
+                          src={imageSrc}
+                          alt="Preview"
+                          style={{
+                            width: `${baseW * preview24Factor}px`,
+                            height: `${baseH * preview24Factor}px`,
+                            maxWidth: 'none',
+                            maxHeight: 'none',
+                            objectFit: 'fill',
+                            display: 'block',
+                            pointerEvents: 'none',
+                          }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                  <span className="text-[9px] font-mono text-neutral-500">Comment</span>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Controls: Zoom & Rotate */}
           <div className="space-y-3 pt-1">
@@ -393,7 +634,15 @@ export function ImageCropperModal({
               className="px-5 py-2 rounded-xl bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 text-xs font-mono font-bold flex items-center gap-1.5 shadow-md hover:shadow-lg transition cursor-pointer"
             >
               <Check size={14} />
-              <span>Apply 1:1 Crop</span>
+              <span>
+                {isCircular
+                  ? 'Apply Profile Photo'
+                  : allowRatioSelection
+                  ? activeRatio === 'ORIGINAL'
+                    ? 'Apply Original'
+                    : 'Apply Crop'
+                  : `Apply ${aspectPresetLabel || 'Crop'}`}
+              </span>
             </button>
           </div>
         </motion.div>

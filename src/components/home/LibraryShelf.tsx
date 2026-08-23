@@ -6,32 +6,95 @@ import dynamic from 'next/dynamic';
 import { motion, useScroll, useSpring, useTransform } from 'framer-motion';
 import { ArrowRight } from 'lucide-react';
 import { BOOKS, BookData } from '@/components/sections/hardback/hardback-data';
+import { onCardwallSettled } from '@/lib/cardwall-events';
 
-// Dynamically load the 3D Book Card with client-only canvas
+// Dynamically load the 3D Book Card with client-only canvas.
+// The chunk is warmed by the HomePreloader before the hero runs, so this
+// boundary almost never shows; footprint is held either way (no layout shift).
 const Book3DCard = dynamic(
   () => import('./Book3DCard').then((mod) => mod.Book3DCard),
   {
     ssr: false,
     loading: () => (
-      <div className="h-[470px] w-[300px] md:h-[520px] md:w-[330px] shrink-0 animate-pulse rounded-lg bg-black/5 dark:bg-white/5 flex items-center justify-center border border-border/40">
-        <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-          Binding volume…
-        </span>
-      </div>
+      <div className="h-[470px] w-[300px] md:h-[520px] md:w-[330px] shrink-0" aria-hidden />
     ),
   }
 );
 
-export default function LibraryShelf() {
+const DEFAULT_SHELF_SCROLL = 1450;
+
+export default function LibraryShelf({
+  initialBooks,
+  initialLibraryCount,
+}: {
+  initialBooks?: BookData[];
+  initialLibraryCount?: number;
+}) {
   const sectionRef = useRef<HTMLElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
-  const [maxX, setMaxX] = useState(0);
-  const [totalLibraryCount, setTotalLibraryCount] = useState<number>(62);
-  const [totalPicksCount, setTotalPicksCount] = useState<number>(BOOKS.length);
-  const [featuredBooks, setFeaturedBooks] = useState<BookData[]>(BOOKS.slice(0, 5));
+  const [maxX, setMaxX] = useState<number>(DEFAULT_SHELF_SCROLL);
+  const [totalLibraryCount, setTotalLibraryCount] = useState<number>(initialLibraryCount ?? 62);
+  const [totalPicksCount, setTotalPicksCount] = useState<number>(initialBooks ? initialBooks.length : BOOKS.length);
+  const [featuredBooks, setFeaturedBooks] = useState<BookData[]>(() =>
+    initialBooks && initialBooks.length > 0 ? initialBooks.slice(0, 5) : BOOKS.slice(0, 5)
+  );
+  // WebGL books mount one at a time (behind identical-footprint spacers):
+  // mounting all 5 in a single frame compiles 5 sets of shaders at once and
+  // causes a visible scroll hitch. Books appear progressively, with zero
+  // layout shift and zero mid-hero-flight shader compilation.
+  const [mountedBooks, setMountedBooks] = useState(0);
+  // WebGL render loops are parked whenever the shelf is off-screen.
+  const [shelfActive, setShelfActive] = useState(false);
 
-  // Fetch dynamic library volume count and picks count
+  // Progressive mounting: one book every ~150ms until all 5 are up.
   useEffect(() => {
+    if (mountedBooks <= 0 || mountedBooks >= featuredBooks.length) return;
+    const timer = setTimeout(() => setMountedBooks((m) => m + 1), 150);
+    return () => clearTimeout(timer);
+  }, [mountedBooks, featuredBooks.length]);
+
+  useEffect(() => {
+    const section = sectionRef.current;
+    if (!section) return;
+
+    let ready = false;
+    const activate = () => {
+      if (ready) return;
+      ready = true;
+      setMountedBooks(1);
+    };
+
+    const mountObserver = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          activate();
+          mountObserver.disconnect();
+        }
+      },
+      { rootMargin: '150% 0px 150% 0px' }
+    );
+    mountObserver.observe(section);
+
+    const unsubscribeSettled = onCardwallSettled(activate);
+    const fallbackTimer = setTimeout(activate, 7000);
+
+    const activeObserver = new IntersectionObserver(
+      ([entry]) => setShelfActive(entry.isIntersecting),
+      { rootMargin: '25% 0px 25% 0px' }
+    );
+    activeObserver.observe(section);
+
+    return () => {
+      mountObserver.disconnect();
+      activeObserver.disconnect();
+      unsubscribeSettled();
+      clearTimeout(fallbackTimer);
+    };
+  }, []);
+
+  // Fetch dynamic library volume count and picks count only if not provided by server
+  useEffect(() => {
+    if (initialBooks && initialBooks.length > 0 && initialLibraryCount !== undefined) return;
     let isMounted = true;
     fetch('/api/library?limit=1')
       .then((res) => res.json())
@@ -45,21 +108,23 @@ export default function LibraryShelf() {
       })
       .catch(() => {});
 
-    fetch('/api/editors-shelf')
-      .then((res) => res.json())
-      .then((data) => {
-        if (!isMounted) return;
-        if (data.success && Array.isArray(data.items) && data.items.length > 0) {
-          setTotalPicksCount(data.items.length);
-          setFeaturedBooks(data.items.slice(0, 5));
-        }
-      })
-      .catch(() => {});
+    if (!initialBooks || initialBooks.length === 0) {
+      fetch('/api/editors-shelf')
+        .then((res) => res.json())
+        .then((data) => {
+          if (!isMounted) return;
+          if (data.success && Array.isArray(data.items) && data.items.length > 0) {
+            setTotalPicksCount(data.items.length);
+            setFeaturedBooks(data.items.slice(0, 5));
+          }
+        })
+        .catch(() => {});
+    }
 
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [initialBooks, initialLibraryCount]);
 
   const { scrollYProgress } = useScroll({
     target: sectionRef,
@@ -76,11 +141,17 @@ export default function LibraryShelf() {
   const barScale = useTransform(scrollYProgress, [0, 1], [0, 1]);
 
   useEffect(() => {
+    let rafId: number;
+
     const measure = () => {
-      if (!trackRef.current) return;
-      const totalWidth = trackRef.current.scrollWidth;
-      const viewportWidth = window.innerWidth;
-      setMaxX(Math.max(0, totalWidth - viewportWidth));
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        if (!trackRef.current) return;
+        const totalWidth = trackRef.current.scrollWidth;
+        const viewportWidth = window.innerWidth;
+        const newMax = Math.max(0, totalWidth - viewportWidth);
+        setMaxX(newMax);
+      });
     };
 
     measure();
@@ -94,11 +165,8 @@ export default function LibraryShelf() {
     }
     window.addEventListener('resize', measure);
 
-    // Re-measure after initial canvas mounts
-    const timer = setTimeout(measure, 500);
-
     return () => {
-      clearTimeout(timer);
+      cancelAnimationFrame(rafId);
       resizeObserver.disconnect();
       window.removeEventListener('resize', measure);
     };
@@ -109,8 +177,9 @@ export default function LibraryShelf() {
   return (
     <section
       ref={sectionRef}
+      suppressHydrationWarning
       className="relative border-t border-border bg-background"
-      style={{ height: maxX > 0 ? `calc(100vh + ${maxX}px)` : '220vh' }}
+      style={{ height: `calc(100vh + ${maxX}px)` }}
     >
       <div className="sticky top-0 flex h-screen flex-col justify-center overflow-hidden">
         {/* Ambient background glow */}
@@ -182,10 +251,20 @@ export default function LibraryShelf() {
             </p>
           </div>
 
-          {/* 5 Featured Books (Dynamic Top 5 from Editor's Shelf) */}
-          {featuredBooks.map((book, i) => (
-            <Book3DCard key={book.id || `feat-${i}`} book={book} index={i} />
-          ))}
+          {/* 5 Featured Books (Dynamic Top 5 from Editor's Shelf) — plain footprint
+              spacers hold layout; WebGL volumes mount progressively so shader
+              compilation never stutters the scroll */}
+          {featuredBooks.map((book, i) =>
+            i < mountedBooks ? (
+              <Book3DCard key={book.id || `feat-${i}`} book={book} index={i} paused={!shelfActive} />
+            ) : (
+              <div
+                key={book.id || `feat-${i}`}
+                aria-hidden
+                className="h-[470px] w-[300px] md:h-[520px] md:w-[330px] shrink-0"
+              />
+            )
+          )}
 
           {/* Outro (Circular Arrow Button connecting to Library) */}
           <div className="flex w-[14vw] min-w-[100px] max-w-[160px] shrink-0 items-center justify-center pl-2 pr-4">

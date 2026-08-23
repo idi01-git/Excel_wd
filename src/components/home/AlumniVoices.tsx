@@ -34,10 +34,11 @@ const VOICES = [
 
 const DURATION = 7000;
 
-export default function AlumniVoices() {
+export default function AlumniVoices({ initialVoices }: { initialVoices?: typeof VOICES }) {
   const [index, setIndex] = useState(0);
-  const [voices, setVoices] = useState(VOICES);
+  const [voices, setVoices] = useState(initialVoices && initialVoices.length > 0 ? initialVoices : VOICES);
   useEffect(() => {
+    if (initialVoices && initialVoices.length > 0) return;
     void fetch('/api/site-settings')
       .then((response) => response.json())
       .then((data) => {
@@ -45,7 +46,7 @@ export default function AlumniVoices() {
         if (Array.isArray(items) && items.length) setVoices(items);
       })
       .catch(() => {});
-  }, []);
+  }, [initialVoices]);
 
   const go = useCallback(
     (dir: 1 | -1) =>
@@ -71,7 +72,7 @@ export default function AlumniVoices() {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.8, ease: EASE }}
-          className="pointer-events-none absolute -right-4 top-8 select-none font-display text-[clamp(10rem,28vw,24rem)] font-medium leading-none tracking-[-0.05em] text-foreground/[0.045] md:top-2"
+          className="pointer-events-none absolute -right-4 top-8 select-none font-display text-[clamp(10rem,28vw,24rem)] font-medium leading-none tracking-tighter text-foreground/4.5 md:top-2"
         >
           {String(index + 1).padStart(2, '0')}
         </motion.span>
@@ -83,7 +84,7 @@ export default function AlumniVoices() {
         </FadeUp>
 
         {/* Quote */}
-        <div className="mt-10 min-h-[240px] md:mt-14 md:min-h-[300px]">
+        <div className="mt-10 min-h-60 md:mt-14 md:min-h-75">
           <AnimatePresence mode="wait">
             <motion.blockquote
               key={index}
@@ -139,7 +140,7 @@ export default function AlumniVoices() {
               transition={{ type: 'spring', stiffness: 400, damping: 25 }}
               onClick={() => go(-1)}
               aria-label="Previous testimonial"
-              className="group relative flex h-11 w-11 items-center justify-center rounded-full border border-border bg-foreground/[0.02] text-foreground shadow-xs transition-colors duration-200 hover:border-foreground hover:bg-foreground hover:text-background cursor-pointer"
+              className="group relative flex h-11 w-11 items-center justify-center rounded-full border border-border bg-foreground/2 text-foreground shadow-xs transition-colors duration-200 hover:border-foreground hover:bg-foreground hover:text-background cursor-pointer"
             >
               <ArrowLeft size={16} className="transition-transform duration-200 group-hover:-translate-x-0.5" />
             </motion.button>
@@ -149,7 +150,7 @@ export default function AlumniVoices() {
               transition={{ type: 'spring', stiffness: 400, damping: 25 }}
               onClick={() => go(1)}
               aria-label="Next testimonial"
-              className="group relative flex h-11 w-11 items-center justify-center rounded-full border border-border bg-foreground/[0.02] text-foreground shadow-xs transition-colors duration-200 hover:border-foreground hover:bg-foreground hover:text-background cursor-pointer"
+              className="group relative flex h-11 w-11 items-center justify-center rounded-full border border-border bg-foreground/2 text-foreground shadow-xs transition-colors duration-200 hover:border-foreground hover:bg-foreground hover:text-background cursor-pointer"
             >
               <ArrowLeft size={16} className="rotate-180 transition-transform duration-200 group-hover:translate-x-0.5" />
             </motion.button>

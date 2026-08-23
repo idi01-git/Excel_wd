@@ -20,9 +20,11 @@ import {
   Camera
 } from 'lucide-react';
 import { isStaff } from '@/lib/rbac';
-import { LoginPromptModal } from '@/components/auth/LoginPromptModal';
 import { parseEventFormConfig } from '@/lib/event-form';
 import EventReminderButton from '@/components/events/EventReminderButton';
+import { LoginPromptModal } from '@/components/auth/LoginPromptModal';
+import { validateUploadFile, ACCEPT_MAP } from '@/lib/file-validation';
+import { getOptimizedCardUrl, getOptimizedAvatarUrl } from '@/lib/image-optimization';
 
 interface Winner {
   id: string;
@@ -86,9 +88,9 @@ function GalleryTile({
       onClick={onSelect}
       className="break-inside-avoid group cursor-zoom-in border border-neutral-300 dark:border-neutral-800 p-2 bg-card dark:bg-neutral-900/50 text-card-foreground rounded-none will-change-transform transition-all duration-300 hover:border-foreground dark:hover:border-neutral-200 dark:hover:bg-neutral-900/90 select-none relative overflow-hidden"
     >
-      <div className="relative overflow-hidden bg-neutral-200/60 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800/80 min-h-[160px]">
+      <div className="relative overflow-hidden bg-neutral-200/60 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800/80 min-h-40">
         {!loaded && (
-          <div className="absolute inset-0 bg-gradient-to-r from-neutral-200 via-neutral-100 to-neutral-200 dark:from-neutral-900 dark:via-neutral-800 dark:to-neutral-900 animate-pulse" />
+          <div className="absolute inset-0 bg-linear-to-r from-neutral-200 via-neutral-100 to-neutral-200 dark:from-neutral-900 dark:via-neutral-800 dark:to-neutral-900 animate-pulse" />
         )}
         <motion.img
           style={{ scale: imgZoom }}
@@ -339,16 +341,9 @@ export default function EventDetailPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const ALLOWED = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf']);
-    const MAX_BYTES = 10 * 1024 * 1024; // 10 MB
-
-    if (!ALLOWED.has(file.type)) {
-      setProofError('Only JPEG, PNG, WebP, GIF images or PDF files are accepted.');
-      e.target.value = '';
-      return;
-    }
-    if (file.size > MAX_BYTES) {
-      setProofError(`File is too large (${(file.size / (1024 * 1024)).toFixed(1)} MB). Maximum allowed is 10 MB.`);
+    const validation = validateUploadFile(file, 'PAYMENT_PROOF');
+    if (!validation.valid) {
+      setProofError(validation.error || 'Invalid file format or size.');
       e.target.value = '';
       return;
     }
@@ -416,7 +411,7 @@ export default function EventDetailPage() {
     <main className="w-full min-h-screen bg-white dark:bg-[#111] text-black dark:text-[#eee] font-serif selection:bg-black selection:text-white dark:selection:bg-white dark:selection:text-black transition-colors duration-300">
       
       {/* Newspaper Masthead Navigation */}
-      <div className="w-full border-b border-black dark:border-[#eee] py-3 px-4 md:px-8 flex justify-between items-center sticky top-0 z-40 bg-white dark:bg-[#111]">
+      <div className="w-full border-b border-black dark:border-[#eee] py-3.5 px-4 md:px-8 flex justify-between items-center bg-transparent">
         {galleryOpen ? (
           <button 
             onClick={() => setGalleryOpen(false)} 
@@ -440,11 +435,11 @@ export default function EventDetailPage() {
       <div className="w-full max-w-screen-2xl mx-auto px-4 md:px-8 py-8 md:py-12" style={{ perspective: 1800 }}>
         
         {/* Newspaper Headline Block */}
-        <div className="border-b-[4px] md:border-b-[6px] border-double border-black dark:border-[#eee] pb-8 mb-8 text-center flex flex-col items-center">
+        <div className="border-b-4 md:border-b-[6px] border-double border-black dark:border-[#eee] pb-8 mb-8 text-center flex flex-col items-center">
           <div className="text-[10px] md:text-xs font-sans font-bold uppercase tracking-[0.3em] mb-6 flex items-center gap-4">
-            <span className="w-8 md:w-16 h-[1px] bg-black dark:bg-[#eee]" />
+            <span className="w-8 md:w-16 h-px bg-black dark:bg-[#eee]" />
             {eventType} / {galleryOpen ? 'PICTORIAL ARCHIVES' : event.status}
-            <span className="w-8 md:w-16 h-[1px] bg-black dark:bg-[#eee]" />
+            <span className="w-8 md:w-16 h-px bg-black dark:bg-[#eee]" />
           </div>
           <h1 className="font-serif text-5xl md:text-7xl lg:text-[7rem] font-bold uppercase tracking-tighter leading-[0.9] max-w-5xl mx-auto">
             {event.title}
@@ -524,7 +519,7 @@ export default function EventDetailPage() {
                   <div className="flow-root">
                     <figure className="w-full md:w-[48%] lg:w-[45%] float-none md:float-left md:mr-8 mb-6 flex flex-col">
                       <img 
-                        src={event.posterImage || 'https://images.unsplash.com/photo-1511578314322-379afb476865?w=800&fit=crop'} 
+                        src={getOptimizedCardUrl(event.posterImage || 'https://images.unsplash.com/photo-1511578314322-379afb476865?w=800&fit=crop', 800)} 
                         alt={event.title}
                         className="w-full h-auto grayscale border border-black dark:border-[#eee] p-1 shadow-sm"
                       />
@@ -601,7 +596,7 @@ export default function EventDetailPage() {
                         <div key={win.id} className="border border-black dark:border-[#eee] p-5 text-center flex flex-col items-center">
                           <div className="w-20 h-20 mb-4 border border-black dark:border-[#eee] p-1 bg-white dark:bg-[#111]">
                             {win.photoUrl ? (
-                              <img src={win.photoUrl} alt={win.participantName} className="w-full h-full rounded-full object-cover grayscale" />
+                              <img src={getOptimizedAvatarUrl(win.photoUrl, 160)} alt={win.participantName} className="w-full h-full rounded-full object-cover grayscale" />
                             ) : (
                               <div className="w-full h-full rounded-full flex items-center justify-center bg-gray-100 dark:bg-zinc-900 font-serif text-3xl">
                                 {win.participantName.charAt(0)}
@@ -705,6 +700,14 @@ export default function EventDetailPage() {
                   
                   {/* Dynamic Ticket Metadata Fields */}
                   <div className="space-y-4 mb-6 font-sans">
+                    {/* Event Code */}
+                    <div className="flex justify-between items-end border-b border-black dark:border-[#eee] pb-2">
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 dark:text-neutral-400">EVENT CODE</span>
+                      <span className="font-mono font-bold text-xs uppercase tracking-wider text-right">
+                        {event.slug.toUpperCase()}
+                      </span>
+                    </div>
+
                     {/* 1. Dynamic Entry Tariff */}
                     <div className="flex justify-between items-end border-b border-black dark:border-[#eee] pb-2">
                       <span className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 dark:text-neutral-400">ENTRY TARIFF</span>
@@ -720,7 +723,7 @@ export default function EventDetailPage() {
                     {/* 2. Dynamic Access / Target Audience */}
                     <div className="flex justify-between items-end border-b border-black dark:border-[#eee] pb-2">
                       <span className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 dark:text-neutral-400">ACCESS</span>
-                      <span className="font-bold text-sm uppercase text-right max-w-[200px] truncate" title={formConfig.access}>
+                      <span className="font-bold text-sm uppercase text-right max-w-50 truncate" title={formConfig.access}>
                         {formConfig.access || 'ALL STUDENTS & MEMBERS'}
                       </span>
                     </div>
@@ -744,7 +747,7 @@ export default function EventDetailPage() {
                     {/* 4. Dynamic Inclusions */}
                     <div className="flex justify-between items-end border-b border-black dark:border-[#eee] pb-2">
                       <span className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 dark:text-neutral-400">INCLUSIONS</span>
-                      <span className="font-bold text-sm uppercase text-right max-w-[200px] truncate" title={formConfig.inclusions}>
+                      <span className="font-bold text-sm uppercase text-right max-w-50 truncate" title={formConfig.inclusions}>
                         {formConfig.inclusions || (event.isCompetition ? 'PRIZE POOL & PASS' : 'CERTIFICATE & KIT')}
                       </span>
                     </div>
@@ -813,31 +816,31 @@ export default function EventDetailPage() {
 
                   {/* Vintage Ticket Barcode & Serial */}
                   <div className="pt-3.5 border-t border-dashed border-black dark:border-[#eee] flex flex-col items-center gap-1.5 opacity-70 select-none">
-                    <div className="flex gap-[3px] h-6 items-center">
-                      <span className="w-[2px] h-full bg-black dark:bg-[#eee]" />
-                      <span className="w-[2px] h-full bg-black dark:bg-[#eee]" />
-                      <span className="w-[1px] h-full bg-black dark:bg-[#eee]" />
-                      <span className="w-[3px] h-full bg-black dark:bg-[#eee]" />
-                      <span className="w-[1px] h-full bg-black dark:bg-[#eee]" />
-                      <span className="w-[2px] h-full bg-black dark:bg-[#eee]" />
-                      <span className="w-[4px] h-full bg-black dark:bg-[#eee]" />
-                      <span className="w-[1px] h-full bg-black dark:bg-[#eee]" />
-                      <span className="w-[2px] h-full bg-black dark:bg-[#eee]" />
-                      <span className="w-[1px] h-full bg-black dark:bg-[#eee]" />
-                      <span className="w-[3px] h-full bg-black dark:bg-[#eee]" />
-                      <span className="w-[2px] h-full bg-black dark:bg-[#eee]" />
-                      <span className="w-[1px] h-full bg-black dark:bg-[#eee]" />
-                      <span className="w-[4px] h-full bg-black dark:bg-[#eee]" />
-                      <span className="w-[2px] h-full bg-black dark:bg-[#eee]" />
-                      <span className="w-[1px] h-full bg-black dark:bg-[#eee]" />
-                      <span className="w-[3px] h-full bg-black dark:bg-[#eee]" />
-                      <span className="w-[1px] h-full bg-black dark:bg-[#eee]" />
-                      <span className="w-[2px] h-full bg-black dark:bg-[#eee]" />
+                    <div className="flex gap-0.75 h-6 items-center">
+                      <span className="w-0.5 h-full bg-black dark:bg-[#eee]" />
+                      <span className="w-0.5 h-full bg-black dark:bg-[#eee]" />
+                      <span className="w-px h-full bg-black dark:bg-[#eee]" />
+                      <span className="w-0.75 h-full bg-black dark:bg-[#eee]" />
+                      <span className="w-px h-full bg-black dark:bg-[#eee]" />
+                      <span className="w-0.5 h-full bg-black dark:bg-[#eee]" />
+                      <span className="w-1 h-full bg-black dark:bg-[#eee]" />
+                      <span className="w-px h-full bg-black dark:bg-[#eee]" />
+                      <span className="w-0.5 h-full bg-black dark:bg-[#eee]" />
+                      <span className="w-px h-full bg-black dark:bg-[#eee]" />
+                      <span className="w-0.75 h-full bg-black dark:bg-[#eee]" />
+                      <span className="w-0.5 h-full bg-black dark:bg-[#eee]" />
+                      <span className="w-px h-full bg-black dark:bg-[#eee]" />
+                      <span className="w-1 h-full bg-black dark:bg-[#eee]" />
+                      <span className="w-0.5 h-full bg-black dark:bg-[#eee]" />
+                      <span className="w-px h-full bg-black dark:bg-[#eee]" />
+                      <span className="w-0.75 h-full bg-black dark:bg-[#eee]" />
+                      <span className="w-px h-full bg-black dark:bg-[#eee]" />
+                      <span className="w-0.5 h-full bg-black dark:bg-[#eee]" />
                     </div>
-                    <span className="text-[9px] font-mono tracking-[0.25em] uppercase">
+                    <span className="text-[9px] font-mono tracking-[0.25em] uppercase text-center font-bold">
                       {registrationDetails
-                        ? `${formConfig.passPrefix || 'EXC-PASS'}-${event.id.substring(0, 6).toUpperCase()}-${registrationDetails.id.substring(0, 6).toUpperCase()}`
-                        : `${formConfig.passPrefix || 'EXC-PASS'}-${event.id.substring(0, 6).toUpperCase()}-XXXXXX`}
+                        ? `${(formConfig.passPrefix || 'EXC-PASS').toUpperCase()}-${event.slug.replace(/^exc-/, '').toUpperCase()}-${registrationDetails.id.substring(0, 6).toUpperCase()}`
+                        : `${(formConfig.passPrefix || 'EXC-PASS').toUpperCase()}-${event.slug.replace(/^exc-/, '').toUpperCase()}-XXXXXX`}
                     </span>
                   </div>
                 </div>
@@ -924,7 +927,7 @@ export default function EventDetailPage() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setLightboxIndex(null)}
-            className="fixed inset-0 z-50 bg-black/95 backdrop-blur-md flex items-center justify-center p-4 md:p-8"
+            className="fixed inset-0 z-1000 bg-black/95 backdrop-blur-md flex items-center justify-center p-4 md:p-8"
           >
             <button
               onClick={() => setLightboxIndex(null)}
@@ -977,7 +980,7 @@ export default function EventDetailPage() {
         {modalOpen && (
           <div 
             data-lenis-prevent
-            className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 md:p-10"
+            className="fixed inset-0 z-1000 flex items-center justify-center p-3 sm:p-6 md:p-10"
           >
             {/* Backdrop */}
             <motion.div 
@@ -1219,7 +1222,7 @@ export default function EventDetailPage() {
                             hidden
                             required
                             type="file"
-                            accept="image/jpeg,image/png,image/webp,image/gif,application/pdf"
+                            accept={ACCEPT_MAP.PAYMENT_PROOF}
                             onChange={handleProofFileChange}
                           />
                         </label>

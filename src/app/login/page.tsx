@@ -9,7 +9,7 @@ import { User, Lock, Eye, EyeOff, ArrowRight, AlertCircle } from 'lucide-react';
 import { Wordmark } from '@/components/Navbar';
 
 // Linear-Style Form Input consistent with Register Page
-const FormInput = ({ label, icon: Icon, required, type = 'text', value, onChange, placeholder, ...props }: any) => {
+const FormInput = ({ label, icon: Icon, required, type = 'text', value, onChange, placeholder, cornerAction, ...props }: any) => {
   const [show, setShow] = useState(false);
   const isPassword = type === 'password';
 
@@ -19,6 +19,7 @@ const FormInput = ({ label, icon: Icon, required, type = 'text', value, onChange
         <label className="font-mono text-[11px] font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
           {label} {required && <span className="text-amber-500">*</span>}
         </label>
+        {cornerAction}
       </div>
       <div className="relative group w-full">
         {Icon && (
@@ -39,13 +40,41 @@ const FormInput = ({ label, icon: Icon, required, type = 'text', value, onChange
           {...props}
         />
         {isPassword && (
-          <button
+          <motion.button
             type="button"
             onClick={() => setShow(!show)}
-            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors cursor-pointer p-1"
+            whileTap={{ scale: 0.8 }}
+            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors cursor-pointer p-0.5 focus:outline-none flex items-center justify-center"
+            aria-label={show ? 'Hide password' : 'Show password'}
           >
-            {show ? <EyeOff size={15} /> : <Eye size={15} />}
-          </button>
+            <div className="relative w-4 h-4 flex items-center justify-center">
+              <AnimatePresence initial={false}>
+                {show ? (
+                  <motion.span
+                    key="eye-off"
+                    initial={{ opacity: 0, scale: 0.6, rotate: -25 }}
+                    animate={{ opacity: 1, scale: 1, rotate: 0 }}
+                    exit={{ opacity: 0, scale: 0.6, rotate: 25 }}
+                    transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
+                    className="absolute inset-0 flex items-center justify-center"
+                  >
+                    <EyeOff size={15} />
+                  </motion.span>
+                ) : (
+                  <motion.span
+                    key="eye"
+                    initial={{ opacity: 0, scale: 0.6, rotate: 25 }}
+                    animate={{ opacity: 1, scale: 1, rotate: 0 }}
+                    exit={{ opacity: 0, scale: 0.6, rotate: -25 }}
+                    transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
+                    className="absolute inset-0 flex items-center justify-center"
+                  >
+                    <Eye size={15} />
+                  </motion.span>
+                )}
+              </AnimatePresence>
+            </div>
+          </motion.button>
         )}
       </div>
     </div>
@@ -90,7 +119,7 @@ export default function LoginPage() {
     <div className="min-h-screen relative flex flex-col justify-center items-center py-12 sm:py-16 px-4 sm:px-6 md:px-8 overflow-hidden bg-neutral-50 dark:bg-[#030303] text-neutral-900 dark:text-neutral-100 selection:bg-neutral-900 selection:text-white dark:selection:bg-white dark:selection:text-neutral-950">
       {/* Ambient Lighting Backdrop */}
       <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] sm:w-[900px] h-[500px] rounded-full bg-neutral-200/50 dark:bg-neutral-800/20 blur-[140px] opacity-60 dark:opacity-40" />
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-175 sm:w-225 h-125 rounded-full bg-neutral-200/50 dark:bg-neutral-800/20 blur-[140px] opacity-60 dark:opacity-40" />
       </div>
 
       <div className="w-full max-w-xl sm:max-w-2xl relative z-10 space-y-6">
@@ -151,6 +180,14 @@ export default function LoginPage() {
               value={password}
               onChange={(e: any) => setPassword(e.target.value)}
               placeholder="••••••••"
+              cornerAction={
+                <Link
+                  href="/forgot-password"
+                  className="font-mono text-[10.5px] font-semibold text-neutral-500 hover:text-neutral-900 dark:hover:text-white transition-colors"
+                >
+                  Forgot password?
+                </Link>
+              }
             />
 
             <div className="pt-2">

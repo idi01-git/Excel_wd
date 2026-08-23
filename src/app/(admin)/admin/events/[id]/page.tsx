@@ -32,11 +32,14 @@ import {
   Search,
   Filter,
   Sparkles,
+  XCircle,
 } from 'lucide-react';
 import { hasPermission } from '@/lib/rbac';
 import { uploadImageBlob, deleteUploadedImage } from '@/lib/upload';
+import { validateUploadFile, ACCEPT_MAP } from '@/lib/file-validation';
 import FormBuilderFieldCard, { type FormFieldDefinition } from '@/components/admin/FormBuilderFieldCard';
 import StandardFieldsBuilder from '@/components/admin/StandardFieldsBuilder';
+import { ImageCropperModal } from '@/components/ui/ImageCropperModal';
 import AccessInclusionPicker from '@/components/admin/AccessInclusionPicker';
 import FormPreviewModal from '@/components/admin/FormPreviewModal';
 import TimeWindowPicker from '@/components/admin/TimeWindowPicker';
@@ -141,6 +144,14 @@ export default function EventManager() {
   const [loadingRegs, setLoadingRegs] = useState(false);
   const [selectedProofUrl, setSelectedProofUrl] = useState<string | null>(null);
 
+  // QR and Banner Cropper States
+  const [qrCropSrc, setQrCropSrc] = useState<string | null>(null);
+  const [qrCropperOpen, setQrCropperOpen] = useState(false);
+  const [uploadingQr, setUploadingQr] = useState(false);
+  const [bannerCropSrc, setBannerCropSrc] = useState<string | null>(null);
+  const [bannerCropperOpen, setBannerCropperOpen] = useState(false);
+  const [uploadingBanner, setUploadingBanner] = useState(false);
+
   // Edit Participant Modal State
   const [editingReg, setEditingReg] = useState<any | null>(null);
   const [editName, setEditName] = useState('');
@@ -210,8 +221,15 @@ export default function EventManager() {
 
   const upload = async (file: File | undefined, target: 'posterImage' | 'coverImage' | 'paymentQrImage' | 'winner' | 'gallery', index?: number) => {
     if (!file) return;
+
+    const validation = validateUploadFile(file, target === 'gallery' ? 'GALLERY' : 'MEDIA');
+    if (!validation.valid) {
+      showNotice(validation.error || 'Invalid file format or size.', true);
+      return;
+    }
+
     try {
-      const url = await uploadImageBlob(file, 'event-media', file.name);
+      const url = await uploadImageBlob(file, target === 'paymentQrImage' ? 'event-qr' : 'event-media', file.name);
       if (target === 'winner' && index !== undefined) {
         const old = winners[index]?.photoUrl;
         if (old) await deleteUploadedImage(old);
@@ -242,6 +260,79 @@ export default function EventManager() {
       update('coverImage', null);
     } else {
       update(target, null);
+    }
+  };
+
+  const startQrCrop = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const validation = validateUploadFile(file, 'MEDIA');
+    if (!validation.valid) {
+      showNotice(validation.error || 'Invalid QR code image format or size.', true);
+      e.target.value = '';
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setQrCropSrc(reader.result as string);
+      setQrCropperOpen(true);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const handleQrCrop = async (blob: Blob, previewUrl: string) => {
+    setQrCropperOpen(false);
+    setUploadingQr(true);
+    try {
+      if (event?.paymentQrImage) await deleteUploadedImage(String(event.paymentQrImage));
+      const url = await uploadImageBlob(blob, 'event-qr', `${event?.title || 'event'}_qr.png`);
+      update('paymentQrImage', url);
+      showNotice('UPI QR Code uploaded and optimized successfully.');
+    } catch (err: any) {
+      console.error(err);
+      showNotice(err.message || 'Failed to upload QR code to Cloudinary.', true);
+    } finally {
+      setUploadingQr(false);
+    }
+  };
+
+  const startBannerCrop = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const validation = validateUploadFile(file, 'MEDIA');
+    if (!validation.valid) {
+      showNotice(validation.error || 'Invalid banner image format or size.', true);
+      e.target.value = '';
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setBannerCropSrc(reader.result as string);
+      setBannerCropperOpen(true);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const handleBannerCrop = async (blob: Blob, previewUrl: string) => {
+    setBannerCropperOpen(false);
+    setUploadingBanner(true);
+    try {
+      if (event?.posterImage) await deleteUploadedImage(String(event.posterImage));
+      const url = await uploadImageBlob(blob, 'event-posters', `${event?.title || 'event'}_banner.jpg`);
+      update('posterImage', url);
+      update('coverImage', url);
+      showNotice('Event banner uploaded and framed successfully.');
+    } catch (err: any) {
+      console.error(err);
+      showNotice(err.message || 'Failed to upload banner to Cloudinary.', true);
+    } finally {
+      setUploadingBanner(false);
     }
   };
 
@@ -930,7 +1021,7 @@ export default function EventManager() {
                 </h3>
 
                 {/* Live Availability Status */}
-                <div className="flex items-center gap-2 rounded-xl bg-foreground/[0.03] border border-border px-3 py-1 text-[10px] font-mono">
+                <div className="flex items-center gap-2 rounded-xl bg-foreground/3 border border-border px-3 py-1 text-[10px] font-mono">
                   <Users size={12} className="text-amber-500" />
                   <span>
                     {maxCapNum !== null
@@ -1012,7 +1103,7 @@ export default function EventManager() {
               </div>
 
               {/* Registration Status: Active vs On Hold */}
-              <div className="rounded-2xl border border-border/80 bg-foreground/[0.02] p-4 space-y-3">
+              <div className="rounded-2xl border border-border/80 bg-foreground/2 p-4 space-y-3">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
                     <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-muted-foreground block">
@@ -1030,7 +1121,7 @@ export default function EventManager() {
                     </div>
                   </div>
 
-                  <div className="inline-flex p-1 bg-foreground/[0.05] rounded-xl border border-border/60">
+                  <div className="inline-flex p-1 bg-foreground/5 rounded-xl border border-border/60">
                     <button
                       type="button"
                       onClick={() => setIsOnHold(false)}
@@ -1066,7 +1157,7 @@ export default function EventManager() {
                       value={holdReason}
                       onChange={(e) => setHoldReason(e.target.value)}
                       placeholder="e.g. Registrations paused temporarily for venue reconciliation"
-                      className="w-full rounded-xl border border-amber-500/40 bg-amber-500/[0.04] px-3 py-2 text-xs font-serif text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-amber-500"
+                      className="w-full rounded-xl border border-amber-500/40 bg-amber-500/4 px-3 py-2 text-xs font-serif text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-amber-500"
                     />
                   </div>
                 )}
@@ -1089,17 +1180,18 @@ export default function EventManager() {
 
               {/* Event Code Slug */}
               <div className="space-y-1 pt-2 border-t border-border/40">
-                <label className={labelCls}>Event Code (URL Slug)</label>
-                <div className="flex items-stretch overflow-hidden rounded-xl border border-border bg-foreground/[0.02]">
-                  <span className="flex select-none items-center border-r border-border bg-foreground/[0.04] px-3 font-mono text-xs uppercase text-muted-foreground">
-                    {codePrefix.replace(/^exc/, 'EXC')}
+                <label className={labelCls}>Standard Event Code (URL Slug)</label>
+                <div className="flex items-stretch overflow-hidden rounded-xl border border-border bg-foreground/2">
+                  <span className="flex select-none items-center border-r border-border bg-foreground/4 px-3 font-mono text-xs font-bold uppercase text-muted-foreground">
+                    {codePrefix.toUpperCase()}
                   </span>
                   <input
                     value={codeSuffix}
                     onChange={(e) => {
                       setCodeDirty(true);
-                      setCodeSuffix(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '').replace(/(^-|-$)/g, ''));
+                      setCodeSuffix(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''));
                     }}
+                    onBlur={() => setCodeSuffix((s) => s.replace(/(^-|-$)/g, ''))}
                     placeholder="your-code"
                     className="min-w-0 flex-1 bg-transparent px-3 py-2.5 font-mono text-xs text-foreground focus:outline-none"
                   />
@@ -1154,28 +1246,28 @@ export default function EventManager() {
                     <button
                       type="button"
                       onClick={() => void removeImage('posterImage')}
-                      className="flex w-full items-center justify-center gap-1 border-t border-border bg-foreground/[0.03] px-2 py-1.5 text-[10px] font-mono uppercase text-red-500 hover:bg-red-500/10 transition-colors"
+                      className="flex w-full items-center justify-center gap-1 border-t border-border bg-foreground/3 px-2 py-1.5 text-[10px] font-mono uppercase text-red-500 hover:bg-red-500/10 transition-colors"
                     >
                       <X size={12} /> Remove
                     </button>
                   </div>
                 )}
-                <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-border bg-foreground/[0.03] px-3 py-2 font-mono text-[10px] font-bold uppercase hover:bg-foreground/[0.08] transition-colors">
+                <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-border bg-foreground/3 px-3 py-2 font-mono text-[10px] font-bold uppercase hover:bg-foreground/8 transition-colors">
                   <Upload size={12} />
                   <span>
-                    {event.posterImage || event.coverImage ? 'Replace Banner Image' : 'Upload Banner Image'}
+                    {uploadingBanner ? 'Cropping & Uploading...' : (event.posterImage || event.coverImage ? 'Replace Banner Image' : 'Upload Banner Image')}
                   </span>
                   <input
                     hidden
                     type="file"
-                    accept="image/*"
-                    onChange={(e) => void upload(e.target.files?.[0], 'posterImage')}
+                    accept={ACCEPT_MAP.MEDIA}
+                    onChange={startBannerCrop}
                   />
                 </label>
               </div>
 
               {/* Competition Toggle */}
-              <div className="flex items-center gap-3 rounded-2xl border border-border/40 bg-foreground/[0.02] p-3.5">
+              <div className="flex items-center gap-3 rounded-2xl border border-border/40 bg-foreground/2 p-3.5">
                 <input
                   type="checkbox"
                   id="isCompEdit"
@@ -1254,7 +1346,7 @@ export default function EventManager() {
                     <button
                       type="button"
                       onClick={() => setFields((all) => [...all, newField()])}
-                      className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-foreground/[0.03] px-3.5 py-1.5 text-xs font-mono uppercase text-foreground hover:bg-foreground/[0.08] transition-colors"
+                      className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-foreground/3 px-3.5 py-1.5 text-xs font-mono uppercase text-foreground hover:bg-foreground/8 transition-colors"
                     >
                       <Plus size={13} />
                       <span>Add Extra Question</span>
@@ -1306,7 +1398,7 @@ export default function EventManager() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-3 rounded-2xl border border-border/40 bg-foreground/[0.02] p-3.5">
+              <div className="flex items-center gap-3 rounded-2xl border border-border/40 bg-foreground/2 p-3.5">
                 <input
                   type="checkbox"
                   id="reqPayEdit"
@@ -1344,16 +1436,16 @@ export default function EventManager() {
                           <button
                             type="button"
                             onClick={() => void removeImage('paymentQrImage')}
-                            className="flex w-full items-center justify-center gap-1 border-t border-border bg-foreground/[0.03] px-2 py-1 text-[9px] font-mono uppercase text-red-500 hover:bg-red-500/10 transition-colors"
+                            className="flex w-full items-center justify-center gap-1 border-t border-border bg-foreground/3 px-2 py-1 text-[9px] font-mono uppercase text-red-500 hover:bg-red-500/10 transition-colors"
                           >
                             <X size={11} /> Remove
                           </button>
                         </div>
                       )}
-                      <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-border bg-foreground/[0.03] px-3 py-2 font-mono text-[10px] font-bold uppercase hover:bg-foreground/[0.08] transition-colors">
+                      <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-border bg-foreground/3 px-3 py-2 font-mono text-[10px] font-bold uppercase hover:bg-foreground/8 transition-colors">
                         <Upload size={12} />
-                        <span>{event.paymentQrImage ? 'Replace QR' : 'Upload QR Image'}</span>
-                        <input hidden type="file" accept="image/*" onChange={(e) => void upload(e.target.files?.[0], 'paymentQrImage')} />
+                        <span>{uploadingQr ? 'Cropping & Uploading...' : (event.paymentQrImage ? 'Replace QR' : 'Upload QR Image')}</span>
+                        <input hidden type="file" accept={ACCEPT_MAP.MEDIA} onChange={startQrCrop} />
                       </label>
                     </div>
                   </div>
@@ -1421,7 +1513,7 @@ export default function EventManager() {
                         type="button"
                         onClick={handleTestWebhook}
                         disabled={testingWebhook || !event.googleSheetUrl}
-                        className="px-4 py-2.5 rounded-xl border border-border bg-foreground/[0.04] hover:bg-foreground/[0.08] text-xs font-mono font-bold uppercase transition-colors disabled:opacity-40 shrink-0"
+                        className="px-4 py-2.5 rounded-xl border border-border bg-foreground/4 hover:bg-foreground/8 text-xs font-mono font-bold uppercase transition-colors disabled:opacity-40 shrink-0"
                       >
                         {testingWebhook ? 'Pinging…' : 'Verify'}
                       </button>
@@ -1434,8 +1526,8 @@ export default function EventManager() {
                   {webhookTestResult && (
                     <div className={`rounded-xl p-3 text-xs flex items-start gap-2 border ${
                       webhookTestResult.success
-                        ? 'bg-emerald-500/[0.06] border-emerald-500/30 text-emerald-700 dark:text-emerald-300'
-                        : 'bg-red-500/[0.06] border-red-500/30 text-red-700 dark:text-red-300'
+                        ? 'bg-emerald-500/6 border-emerald-500/30 text-emerald-700 dark:text-emerald-300'
+                        : 'bg-red-500/6 border-red-500/30 text-red-700 dark:text-red-300'
                     }`}>
                       {webhookTestResult.success ? <CheckCircle2 size={15} className="shrink-0 mt-0.5" /> : <AlertCircle size={15} className="shrink-0 mt-0.5" />}
                       <div>
@@ -1557,7 +1649,7 @@ export default function EventManager() {
 
               <div className="grid gap-4 md:grid-cols-3">
                 {winners.map((item, index) => (
-                  <div key={item.position} className="space-y-2 rounded-2xl border border-border/60 bg-foreground/[0.015] p-3.5">
+                  <div key={item.position} className="space-y-2 rounded-2xl border border-border/60 bg-foreground/1.5 p-3.5">
                     <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-amber-500">
                       {item.position} PLACE
                     </span>
@@ -1575,20 +1667,20 @@ export default function EventManager() {
                     />
                     {item.photoUrl && (
                       <div className="overflow-hidden rounded-xl border border-border">
-                        <img src={item.photoUrl} alt="" className="aspect-[4/3] w-full object-cover" />
+                        <img src={item.photoUrl} alt="" className="aspect-4/3 w-full object-cover" />
                         <button
                           type="button"
                           onClick={() => void removeWinnerPhoto(index)}
-                          className="flex w-full items-center justify-center gap-1 border-t border-border bg-foreground/[0.03] px-2 py-1 text-[10px] font-mono uppercase text-red-500 hover:bg-red-500/10 transition-colors"
+                          className="flex w-full items-center justify-center gap-1 border-t border-border bg-foreground/3 px-2 py-1 text-[10px] font-mono uppercase text-red-500 hover:bg-red-500/10 transition-colors"
                         >
                           <X size={11} /> Remove photo
                         </button>
                       </div>
                     )}
-                    <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-border bg-foreground/[0.03] px-3 py-1.5 font-mono text-[10px] font-bold uppercase hover:bg-foreground/[0.08] transition-colors">
+                    <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-border bg-foreground/3 px-3 py-1.5 font-mono text-[10px] font-bold uppercase hover:bg-foreground/8 transition-colors">
                       <Upload size={12} />
                       <span>{item.photoUrl ? 'Replace Photo' : 'Upload Photo'}</span>
-                      <input hidden type="file" accept="image/*" onChange={(e) => void upload(e.target.files?.[0], 'winner', index)} />
+                      <input hidden type="file" accept={ACCEPT_MAP.MEDIA} onChange={(e) => void upload(e.target.files?.[0], 'winner', index)} />
                     </label>
                   </div>
                 ))}
@@ -1601,14 +1693,14 @@ export default function EventManager() {
                 <h3 className="font-serif text-lg font-bold text-foreground">
                   Pictorial Supplement Gallery ({((event.gallery || []).length + newGallery.length)})
                 </h3>
-                <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-border bg-foreground/[0.03] px-3.5 py-1.5 font-mono text-[10px] font-bold uppercase hover:bg-foreground/[0.08] transition-colors">
+                <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-border bg-foreground/3 px-3.5 py-1.5 font-mono text-[10px] font-bold uppercase hover:bg-foreground/8 transition-colors">
                   <Upload size={12} />
                   <span>Upload Photos</span>
                   <input
                     hidden
                     multiple
                     type="file"
-                    accept="image/*"
+                    accept={ACCEPT_MAP.GALLERY}
                     onChange={(e) => {
                       Array.from(e.target.files || []).forEach((file) => void upload(file, 'gallery'));
                       e.target.value = '';
@@ -1662,7 +1754,7 @@ export default function EventManager() {
           >
             {/* ── SECTION A: CANCELLED PAID REGISTRATIONS (REFUND REVIEW) ── */}
             {registrationList.some((r) => r.paymentStatus === 'CANCELLED_REFUND_PENDING') && (
-              <div className="rounded-3xl border-2 border-red-500/40 bg-red-500/[0.04] p-6 space-y-4 shadow-sm">
+              <div className="rounded-3xl border-2 border-red-500/40 bg-red-500/4 p-6 space-y-4 shadow-sm">
                 <div className="flex items-center justify-between border-b border-red-500/20 pb-3">
                   <div className="flex items-center gap-2">
                     <AlertCircle size={20} className="text-red-500" />
@@ -1715,7 +1807,7 @@ export default function EventManager() {
                                 <button
                                   type="button"
                                   onClick={() => setSelectedProofUrl(reg.paymentScreenshotUrl)}
-                                  className="px-2.5 py-1 rounded-lg border border-border text-[10px] font-mono font-bold uppercase hover:bg-foreground/[0.05]"
+                                  className="px-2.5 py-1 rounded-lg border border-border text-[10px] font-mono font-bold uppercase hover:bg-foreground/5"
                                 >
                                   View Payment Proof
                                 </button>
@@ -1759,7 +1851,7 @@ export default function EventManager() {
                   <div className="flex items-center gap-2">
                     <Users size={20} className="text-amber-500" />
                     <h3 className="font-serif text-xl font-bold text-foreground">
-                      Active Registered Attendees ({registrationList.filter((r) => r.paymentStatus !== 'CANCELLED_REFUND_PENDING').length})
+                      Active Registered Attendees ({registrationList.filter((r) => r.paymentStatus !== 'CANCELLED_REFUND_PENDING' && r.paymentStatus !== 'CANCELLED' && r.paymentStatus !== 'REFUNDED').length})
                     </h3>
                   </div>
                   <p className="text-xs text-muted-foreground mt-1">
@@ -1772,7 +1864,7 @@ export default function EventManager() {
                     type="button"
                     onClick={fetchRegistrations}
                     disabled={loadingRegs}
-                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-border bg-foreground/[0.02] hover:bg-foreground/[0.06] text-xs font-mono font-bold uppercase transition-colors"
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-border bg-foreground/2 hover:bg-foreground/6 text-xs font-mono font-bold uppercase transition-colors"
                   >
                     <Loader2 size={12} className={loadingRegs ? 'animate-spin' : 'hidden'} />
                     <span>Refresh</span>
@@ -1809,7 +1901,7 @@ export default function EventManager() {
                     value={rosterSearch}
                     onChange={(e) => setRosterSearch(e.target.value)}
                     placeholder="Search by name, email, phone, or EXC pass code..."
-                    className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-border bg-foreground/[0.02] hover:bg-foreground/[0.04] focus:bg-background text-xs font-mono text-foreground focus:outline-none focus:border-amber-400 transition-colors"
+                    className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-border bg-foreground/2 hover:bg-foreground/4 focus:bg-background text-xs font-mono text-foreground focus:outline-none focus:border-amber-400 transition-colors"
                   />
                   {rosterSearch && (
                     <button
@@ -1823,8 +1915,8 @@ export default function EventManager() {
                 </div>
 
                 {event.requirePayment && (
-                  <div className="flex items-center gap-1 p-1 bg-foreground/[0.03] rounded-xl border border-border/60">
-                    {(['ALL', 'PENDING', 'VERIFIED', 'REFUNDED'] as const).map((filterVal) => (
+                  <div className="flex items-center gap-1 p-1 bg-foreground/3 rounded-xl border border-border/60">
+                    {(['ALL', 'PENDING', 'VERIFIED'] as const).map((filterVal) => (
                       <button
                         key={filterVal}
                         type="button"
@@ -1847,20 +1939,18 @@ export default function EventManager() {
                 <div className="py-12 flex justify-center items-center">
                   <Loader2 className="animate-spin text-muted-foreground" size={24} />
                 </div>
-              ) : registrationList.filter((r) => r.paymentStatus !== 'CANCELLED_REFUND_PENDING').length === 0 ? (
+              ) : registrationList.filter((r) => r.paymentStatus !== 'CANCELLED_REFUND_PENDING' && r.paymentStatus !== 'CANCELLED' && r.paymentStatus !== 'REFUNDED').length === 0 ? (
                 <div className="py-12 text-center text-muted-foreground text-sm font-sans space-y-2">
                   <Users size={32} className="mx-auto text-muted-foreground/40" />
                   <p className="font-serif text-base text-foreground">No Active Registrations</p>
                   <p className="text-xs">When attendees register for this event, their full details and form answers will appear here.</p>
                 </div>
               ) : (() => {
-                const filteredList = registrationList
-                  .filter((r) => r.paymentStatus !== 'CANCELLED_REFUND_PENDING')
+                const activeList = registrationList
+                  .filter((r) => r.paymentStatus !== 'CANCELLED_REFUND_PENDING' && r.paymentStatus !== 'CANCELLED' && r.paymentStatus !== 'REFUNDED')
                   .filter((r) => {
                     if (rosterPaymentFilter === 'VERIFIED') return r.paymentStatus === 'VERIFIED';
-                    if (rosterPaymentFilter === 'PENDING')
-                      return r.paymentStatus !== 'VERIFIED' && r.paymentStatus !== 'REFUNDED';
-                    if (rosterPaymentFilter === 'REFUNDED') return r.paymentStatus === 'REFUNDED';
+                    if (rosterPaymentFilter === 'PENDING') return r.paymentStatus !== 'VERIFIED';
                     return true;
                   })
                   .filter((r) => {
@@ -1875,7 +1965,7 @@ export default function EventManager() {
                     );
                   });
 
-                if (filteredList.length === 0) {
+                if (activeList.length === 0) {
                   return (
                     <div className="py-8 text-center text-muted-foreground text-xs font-mono">
                       No registrations match your search or filter criteria.
@@ -1885,14 +1975,14 @@ export default function EventManager() {
 
                 return (
                   <div className="space-y-3">
-                    {filteredList.map((reg) => {
+                    {activeList.map((reg) => {
                       const passCode = `${passPrefix || 'EXC-PASS'}-${event.id.substring(0, 6).toUpperCase()}-${reg.id.substring(0, 6).toUpperCase()}`;
                       const extras = reg.extraFields || {};
 
                       return (
                         <div
                           key={reg.id}
-                          className="rounded-2xl border border-border/70 bg-foreground/[0.015] p-4 space-y-3 hover:border-border hover:bg-foreground/[0.025] transition-all"
+                          className="rounded-2xl border border-border/70 bg-foreground/1.5 p-4 space-y-3 hover:border-border hover:bg-foreground/2.5 transition-all"
                         >
                           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border/30 pb-3">
                             <div className="flex items-center gap-3">
@@ -1902,7 +1992,7 @@ export default function EventManager() {
                               <div>
                                 <div className="flex items-center gap-2">
                                   <h4 className="font-serif text-sm font-bold text-foreground">{reg.name}</h4>
-                                  <span className="font-mono text-[9px] px-2 py-0.5 rounded-full bg-foreground/[0.05] text-muted-foreground font-bold uppercase">
+                                  <span className="font-mono text-[9px] px-2 py-0.5 rounded-full bg-foreground/5 text-muted-foreground font-bold uppercase">
                                     {passCode}
                                   </span>
                                 </div>
@@ -1917,7 +2007,7 @@ export default function EventManager() {
                               <button
                                 type="button"
                                 onClick={() => openEditModal(reg)}
-                                className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-border bg-foreground/[0.02] hover:bg-foreground/[0.06] text-[10px] font-mono font-bold uppercase transition-colors cursor-pointer"
+                                className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-border bg-foreground/2 hover:bg-foreground/6 text-[10px] font-mono font-bold uppercase transition-colors cursor-pointer"
                               >
                                 <Edit2 size={11} />
                                 <span>Edit</span>
@@ -1929,8 +2019,6 @@ export default function EventManager() {
                                   <span className={`font-mono text-[9px] font-bold px-2 py-0.5 rounded-full uppercase border ${
                                     reg.paymentStatus === 'VERIFIED'
                                       ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
-                                      : reg.paymentStatus === 'REFUNDED'
-                                      ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30'
                                       : reg.paymentStatus === 'FAILED'
                                       ? 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/30'
                                       : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30'
@@ -1942,7 +2030,7 @@ export default function EventManager() {
                                     <button
                                       type="button"
                                       onClick={() => setSelectedProofUrl(reg.paymentScreenshotUrl)}
-                                      className="px-2 py-0.5 rounded-lg border border-border text-[9px] font-mono font-bold uppercase hover:bg-foreground/[0.05] cursor-pointer"
+                                      className="px-2 py-0.5 rounded-lg border border-border text-[9px] font-mono font-bold uppercase hover:bg-foreground/5 cursor-pointer"
                                     >
                                       Proof
                                     </button>
@@ -1978,11 +2066,11 @@ export default function EventManager() {
                                 const ans = extras[f.id];
                                 if (ans === undefined || ans === null || ans === '') return null;
                                 return (
-                                  <div key={f.id} className="rounded-xl border border-border/40 bg-foreground/[0.02] p-2.5 text-xs">
+                                  <div key={f.id} className="rounded-xl border border-border/40 bg-foreground/2 p-2.5 text-xs">
                                     <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-muted-foreground block">
                                       {f.label || f.name}
                                     </span>
-                                    <span className="font-serif text-foreground mt-0.5 block break-words">
+                                    <span className="font-serif text-foreground mt-0.5 block wrap-break-word">
                                       {Array.isArray(ans) ? ans.join(', ') : String(ans)}
                                     </span>
                                   </div>
@@ -1997,6 +2085,145 @@ export default function EventManager() {
                 );
               })()}
             </div>
+
+            {/* ── SECTION C: REFUNDED TRANSACTIONS ARCHIVE ── */}
+            {registrationList.some((r) => r.paymentStatus === 'REFUNDED') && (
+              <div className="rounded-3xl border border-blue-500/30 bg-blue-500/3 p-6 space-y-4 shadow-xs">
+                <div className="flex items-center justify-between border-b border-blue-500/20 pb-3">
+                  <div className="flex items-center gap-2">
+                    <RotateCcw size={18} className="text-blue-500" />
+                    <div>
+                      <h3 className="font-serif text-lg font-bold text-blue-600 dark:text-blue-400">
+                        Refunded Records Archive ({registrationList.filter((r) => r.paymentStatus === 'REFUNDED').length})
+                      </h3>
+                      <p className="text-xs text-muted-foreground">
+                        Permanent audit log of all completed refunds. Preserved even if attendees re-register or refund multiple times.
+                      </p>
+                    </div>
+                  </div>
+                  <span className="font-mono text-xs font-bold px-3 py-1 rounded-full bg-blue-500/15 text-blue-600 dark:text-blue-300 border border-blue-500/30">
+                    REFUNDED ({registrationList.filter((r) => r.paymentStatus === 'REFUNDED').length})
+                  </span>
+                </div>
+
+                <div className="space-y-3">
+                  {registrationList
+                    .filter((r) => r.paymentStatus === 'REFUNDED')
+                    .map((reg) => {
+                      const passCode = `${passPrefix || 'EXC-PASS'}-${event.id.substring(0, 6).toUpperCase()}-${reg.id.substring(0, 6).toUpperCase()}`;
+                      const extras = reg.extraFields || {};
+
+                      return (
+                        <div
+                          key={reg.id}
+                          className="rounded-2xl border border-blue-500/20 bg-background/80 p-4 space-y-2"
+                        >
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border/30 pb-2.5">
+                            <div className="flex items-center gap-3">
+                              <div className="h-8 w-8 rounded-full bg-blue-500/10 border border-blue-500/30 flex items-center justify-center font-serif text-xs font-bold text-blue-600 dark:text-blue-400">
+                                {reg.name.slice(0, 1).toUpperCase()}
+                              </div>
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <h4 className="font-serif text-sm font-bold text-foreground">{reg.name}</h4>
+                                  <span className="font-mono text-[9px] px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 font-bold uppercase border border-blue-500/20">
+                                    {passCode} · REFUND COMPLETED
+                                  </span>
+                                </div>
+                                <p className="text-xs font-sans text-muted-foreground">
+                                  {reg.email} {reg.phone ? `· ${reg.phone}` : ''}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              {reg.paymentScreenshotUrl && (
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedProofUrl(reg.paymentScreenshotUrl)}
+                                  className="px-2.5 py-1 rounded-lg border border-blue-500/30 bg-blue-500/5 text-blue-600 dark:text-blue-400 text-[10px] font-mono font-bold uppercase hover:bg-blue-500/10 cursor-pointer"
+                                >
+                                  Original Proof
+                                </button>
+                              )}
+                              <span className="text-[10px] font-mono text-muted-foreground">
+                                Reg: {new Date(reg.registeredAt).toLocaleDateString()}
+                              </span>
+                            </div>
+                          </div>
+
+                          {extras.refundedAt && (
+                            <p className="text-[10px] font-mono text-blue-600/80 dark:text-blue-400/80">
+                              ✓ Refund issued on {new Date(extras.refundedAt).toLocaleString()}
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+            )}
+
+            {/* ── SECTION D: CANCELLED REGISTRATIONS HISTORY ── */}
+            {registrationList.some((r) => r.paymentStatus === 'CANCELLED') && (
+              <div className="rounded-3xl border border-border/80 bg-foreground/1.5 p-6 space-y-4 shadow-xs">
+                <div className="flex items-center justify-between border-b border-border/40 pb-3">
+                  <div className="flex items-center gap-2">
+                    <XCircle size={18} className="text-muted-foreground" />
+                    <div>
+                      <h3 className="font-serif text-lg font-bold text-foreground">
+                        Cancelled Registrations History ({registrationList.filter((r) => r.paymentStatus === 'CANCELLED').length})
+                      </h3>
+                      <p className="text-xs text-muted-foreground">
+                        Historical record of cancelled entries. Retained for attendance audit without interrupting active seating.
+                      </p>
+                    </div>
+                  </div>
+                  <span className="font-mono text-xs font-bold px-3 py-1 rounded-full bg-neutral-500/15 text-muted-foreground border border-border">
+                    CANCELLED ({registrationList.filter((r) => r.paymentStatus === 'CANCELLED').length})
+                  </span>
+                </div>
+
+                <div className="space-y-3">
+                  {registrationList
+                    .filter((r) => r.paymentStatus === 'CANCELLED')
+                    .map((reg) => {
+                      const passCode = `${passPrefix || 'EXC-PASS'}-${event.id.substring(0, 6).toUpperCase()}-${reg.id.substring(0, 6).toUpperCase()}`;
+                      const extras = reg.extraFields || {};
+
+                      return (
+                        <div
+                          key={reg.id}
+                          className="rounded-2xl border border-border/60 bg-background p-4 space-y-2 opacity-80 hover:opacity-100 transition-opacity"
+                        >
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border/30 pb-2.5">
+                            <div className="flex items-center gap-3">
+                              <div className="h-8 w-8 rounded-full bg-foreground/5 border border-border flex items-center justify-center font-serif text-xs font-bold text-muted-foreground">
+                                {reg.name.slice(0, 1).toUpperCase()}
+                              </div>
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <h4 className="font-serif text-sm font-bold text-muted-foreground line-through">{reg.name}</h4>
+                                  <span className="font-mono text-[9px] px-2 py-0.5 rounded-full bg-neutral-500/10 text-neutral-500 font-bold uppercase border border-neutral-500/20">
+                                    {passCode} · CANCELLED
+                                  </span>
+                                </div>
+                                <p className="text-xs font-sans text-muted-foreground">
+                                  {reg.email} {reg.phone ? `· ${reg.phone}` : ''}
+                                </p>
+                              </div>
+                            </div>
+
+                            <span className="text-[10px] font-mono text-muted-foreground">
+                              {extras.cancelledAt ? `Cancelled: ${new Date(extras.cancelledAt).toLocaleDateString()}` : `Reg: ${new Date(reg.registeredAt).toLocaleDateString()}`}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+            )}
           </motion.div>
         )}
 
@@ -2147,6 +2374,32 @@ export default function EventManager() {
         paymentInstructions={String(event.paymentInstructions ?? '')}
         paymentQrImage={String(event.paymentQrImage ?? '')}
       />
+
+      {/* Banner Cropper Modal */}
+      {bannerCropSrc && (
+        <ImageCropperModal
+          isOpen={bannerCropperOpen}
+          imageSrc={bannerCropSrc}
+          aspectRatio={16 / 9}
+          allowRatioSelection={true}
+          aspectPresetLabel="Event Banner (16:9)"
+          onCropComplete={handleBannerCrop}
+          onCancel={() => setBannerCropperOpen(false)}
+        />
+      )}
+
+      {/* Payment QR Cropper Modal with custom aspect ratio selection */}
+      {qrCropSrc && (
+        <ImageCropperModal
+          isOpen={qrCropperOpen}
+          imageSrc={qrCropSrc}
+          aspectRatio={null}
+          allowRatioSelection={true}
+          aspectPresetLabel="UPI QR Code"
+          onCropComplete={handleQrCrop}
+          onCancel={() => setQrCropperOpen(false)}
+        />
+      )}
     </main>
   );
 }

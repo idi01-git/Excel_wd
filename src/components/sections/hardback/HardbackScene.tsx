@@ -53,11 +53,13 @@ const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
  */
 function layoutShelf(position: number, books: BookData[] = BOOKS) {
   const N = books.length;
+  // Strictly clamp position to [0, N - 1] so fractional coverness and anchor never drift beyond bounds
+  const clampedPos = Math.max(0, Math.min(N - 1, position));
   const widths: number[] = [];
   const cov: number[] = [];
 
   for (let i = 0; i < N; i++) {
-    const relP = i - position;
+    const relP = i - clampedPos;
     const c = Math.max(0, 1 - Math.abs(relP));
     cov.push(c);
     const expanded = books[i].width + COVER_PADDING;
@@ -69,9 +71,9 @@ function layoutShelf(position: number, books: BookData[] = BOOKS) {
   const centres = widths.map((w, i) => lefts[i] + w / 2);
 
   // Anchor: x value at the slider's current fractional position
-  const lo = Math.floor(position);
-  const hi = lo + 1;
-  const frac = position - lo;
+  const lo = Math.floor(clampedPos);
+  const hi = Math.min(N - 1, lo + 1);
+  const frac = clampedPos - lo;
   const safeLo = Math.max(0, Math.min(N - 1, lo));
   const safeHi = Math.max(0, Math.min(N - 1, hi));
   const anchor = lerp(centres[safeLo] || 0, centres[safeHi] || centres[safeLo] || 0, frac);
@@ -226,13 +228,15 @@ function BookManager({
 
     // 1. Slider Physics: Exponential Decay (No spring, no overshoot)
     if (mode === 'browsing') {
-      const target = targetRef.current;
+      const maxIndex = Math.max(0, N - 1);
+      const target = Math.max(0, Math.min(maxIndex, targetRef.current));
+      targetRef.current = target;
       const pos = positionRef.current;
       const dx = target - pos;
       if (Math.abs(dx) < 0.0005) {
         positionRef.current = target;
       } else {
-        positionRef.current = pos + dx * SLIDER_APPROACH;
+        positionRef.current = Math.max(0, Math.min(maxIndex, pos + dx * SLIDER_APPROACH));
       }
     }
 

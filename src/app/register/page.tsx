@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { signIn } from 'next-auth/react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -25,15 +25,19 @@ import {
   Sparkles,
   RefreshCw,
   X,
+  Loader2,
+  Info,
+  ChevronDown,
 } from 'lucide-react';
 import { ImageCropperModal } from '@/components/ui/ImageCropperModal';
 import { uploadImageBlob } from '@/lib/upload';
-import { AffiliationType } from '@/lib/registration';
+import { validateUploadFile, ACCEPT_MAP } from '@/lib/file-validation';
+import { AffiliationType, validateUsername, validatePassword } from '@/lib/registration';
 import SubSelectToggle, { MenuItem } from '@/components/ui/sub-select-toggle';
 
-// 2 Main Tabs: Campus Student (Single) and External (Sub-Toggle: Alumnus | Visitor)
+// 2 Main Tabs: Students (Single) and External (Sub-Toggle: Alumnus | Visitors)
 const MAIN_TABS: [MenuItem, MenuItem] = [
-  { label: 'Campus Student', value: 'internal' },
+  { label: 'Students', value: 'internal' },
   { label: 'External', value: 'external' },
 ];
 
@@ -41,24 +45,36 @@ const SUB_TABS: Record<string, [MenuItem, MenuItem] | undefined> = {
   internal: undefined,
   external: [
     { label: 'Alumnus', value: 'ALUMNI' },
-    { label: 'Guest Reader', value: 'VISITOR' },
+    { label: 'Visitors', value: 'VISITOR' },
   ],
 };
 
-const BRANCHES = [
-  'Computer Science & Engineering',
-  'Electronics & Communication Engineering',
-  'Information Technology',
-  'Mechanical Engineering',
-  'Civil Engineering',
-  'Electrical Engineering',
-  'Chemical Engineering',
-  'Applied Sciences & Humanities',
-  'Other / Interdisciplinary',
+// Course / Branch Options
+export const BRANCH_OPTIONS = [
+  { value: 'CSE-SF', label: 'Computer Science Engineering SF (CSE-SF)', short: 'CSE-SF' },
+  { value: 'CSE-AI', label: 'Computer Science Engineering AI (CSE-AI)', short: 'CSE-AI' },
+  { value: 'CSE-R', label: 'Computer Science Engineering Regular (CSE-R)', short: 'CSE-R' },
+  { value: 'ECE', label: 'Electronics and Communication Engineering (ECE)', short: 'ECE' },
+  { value: 'EE', label: 'Electrical Engineering (EE)', short: 'EE' },
+  { value: 'ME', label: 'Mechanical Engineering (ME)', short: 'ME' },
+  { value: 'CE', label: 'Civil Engineering (CE)', short: 'CE' },
+  { value: 'CHE', label: 'Chemical Engineering (CHE)', short: 'CHE' },
+  { value: 'MCA', label: 'Master in Computer Application (MCA)', short: 'MCA' },
+  { value: 'MBA', label: 'Master in Business Administration (MBA)', short: 'MBA' },
 ];
 
-const BATCHES = ['2024–2028', '2023–2027', '2022–2026', '2021–2025', '2025–2029'];
-const ALUMNI_BATCHES = ['2020–2024', '2019–2023', '2018–2022', '2017–2021', '2016–2020', '2015–2019', 'Earlier Alumnus'];
+const CURRENT_YEAR = new Date().getFullYear();
+
+// 5 years starting from current year (e.g. 2026, 2027, 2028, 2029, 2030)
+export const GRADUATION_YEARS = Array.from({ length: 5 }, (_, i) => String(CURRENT_YEAR + i));
+
+// Alumnus graduation years dynamically generated from (CURRENT_YEAR - 1) down to 1984 (e.g. 2025 down to 1984)
+const ALUMNI_START_YEAR = 1984;
+export const ALUMNI_GRADUATION_YEARS = Array.from(
+  { length: Math.max(0, CURRENT_YEAR - ALUMNI_START_YEAR) },
+  (_, i) => String(CURRENT_YEAR - 1 - i)
+);
+
 const INTEREST_TAGS = ['Poetry', 'Short Fiction', 'Philosophy', 'Essays', 'Book Reviews', 'Debate', 'Visual Arts', 'Journalism'];
 
 // Format and sanitize social handle into a safe, valid absolute URL
@@ -98,17 +114,60 @@ function formatSocialUrl(platform: string, input: string): { url: string; handle
   }
 }
 
-// Linear-Style Form Input with stable focus
-const FormInput = ({ label, icon: Icon, required, type = 'text', value, onChange, placeholder, ...props }: any) => {
+// Linear-Style Form Input with stable focus, luxury HUD tooltip & seamless morphing password toggle
+const FormInput = ({ label, icon: Icon, required, type = 'text', value, onChange, placeholder, tooltip, ...props }: any) => {
   const [show, setShow] = useState(false);
+  const [showTooltip, setShowTooltip] = useState(false);
   const isPassword = type === 'password';
 
   return (
     <div className="space-y-1.5 w-full text-left">
       <div className="flex items-center justify-between px-1">
-        <label className="font-mono text-[11px] font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
-          {label} {required && <span className="text-amber-500">*</span>}
-        </label>
+        <div className="flex items-center gap-1.5">
+          <label className="font-mono text-[11px] font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
+            {label} {required && <span className="text-amber-500">*</span>}
+          </label>
+          {tooltip && (
+            <div className="relative inline-flex items-center">
+              <motion.button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowTooltip((prev) => !prev);
+                }}
+                onMouseEnter={() => setShowTooltip(true)}
+                onMouseLeave={() => setShowTooltip(false)}
+                whileHover={{ scale: 1.15 }}
+                whileTap={{ scale: 0.85 }}
+                className="p-0.5 rounded-full text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors cursor-pointer focus:outline-none"
+                aria-label="Field info"
+              >
+                <Info size={11.5} />
+              </motion.button>
+
+              <AnimatePresence>
+                {showTooltip && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 4, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 2, scale: 0.97 }}
+                    transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                    className="absolute -right-2 bottom-full mb-2 z-50 w-52 p-2.5 rounded-xl bg-neutral-950/95 dark:bg-[#161618]/95 backdrop-blur-xl text-white shadow-xl border border-white/10 pointer-events-none text-left"
+                  >
+                    <div className="flex items-center gap-1.5 text-emerald-400 font-mono text-[9.5px] font-bold uppercase tracking-wider mb-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0 shadow-[0_0_6px_rgba(52,211,153,0.8)]" />
+                      <span>Requirement</span>
+                    </div>
+                    <p className="text-[11px] font-medium text-neutral-200 leading-snug">
+                      {tooltip}
+                    </p>
+                    <div className="absolute right-3 top-full w-0 h-0 border-x-[5px] border-x-transparent border-t-[5px] border-t-neutral-950 dark:border-t-[#161618]" />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          )}
+        </div>
       </div>
       <div className="relative group w-full">
         {Icon && (
@@ -129,44 +188,171 @@ const FormInput = ({ label, icon: Icon, required, type = 'text', value, onChange
           {...props}
         />
         {isPassword && (
-          <button
+          <motion.button
             type="button"
             onClick={() => setShow(!show)}
-            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors cursor-pointer p-1"
+            whileTap={{ scale: 0.8 }}
+            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors cursor-pointer p-0.5 focus:outline-none flex items-center justify-center"
+            aria-label={show ? 'Hide password' : 'Show password'}
           >
-            {show ? <EyeOff size={15} /> : <Eye size={15} />}
-          </button>
+            <div className="relative w-4 h-4 flex items-center justify-center">
+              <AnimatePresence initial={false}>
+                {show ? (
+                  <motion.span
+                    key="eye-off"
+                    initial={{ opacity: 0, scale: 0.6, rotate: -25 }}
+                    animate={{ opacity: 1, scale: 1, rotate: 0 }}
+                    exit={{ opacity: 0, scale: 0.6, rotate: 25 }}
+                    transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
+                    className="absolute inset-0 flex items-center justify-center"
+                  >
+                    <EyeOff size={15} />
+                  </motion.span>
+                ) : (
+                  <motion.span
+                    key="eye"
+                    initial={{ opacity: 0, scale: 0.6, rotate: 25 }}
+                    animate={{ opacity: 1, scale: 1, rotate: 0 }}
+                    exit={{ opacity: 0, scale: 0.6, rotate: -25 }}
+                    transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
+                    className="absolute inset-0 flex items-center justify-center"
+                  >
+                    <Eye size={15} />
+                  </motion.span>
+                )}
+              </AnimatePresence>
+            </div>
+          </motion.button>
         )}
       </div>
     </div>
   );
 };
 
-const FormSelect = ({ label, options, value, onChange, required }: any) => (
-  <div className="space-y-1.5 w-full text-left">
-    <label className="font-mono text-[11px] font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 px-1">
-      {label} {required && <span className="text-amber-500">*</span>}
-    </label>
-    <div className="relative group w-full">
-      <select
-        value={value}
-        onChange={onChange}
-        className="w-full h-12 pl-3.5 pr-10 rounded-xl border border-neutral-200/90 dark:border-neutral-800 bg-white/80 dark:bg-[#121212] text-sm text-neutral-900 dark:text-white focus:border-neutral-950 dark:focus:border-white focus:bg-white dark:focus:bg-[#161616] focus:ring-2 focus:ring-neutral-950/10 dark:focus:ring-white/10 transition-all duration-200 outline-none shadow-xs hover:border-neutral-300 dark:hover:border-neutral-700 appearance-none cursor-pointer"
+interface SelectOptionItem {
+  value: string;
+  label: string;
+  short?: string;
+}
+
+const FormSelect = ({
+  label,
+  options,
+  value,
+  onChange,
+  required,
+}: {
+  label: string;
+  options: (string | SelectOptionItem)[];
+  value: string;
+  onChange: (value: string) => void;
+  required?: boolean;
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const normalizedOptions: SelectOptionItem[] = useMemo(() => {
+    return options.map((opt) =>
+      typeof opt === 'string' ? { value: opt, label: opt } : opt
+    );
+  }, [options]);
+
+  const selectedOption =
+    normalizedOptions.find((opt) => opt.value === value) ||
+    normalizedOptions.find((opt) => opt.label === value) ||
+    normalizedOptions[0];
+
+  const listRef = useRef<HTMLDivElement>(null);
+  const selectedItemRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (isOpen && selectedItemRef.current) {
+      selectedItemRef.current.scrollIntoView({ block: 'nearest' });
+    }
+  }, [isOpen]);
+
+  return (
+    <div className="space-y-1.5 w-full text-left relative" ref={containerRef}>
+      <label className="font-mono text-[11px] font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 px-1">
+        {label} {required && <span className="text-amber-500">*</span>}
+      </label>
+
+      <button
+        type="button"
+        onClick={() => setIsOpen((prev) => !prev)}
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+        className="w-full h-12 px-3.5 rounded-xl border border-neutral-200/90 dark:border-neutral-800 bg-white/80 dark:bg-[#121212] text-sm text-neutral-900 dark:text-white focus:border-neutral-950 dark:focus:border-white focus:bg-white dark:focus:bg-[#161616] focus:ring-2 focus:ring-neutral-950/10 dark:focus:ring-white/10 transition-all duration-200 outline-none shadow-xs hover:border-neutral-300 dark:hover:border-neutral-700 flex items-center justify-between cursor-pointer"
       >
-        {options.map((opt: string) => (
-          <option key={opt} value={opt} className="bg-white dark:bg-[#121212] py-1 text-sm">
-            {opt}
-          </option>
-        ))}
-      </select>
-      <div className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none opacity-40 group-hover:opacity-80 transition-opacity">
-        <svg width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M1 1L5 5L9 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-        </svg>
-      </div>
+        <span className="truncate text-left font-medium text-xs sm:text-sm">
+          {selectedOption ? selectedOption.label : 'Select...'}
+        </span>
+        <ChevronDown
+          size={15}
+          className={`shrink-0 text-neutral-400 dark:text-neutral-500 transition-transform duration-200 ease-out ml-2 ${
+            isOpen ? 'rotate-180 text-neutral-900 dark:text-white' : ''
+          }`}
+        />
+      </button>
+
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: 6, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 4, scale: 0.98 }}
+            transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
+            className="absolute left-0 right-0 top-full mt-1.5 z-50 rounded-2xl border border-neutral-200/90 dark:border-neutral-800 bg-white/95 dark:bg-[#121212]/95 backdrop-blur-2xl shadow-[0_20px_45px_rgba(0,0,0,0.15)] dark:shadow-[0_20px_45px_rgba(0,0,0,0.6)] ring-1 ring-black/5 dark:ring-white/10 overflow-hidden"
+            role="listbox"
+          >
+            <div
+              ref={listRef}
+              onWheel={(e) => e.stopPropagation()}
+              className="max-h-56 overflow-y-auto overscroll-contain p-1.5 space-y-0.5 touch-pan-y scrollbar-thin [scrollbar-color:rgba(150,150,150,0.3)_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-neutral-300 dark:[&::-webkit-scrollbar-thumb]:bg-neutral-700"
+            >
+              {normalizedOptions.map((opt) => {
+                const isSelected =
+                  opt.value === selectedOption?.value || opt.label === selectedOption?.label;
+                return (
+                  <button
+                    key={opt.value}
+                    ref={isSelected ? selectedItemRef : undefined}
+                    type="button"
+                    role="option"
+                    aria-selected={isSelected}
+                    onClick={() => {
+                      onChange(opt.value);
+                      setIsOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between rounded-xl px-3 py-2 text-xs transition-colors duration-150 text-left cursor-pointer ${
+                      isSelected
+                        ? 'bg-neutral-950 text-white dark:bg-white dark:text-neutral-950 font-semibold'
+                        : 'text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800/80'
+                    }`}
+                  >
+                    <span className="truncate pr-2">{opt.label}</span>
+                    {isSelected && <Check size={13} className="shrink-0 stroke-[2.5]" />}
+                  </button>
+                );
+              })}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
-  </div>
-);
+  );
+};
 
 // 6-Digit Email OTP Confirmation Modal
 interface OtpModalProps {
@@ -278,7 +464,7 @@ function OtpConfirmationModal({ isOpen, email, name, onVerified, onCancel }: Otp
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-1000 flex items-center justify-center p-4">
       {/* Frosted Backdrop */}
       <motion.div
         initial={{ opacity: 0 }}
@@ -383,9 +569,9 @@ function OtpConfirmationModal({ isOpen, email, name, onVerified, onCancel }: Otp
 }
 
 export default function RegisterPage() {
-  // SubSelectToggle State: Campus Student vs External (Alumnus | Visitor)
+  // SubSelectToggle State: Students vs External (Alumnus | Visitors)
   const [activeMainTab, setActiveMainTab] = useState<MenuItem>(MAIN_TABS[0]);
-  const [activeSubTab, setActiveSubTab] = useState<MenuItem>({ label: 'Campus Student', value: 'STUDENT' });
+  const [activeSubTab, setActiveSubTab] = useState<MenuItem>({ label: 'Students', value: 'STUDENT' });
 
   // Resolve active persona
   const affiliation: AffiliationType =
@@ -409,14 +595,60 @@ export default function RegisterPage() {
 
   // Step 2: Academic / Persona Record & Bio
   const [rollNumber, setRollNumber] = useState('');
-  const [branch, setBranch] = useState(BRANCHES[0]);
-  const [batch, setBatch] = useState(BATCHES[0]);
-  const [alumniBatch, setAlumniBatch] = useState(ALUMNI_BATCHES[0]);
-  const [alumniDegree, setAlumniDegree] = useState(BRANCHES[0]);
+  const [branch, setBranch] = useState(BRANCH_OPTIONS[0].value);
+  const [batch, setBatch] = useState(GRADUATION_YEARS[2]); // e.g. 2028
+  const [alumniBatch, setAlumniBatch] = useState(ALUMNI_GRADUATION_YEARS[0]);
+  const [alumniDegree, setAlumniDegree] = useState(BRANCH_OPTIONS[0].value);
   const [alumniOrganization, setAlumniOrganization] = useState('');
   const [alumniDesignation, setAlumniDesignation] = useState('');
+  const [isCustomBranch, setIsCustomBranch] = useState(false);
+  const [customBranchInput, setCustomBranchInput] = useState('');
+  const [unassignedAlumni, setUnassignedAlumni] = useState<
+    Array<{ id: string; name: string; batch: string; branch: string; currentPosition?: string; excelsiorPosition?: string }>
+  >([]);
+  const [linkedAlumniId, setLinkedAlumniId] = useState<string>('none');
   const [bio, setBio] = useState('');
   const [selectedInterests, setSelectedInterests] = useState<string[]>(['Poetry', 'Essays']);
+
+  // Fetch unassigned alumni profiles from directory on mount
+  useEffect(() => {
+    fetch('/api/alumni/unassigned')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.alumni)) {
+          setUnassignedAlumni(data.alumni);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleSelectLinkedAlumni = (id: string) => {
+    setLinkedAlumniId(id);
+    if (id === 'none') return;
+    const target = unassignedAlumni.find((a) => a.id === id);
+    if (target) {
+      if (!name.trim()) setName(target.name);
+      if (target.batch) setAlumniBatch(target.batch);
+      if (target.branch) {
+        const found = BRANCH_OPTIONS.find(
+          (b) =>
+            b.value.toLowerCase() === target.branch.toLowerCase() ||
+            b.short.toLowerCase() === target.branch.toLowerCase() ||
+            b.label.toLowerCase() === target.branch.toLowerCase()
+        );
+        if (found) {
+          setAlumniDegree(found.value);
+          setIsCustomBranch(false);
+        } else {
+          setIsCustomBranch(true);
+          setCustomBranchInput(target.branch);
+        }
+      }
+      if (target.currentPosition) {
+        setAlumniDesignation(target.currentPosition);
+      }
+    }
+  };
 
   // Step 3: Verified Social Handles & Profile Portrait
   const [githubInput, setGithubInput] = useState('');
@@ -448,20 +680,95 @@ export default function RegisterPage() {
   const [rawImageSrc, setRawImageSrc] = useState<string | null>(null);
   const [isCropperOpen, setIsCropperOpen] = useState(false);
 
+  // Real-time validations
+  const usernameValidation = useMemo(() => validateUsername(username), [username]);
+  const passwordValidation = useMemo(() => validatePassword(password), [password]);
+
+  // Debounced 2-second live username availability check
+  const [usernameStatus, setUsernameStatus] = useState<{
+    checking: boolean;
+    available: boolean | null;
+    message: string | null;
+  }>({
+    checking: false,
+    available: null,
+    message: null,
+  });
+
+  useEffect(() => {
+    const clean = username.trim().toLowerCase();
+    if (!clean) {
+      setUsernameStatus({ checking: false, available: null, message: null });
+      return;
+    }
+
+    const validation = validateUsername(clean);
+    if (!validation.valid) {
+      setUsernameStatus({
+        checking: false,
+        available: false,
+        message: validation.error || 'Invalid username',
+      });
+      return;
+    }
+
+    setUsernameStatus({
+      checking: true,
+      available: null,
+      message: 'Checking availability...',
+    });
+
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/auth/check-username?username=${encodeURIComponent(clean)}`);
+        const data = await res.json();
+        if (data.available) {
+          setUsernameStatus({
+            checking: false,
+            available: true,
+            message: `@${clean} is available`,
+          });
+        } else {
+          setUsernameStatus({
+            checking: false,
+            available: false,
+            message: data.error || 'Username is already taken',
+          });
+        }
+      } catch {
+        setUsernameStatus({
+          checking: false,
+          available: null,
+          message: null,
+        });
+      }
+    }, 400); // Snappy 400ms debounce
+
+    return () => clearTimeout(timer);
+  }, [username]);
+
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Sync subtab if main tab changes
+  useEffect(() => {
+    if (activeMainTab.value === 'internal') {
+      setActiveSubTab({ label: 'Students', value: 'STUDENT' });
+    } else {
+      if (activeSubTab.value === 'STUDENT') {
+        setActiveSubTab({ label: 'Alumnus', value: 'ALUMNI' });
+      }
+    }
+  }, [activeMainTab]);
+
   const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setError('');
 
-    if (file.size > 2 * 1024 * 1024) {
-      setError('Image must be under 2MB. Please select a smaller photo.');
-      e.target.value = '';
-      return;
-    }
-
-    if (!file.type.startsWith('image/')) {
-      setError('Please select a valid image file (PNG, JPG, WebP)');
+    const validation = validateUploadFile(file, 'AVATAR');
+    if (!validation.valid) {
+      setError(validation.error || 'Invalid photo format or size.');
       e.target.value = '';
       return;
     }
@@ -495,12 +802,21 @@ export default function RegisterPage() {
       setError('Please complete all account fields.');
       return;
     }
-    if (username.length < 3) {
-      setError('Username must be at least 3 characters.');
+
+    const userValid = validateUsername(username);
+    if (!userValid.valid) {
+      setError(userValid.error || 'Invalid username format.');
       return;
     }
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters.');
+
+    if (usernameStatus.available === false) {
+      setError(usernameStatus.message || 'Username is already taken.');
+      return;
+    }
+
+    const passValid = validatePassword(password);
+    if (!passValid.valid) {
+      setError(passValid.error || 'Invalid password.');
       return;
     }
 
@@ -559,7 +875,7 @@ export default function RegisterPage() {
       let uploadedPhotoUrl: string | null = null;
       if (croppedImageBlob) {
         try {
-          uploadedPhotoUrl = await uploadImageBlob(croppedImageBlob, 'profile_photos');
+          uploadedPhotoUrl = await uploadImageBlob(croppedImageBlob, 'avatars');
         } catch (uploadErr) {
           console.error('Photo upload failed:', uploadErr);
         }
@@ -587,6 +903,7 @@ export default function RegisterPage() {
       }
 
       // 3. Dispatch registration
+      const finalAlumniDegree = isCustomBranch && customBranchInput.trim() ? customBranchInput.trim() : alumniDegree;
       const payload = {
         name: name.trim(),
         username: username.toLowerCase().trim(),
@@ -595,12 +912,13 @@ export default function RegisterPage() {
         affiliation,
         profilePhoto: uploadedPhotoUrl || null,
         rollNumber: rollNumber.trim() || null,
-        branch: affiliation === 'ALUMNI' ? alumniDegree : branch,
+        branch: affiliation === 'ALUMNI' ? finalAlumniDegree : branch,
         batch: affiliation === 'ALUMNI' ? alumniBatch : batch,
         alumniBatch: affiliation === 'ALUMNI' ? alumniBatch : null,
-        alumniDegree: affiliation === 'ALUMNI' ? alumniDegree : null,
+        alumniDegree: affiliation === 'ALUMNI' ? finalAlumniDegree : null,
         alumniOrganization: alumniOrganization.trim() || null,
         alumniDesignation: alumniDesignation.trim() || null,
+        linkedAlumniProfileId: affiliation === 'ALUMNI' && linkedAlumniId !== 'none' ? linkedAlumniId : null,
         bio: bio.trim() || null,
         readingInterests: selectedInterests,
         socialLinks,
@@ -642,7 +960,7 @@ export default function RegisterPage() {
     <div className="min-h-screen relative flex flex-col justify-center items-center py-12 sm:py-16 px-4 sm:px-6 md:px-8 overflow-hidden bg-neutral-50 dark:bg-[#030303] text-neutral-900 dark:text-neutral-100 selection:bg-neutral-900 selection:text-white dark:selection:bg-white dark:selection:text-neutral-950">
       {/* Ambient Lighting Backdrop */}
       <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] sm:w-[900px] h-[500px] rounded-full bg-neutral-200/50 dark:bg-neutral-800/20 blur-[140px] opacity-60 dark:opacity-40" />
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-175 sm:w-225 h-125 rounded-full bg-neutral-200/50 dark:bg-neutral-800/20 blur-[140px] opacity-60 dark:opacity-40" />
       </div>
 
       {/* Main Container */}
@@ -760,14 +1078,39 @@ export default function RegisterPage() {
                     onChange={(e: any) => setName(e.target.value)}
                     placeholder="e.g. Maya Lin"
                   />
-                  <FormInput
-                    label="Username"
-                    icon={AtSign}
-                    required
-                    value={username}
-                    onChange={(e: any) => setUsername(e.target.value.toLowerCase())}
-                    placeholder="e.g. mayalin"
-                  />
+                  <div className="space-y-1">
+                    <FormInput
+                      label="Username"
+                      icon={AtSign}
+                      required
+                      minLength={3}
+                      maxLength={20}
+                      value={username}
+                      onChange={(e: any) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
+                      placeholder="e.g. mayalin"
+                      tooltip="3–20 characters (lowercase letters, numbers & underscores)"
+                    />
+                    {username.length > 0 && (
+                      <div className="px-1 text-[10.5px] font-mono min-h-4 flex items-center">
+                        {usernameStatus.checking ? (
+                          <span className="text-neutral-500 dark:text-neutral-400 flex items-center gap-1.5">
+                            <Loader2 size={11} className="animate-spin text-purple-600 dark:text-purple-400 shrink-0" />
+                            <span>Checking availability...</span>
+                          </span>
+                        ) : usernameStatus.available === true ? (
+                          <span className="text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1.5">
+                            <Check size={12} className="shrink-0" />
+                            <span>{usernameStatus.message}</span>
+                          </span>
+                        ) : usernameStatus.available === false ? (
+                          <span className="text-red-500 dark:text-red-400 font-semibold flex items-center gap-1.5">
+                            <X size={12} className="shrink-0" />
+                            <span>{usernameStatus.message}</span>
+                          </span>
+                        ) : null}
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 <FormInput
@@ -783,15 +1126,87 @@ export default function RegisterPage() {
                   placeholder="maya@college.edu or personal email"
                 />
 
-                <FormInput
-                  label="Password"
-                  type="password"
-                  icon={Lock}
-                  required
-                  value={password}
-                  onChange={(e: any) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                />
+                <div className="space-y-1.5">
+                  <FormInput
+                    label="Password"
+                    type="password"
+                    icon={Lock}
+                    required
+                    minLength={8}
+                    value={password}
+                    onChange={(e: any) => setPassword(e.target.value)}
+                    placeholder="Enter account password"
+                    tooltip="Must be at least 8 characters and contain both letters & numbers"
+                  />
+
+                  {/* Interactive Live Password Strength Meter */}
+                  {password.length > 0 && (
+                    <div className="p-3 rounded-2xl bg-neutral-50 dark:bg-[#121212] border border-neutral-200/70 dark:border-neutral-800/70 space-y-2">
+                      {/* Strength Bar */}
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex-1 h-1.5 rounded-full bg-neutral-200 dark:bg-neutral-800 overflow-hidden flex gap-1">
+                          <div
+                            className={`h-full transition-all duration-300 rounded-full ${
+                              passwordValidation.score <= 1
+                                ? 'w-1/4 bg-red-500'
+                                : passwordValidation.score === 2
+                                ? 'w-2/4 bg-amber-500'
+                                : passwordValidation.score === 3
+                                ? 'w-3/4 bg-blue-500'
+                                : 'w-full bg-emerald-500'
+                            }`}
+                          />
+                        </div>
+                        <span
+                          className={`font-mono text-[10px] font-bold uppercase tracking-wider ${
+                            passwordValidation.score <= 1
+                              ? 'text-red-500'
+                              : passwordValidation.score === 2
+                              ? 'text-amber-500'
+                              : passwordValidation.score === 3
+                              ? 'text-blue-500'
+                              : 'text-emerald-500'
+                          }`}
+                        >
+                          {passwordValidation.score <= 1
+                            ? 'Weak'
+                            : passwordValidation.score === 2
+                            ? 'Fair'
+                            : passwordValidation.score === 3
+                            ? 'Good'
+                            : 'Strong'}
+                        </span>
+                      </div>
+
+                      {/* Requirement Indicators */}
+                      <div className="flex items-center gap-x-4 gap-y-1 text-[10.5px] font-mono text-neutral-500 dark:text-neutral-400 flex-wrap">
+                        <span
+                          className={`flex items-center gap-1 transition-colors ${
+                            passwordValidation.checks.length
+                              ? 'text-emerald-600 dark:text-emerald-400 font-bold'
+                              : 'text-neutral-400'
+                          }`}
+                        >
+                          {passwordValidation.checks.length ? '✓' : '•'} 8+ characters
+                        </span>
+                        <span
+                          className={`flex items-center gap-1 transition-colors ${
+                            passwordValidation.checks.letter && passwordValidation.checks.number
+                              ? 'text-emerald-600 dark:text-emerald-400 font-bold'
+                              : 'text-neutral-400'
+                          }`}
+                        >
+                          {passwordValidation.checks.letter && passwordValidation.checks.number ? '✓' : '•'} Letters &amp; numbers
+                        </span>
+                        {passwordValidation.checks.special && (
+                          <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-bold">
+                            ✓ Special symbol
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
 
                 {/* Level 1 CTA */}
                 <div className="pt-2">
@@ -841,7 +1256,7 @@ export default function RegisterPage() {
                     </button>
                     <div>
                       <h3 className="font-serif text-lg sm:text-xl font-bold text-neutral-900 dark:text-white">
-                        {affiliation === 'STUDENT' ? 'Campus Student' : activeSubTab.label} Record
+                        {affiliation === 'STUDENT' ? 'Student' : activeSubTab.label} Record
                       </h3>
                       <p className="text-xs text-neutral-500">Provide academic details and your author byline.</p>
                     </div>
@@ -862,26 +1277,97 @@ export default function RegisterPage() {
                       placeholder="e.g. 22BCSE104"
                     />
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <FormSelect label="Branch / Department" options={BRANCHES} value={branch} onChange={(e: any) => setBranch(e.target.value)} />
-                      <FormSelect label="Batch Year" options={BATCHES} value={batch} onChange={(e: any) => setBatch(e.target.value)} />
+                      <FormSelect label="Branch / Department" options={BRANCH_OPTIONS} value={branch} onChange={(val: string) => setBranch(val)} />
+                      <FormSelect label="Graduation Year" options={GRADUATION_YEARS} value={batch} onChange={(val: string) => setBatch(val)} />
                     </div>
                   </>
                 )}
 
                 {affiliation === 'ALUMNI' && (
                   <>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <FormSelect label="Graduation Batch" options={ALUMNI_BATCHES} value={alumniBatch} onChange={(e: any) => setAlumniBatch(e.target.value)} />
-                      <FormSelect label="Degree / Department" options={BRANCHES} value={alumniDegree} onChange={(e: any) => setAlumniDegree(e.target.value)} />
+                    {/* Directory Link Selector (Show Only Unassigned Profiles) */}
+                    <div className="space-y-1.5 w-full text-left">
+                      <FormSelect
+                        label="Link with Alumni Directory Profile (Optional)"
+                        options={[
+                          { value: 'none', label: '— Not in Directory / Create New Record —' },
+                          ...unassignedAlumni.map((a) => ({
+                            value: a.id,
+                            label: `${a.name} — Class of ${a.batch} (${a.branch})`,
+                          })),
+                        ]}
+                        value={linkedAlumniId}
+                        onChange={(val: string) => handleSelectLinkedAlumni(val)}
+                      />
+                      <p className="text-[10.5px] font-mono text-neutral-400 px-1">
+                        Select your record from Archivum Alumnorum if already cataloged by the society.
+                      </p>
                     </div>
+
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <FormInput label="Current Company / University" icon={Building} value={alumniOrganization} onChange={(e: any) => setAlumniOrganization(e.target.value)} placeholder="e.g. Google, Oxford" />
-                      <FormInput label="Role / Designation" icon={Briefcase} value={alumniDesignation} onChange={(e: any) => setAlumniDesignation(e.target.value)} placeholder="e.g. Staff Engineer" />
+                      <FormSelect
+                        label="Graduation Year"
+                        options={ALUMNI_GRADUATION_YEARS}
+                        value={alumniBatch}
+                        onChange={(val: string) => setAlumniBatch(val)}
+                      />
+
+                      {/* Degree / Branch with Custom Text Option */}
+                      <div className="space-y-1">
+                        {!isCustomBranch ? (
+                          <div className="space-y-1">
+                            <FormSelect
+                              label="Degree / Department"
+                              options={BRANCH_OPTIONS}
+                              value={alumniDegree}
+                              onChange={(val: string) => setAlumniDegree(val)}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setIsCustomBranch(true)}
+                              className="text-[10.5px] font-mono text-neutral-500 hover:text-neutral-900 dark:hover:text-white transition flex items-center gap-1 cursor-pointer pt-0.5"
+                            >
+                              <span>+ Branch not in list? Enter custom branch</span>
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="space-y-1">
+                            <FormInput
+                              label="Custom Branch / Department"
+                              value={customBranchInput}
+                              onChange={(e: any) => setCustomBranchInput(e.target.value)}
+                              placeholder="e.g. Applied Physics, IT, BioTech"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setIsCustomBranch(false);
+                                setCustomBranchInput('');
+                              }}
+                              className="text-[10.5px] font-mono text-neutral-500 hover:text-neutral-900 dark:hover:text-white transition flex items-center gap-1 cursor-pointer pt-0.5"
+                            >
+                              <span>← Pick from standard branches</span>
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <div className="p-3.5 rounded-2xl bg-neutral-50 dark:bg-[#141414] border border-neutral-200 dark:border-neutral-800 text-xs text-neutral-500">
-                      <span>💡 If your record exists in </span>
-                      <strong className="text-neutral-900 dark:text-white font-serif">Archivum Alumnorum</strong>
-                      <span>, your published works will be automatically linked.</span>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <FormInput
+                        label="Current Company / University"
+                        icon={Building}
+                        value={alumniOrganization}
+                        onChange={(e: any) => setAlumniOrganization(e.target.value)}
+                        placeholder="e.g. Google, Oxford"
+                      />
+                      <FormInput
+                        label="Role / Designation"
+                        icon={Briefcase}
+                        value={alumniDesignation}
+                        onChange={(e: any) => setAlumniDesignation(e.target.value)}
+                        placeholder="e.g. Staff Engineer"
+                      />
                     </div>
                   </>
                 )}
@@ -914,17 +1400,28 @@ export default function RegisterPage() {
                   </div>
                 )}
 
-                {/* Common Field: Author Bio */}
+                {/* Common Field: Author Bio or Message to Club for Alumni */}
                 <div className="space-y-1.5">
                   <label className="font-mono text-[11px] font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 px-1">
-                    Author Bio / Byline (Optional)
+                    {affiliation === 'ALUMNI'
+                      ? 'Message to Excelsior Club (For Contact & Verification)'
+                      : 'Author Bio / Byline (Optional)'}
                   </label>
                   <textarea
                     value={bio}
                     onChange={(e) => setBio(e.target.value)}
-                    placeholder="Tell other readers about your literary background, writing style, or studies..."
-                    className="w-full p-3.5 rounded-xl border border-neutral-200/90 dark:border-neutral-800 bg-white/80 dark:bg-[#121212] text-sm text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:border-neutral-950 dark:focus:border-white focus:ring-2 focus:ring-neutral-950/10 dark:focus:ring-white/10 transition-all outline-none resize-none min-h-[85px]"
+                    placeholder={
+                      affiliation === 'ALUMNI'
+                        ? 'Share details about your tenure at Excelsior, club contributions, phone/email notes, or details so coordinators can verify your record...'
+                        : 'Tell other readers about your literary background, writing style, or studies...'
+                    }
+                    className="w-full p-3.5 rounded-xl border border-neutral-200/90 dark:border-neutral-800 bg-white/80 dark:bg-[#121212] text-sm text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:border-neutral-950 dark:focus:border-white focus:ring-2 focus:ring-neutral-950/10 dark:focus:ring-white/10 transition-all outline-none resize-none min-h-21.25"
                   />
+                  {affiliation === 'ALUMNI' && (
+                    <p className="text-[10.5px] font-mono text-neutral-400 px-1">
+                      💡 This note is directly reviewed by society coordinators to contact and verify your alumnus status.
+                    </p>
+                  )}
                 </div>
 
                 {/* Level 2 CTA */}
@@ -997,7 +1494,7 @@ export default function RegisterPage() {
                     
                     <label className="absolute -bottom-1 -right-1 p-2 rounded-full bg-neutral-950 dark:bg-white text-white dark:text-neutral-950 shadow-md cursor-pointer hover:scale-110 active:scale-95 transition-transform">
                       <Camera size={13} />
-                      <input type="file" accept="image/*" onChange={handlePhotoSelect} className="hidden" />
+                      <input type="file" accept={ACCEPT_MAP.AVATAR} onChange={handlePhotoSelect} className="hidden" />
                     </label>
                   </div>
 
@@ -1012,7 +1509,7 @@ export default function RegisterPage() {
                       <label className="inline-flex items-center gap-1 px-3 py-1 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-[#0e0e0e] text-[11px] font-mono font-bold text-neutral-800 dark:text-neutral-200 hover:text-neutral-950 dark:hover:text-white cursor-pointer transition shadow-xs">
                         <Camera size={11} />
                         <span>{previewPhotoUrl ? 'Crop Again' : 'Upload Photo'}</span>
-                        <input type="file" accept="image/*" onChange={handlePhotoSelect} className="hidden" />
+                        <input type="file" accept={ACCEPT_MAP.AVATAR} onChange={handlePhotoSelect} className="hidden" />
                       </label>
                     </div>
                   </div>
@@ -1350,13 +1847,15 @@ export default function RegisterPage() {
         />
       )}
 
-      {/* Strict 1:1 Square Portrait Cropper Modal */}
+      {/* Circular Profile Photo Cropper Modal */}
       {isCropperOpen && rawImageSrc && (
         <ImageCropperModal
           isOpen={isCropperOpen}
           imageSrc={rawImageSrc}
           aspectRatio={1}
-          aspectPresetLabel="Square (1:1)"
+          cropShape="round"
+          circular={true}
+          aspectPresetLabel="Profile Photo"
           allowRatioSelection={false}
           onCropComplete={handleCropComplete}
           onCancel={() => {

@@ -90,13 +90,16 @@ export function InteractionButton({
   }, [active, withConfetti]);
 
   const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
     if (disabled) return;
     onClick(e);
   };
 
   return (
     <motion.button
+      type="button"
       onClick={handleClick}
+      onPointerDown={(e) => e.stopPropagation()}
       disabled={disabled}
       aria-disabled={disabled}
       className={cn(

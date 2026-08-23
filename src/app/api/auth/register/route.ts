@@ -2,7 +2,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import * as bcrypt from 'bcryptjs';
-import { Role, VerificationStatus } from '@prisma/client';
+import { Role, VerificationStatus, MemberSection } from '@prisma/client';
 import { registrationSchema } from '@/lib/registration';
 
 export async function POST(req: Request) {
@@ -24,17 +24,21 @@ export async function POST(req: Request) {
     const username = input.username.toLowerCase();
     const email = input.email.toLowerCase();
 
-    // Duplicate Check
-    const existingUser = await db.user.findFirst({
-      where: { OR: [{ username }, { email }] },
+    // Check if user or email already exists
+    const existing = await db.user.findFirst({
+      where: {
+        OR: [{ username }, { email }],
+      },
     });
 
-    if (existingUser) {
-      const field = existingUser.username === username ? 'username' : 'email';
+    if (existing) {
       return NextResponse.json(
         {
-          error: `${field === 'username' ? 'Username' : 'Email'} is already registered`,
-          field,
+          error:
+            existing.username === username
+              ? 'This username is already taken.'
+              : 'An account with this email address already exists.',
+          field: existing.username === username ? 'username' : 'email',
         },
         { status: 409 }
       );
@@ -43,25 +47,51 @@ export async function POST(req: Request) {
     // Role & Verification Resolution
     let role: Role = Role.VISITOR;
     let verificationStatus: VerificationStatus = VerificationStatus.VERIFIED;
-    const memberSection = null;
-    const memberTitle = null;
+    let memberSection: MemberSection | null = null;
+    let memberTitle: string | null = null;
+    let linkedProfileId: string | null = null;
 
     if (input.affiliation === 'ALUMNI') {
       role = Role.ALUMNI;
-      // Check if there is an existing matching AlumniProfile in Archivum Alumnorum
-      const matchingAlumni = await db.alumniProfile.findFirst({
-        where: {
-          OR: [
-            { email: { equals: email, mode: 'insensitive' } },
-            { name: { equals: input.name, mode: 'insensitive' } },
-          ],
-        },
-      });
+      memberSection = null; // No special wing / directory section
 
-      if (matchingAlumni) {
-        verificationStatus = VerificationStatus.VERIFIED;
+      const finalBranch = (input.alumniDegree || input.branch || '').trim();
+      const finalBatch = (input.alumniBatch || input.batch || '').trim();
+      let yearSuffix = '';
+      if (finalBatch) {
+        const match = finalBatch.match(/(\d{2,4})$/);
+        yearSuffix = match ? ` ${match[1].slice(-2)}'` : ` ${finalBatch}`;
+      }
+      memberTitle = finalBranch ? `${finalBranch}${yearSuffix} Alumnus` : 'Alumnus';
+
+      if (input.linkedAlumniProfileId && input.linkedAlumniProfileId !== 'none') {
+        const targetProfile = await db.alumniProfile.findUnique({
+          where: { id: input.linkedAlumniProfileId },
+        });
+        if (targetProfile && !targetProfile.userId) {
+          linkedProfileId = targetProfile.id;
+          verificationStatus = VerificationStatus.VERIFIED;
+        } else {
+          verificationStatus = VerificationStatus.PENDING;
+        }
       } else {
-        verificationStatus = VerificationStatus.PENDING;
+        // Check fallback match by email or name if not explicitly selected
+        const matchingAlumni = await db.alumniProfile.findFirst({
+          where: {
+            userId: null,
+            OR: [
+              { email: { equals: email, mode: 'insensitive' } },
+              { name: { equals: input.name, mode: 'insensitive' } },
+            ],
+          },
+        });
+
+        if (matchingAlumni) {
+          linkedProfileId = matchingAlumni.id;
+          verificationStatus = VerificationStatus.VERIFIED;
+        } else {
+          verificationStatus = VerificationStatus.PENDING;
+        }
       }
     } else if (input.affiliation === 'STUDENT') {
       // Enrolled campus student
@@ -85,7 +115,7 @@ export async function POST(req: Request) {
         profilePhoto: input.profilePhoto || defaultPhoto,
         branch: input.branch || input.alumniDegree || null,
         batch: input.batch || input.alumniBatch || null,
-        bio: input.bio || (input.alumniOrganization ? `${input.alumniDesignation || 'Alumnus'} at ${input.alumniOrganization}` : null),
+        bio: input.bio || null,
         rollNumber: input.rollNumber?.toUpperCase() || null,
         socialLinks: input.socialLinks,
         role,
@@ -95,6 +125,26 @@ export async function POST(req: Request) {
         memberTitle,
       },
     });
+
+    if (linkedProfileId) {
+      await db.alumniProfile.update({
+        where: { id: linkedProfileId },
+        data: { userId: user.id },
+      });
+    }
+
+    // Create Welcome Notification for new user
+    const { createNotification } = await import('@/lib/notifications');
+    await createNotification(
+      user.id,
+      'ACCOUNT_VERIFIED',
+      null,
+      'USER',
+      user.id,
+      verificationStatus === VerificationStatus.VERIFIED
+        ? `Welcome to Excelsior, ${user.name}! Your account registration is confirmed.`
+        : `Welcome to Excelsior, ${user.name}! Your alumnus registration has been submitted for verification.`
+    );
 
     // Notify Coordinators if unverified Alumni is pending approval
     if (verificationStatus === VerificationStatus.PENDING) {

@@ -1,6 +1,7 @@
 import type { Node as PMNode } from "@tiptap/pm/model"
 import type { Transaction } from "@tiptap/pm/state"
 import { clsx, type ClassValue } from "clsx"
+import { validateUploadFile } from "@/lib/file-validation"
 import {
   AllSelection,
   NodeSelection,
@@ -366,10 +367,9 @@ export const handleImageUpload = async (
     throw new Error("No file provided")
   }
 
-  if (file.size > MAX_FILE_SIZE) {
-    throw new Error(
-      `File size exceeds maximum allowed (${MAX_FILE_SIZE / (1024 * 1024)}MB)`
-    )
+  const validation = validateUploadFile(file, 'MEDIA');
+  if (!validation.valid) {
+    throw new Error(validation.error || "Invalid image file")
   }
 
   if (abortSignal?.aborted) {

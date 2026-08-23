@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { Role } from '@prisma/client';
 import { db } from '@/lib/db';
 
-const OFFICIAL_MEMBER_ROLES = [
+const ACTIVE_MEMBER_ROLES = [
   Role.COORDINATOR,
   Role.TECH_LEAD,
   Role.CONTENT_LEAD,
@@ -10,7 +10,6 @@ const OFFICIAL_MEMBER_ROLES = [
   Role.OPERATIONS_HEAD,
   Role.TREASURER,
   Role.MEMBER,
-  Role.ALUMNI,
 ];
 
 export async function GET(req: Request) {
@@ -20,10 +19,7 @@ export async function GET(req: Request) {
 
     const members = await db.user.findMany({
       where: {
-        OR: [
-          { role: { in: OFFICIAL_MEMBER_ROLES } },
-          { memberSection: { not: null } },
-        ],
+        role: { in: ACTIVE_MEMBER_ROLES },
         ...(search
           ? {
               AND: [

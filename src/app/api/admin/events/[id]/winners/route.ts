@@ -31,6 +31,17 @@ export async function POST(
       return NextResponse.json({ error: 'Event not found' }, { status: 404 });
     }
 
+    // Find existing winner photos to clean up unreferenced ones
+    const existingWinners = await db.eventWinner.findMany({
+      where: { eventId },
+      select: { photoUrl: true },
+    });
+
+    const newPhotoUrls = new Set(winners.map((w: any) => w.photoUrl).filter(Boolean));
+    const photosToDelete = existingWinners
+      .map((w) => w.photoUrl)
+      .filter((url): url is string => Boolean(url) && !newPhotoUrls.has(url));
+
     // Bulk create winners inside transaction
     await db.$transaction(async (tx) => {
       // First clean existing winners to support full overrides cleanly
@@ -49,6 +60,11 @@ export async function POST(
         data: winnersData,
       });
     });
+
+    if (photosToDelete.length > 0) {
+      const { deleteImageByUrl } = await import('@/lib/cloudinary');
+      await Promise.allSettled(photosToDelete.map((u) => deleteImageByUrl(u)));
+    }
 
     // Notify all registered participants
     const registrations = await db.eventRegistration.findMany({

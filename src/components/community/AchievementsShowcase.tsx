@@ -12,6 +12,8 @@ import {
   useTransform,
 } from 'motion/react';
 import { FadeUp, RevealWords, EASE } from '@/components/home/primitives';
+import { RevealButton } from '@/components/ui/RevealButton';
+import { getOptimizedCardUrl } from '@/lib/image-optimization';
 
 export interface Achievement {
   id: string;
@@ -32,6 +34,9 @@ const CATEGORY_FALLBACK: Record<Achievement['category'], string> = {
 export default function AchievementsShowcase() {
   const [achievements, setAchievements] = useState<Achievement[]>([]);
   const [loading, setLoading] = useState(true);
+  // Progressive reveal: 5 rows initially, 5 more per "Load more" click.
+  // The full archive count stays authoritative everywhere.
+  const [displayLimit, setDisplayLimit] = useState(5);
   const reduce = useReducedMotion();
 
   const heroRef = useRef<HTMLDivElement>(null);
@@ -57,7 +62,8 @@ export default function AchievementsShowcase() {
     fetchAchievements();
   }, []);
 
-  const visible = achievements;
+  const visible = achievements.slice(0, displayLimit);
+  const hasMore = displayLimit < achievements.length;
 
   return (
     <div className="w-full bg-background font-sans">
@@ -112,13 +118,34 @@ export default function AchievementsShowcase() {
               ))}
             </div>
           ) : visible.length > 0 ? (
-            <motion.div layout className="space-y-16 md:space-y-24">
-              <AnimatePresence mode="popLayout">
-                {visible.map((ach, i) => (
-                  <AchievementRow key={ach.id} ach={ach} index={i} />
-                ))}
-              </AnimatePresence>
-            </motion.div>
+            <>
+              <motion.div layout className="space-y-16 md:space-y-24">
+                <AnimatePresence mode="popLayout">
+                  {visible.map((ach, i) => (
+                    <AchievementRow key={ach.id} ach={ach} index={i} />
+                  ))}
+                </AnimatePresence>
+              </motion.div>
+
+              {/* ── LOAD MORE ── */}
+              {hasMore ? (
+                <div className="mt-16 md:mt-24 flex flex-col items-center justify-center">
+                  <RevealButton
+                    label="Load more"
+                    onClick={() => setDisplayLimit((prev) => Math.min(prev + 5, achievements.length))}
+                  />
+                  <span className="mt-3 font-mono text-[10px] tabular-nums text-muted-foreground/60">
+                    {visible.length} / {achievements.length}
+                  </span>
+                </div>
+              ) : (
+                <div className="mt-16 md:mt-24 flex items-center justify-center gap-3 text-muted-foreground/60 font-mono text-[10px] uppercase tracking-[0.24em]">
+                  <span className="h-px w-10 bg-border" />
+                  <span>End of the record</span>
+                  <span className="h-px w-10 bg-border" />
+                </div>
+              )}
+            </>
           ) : (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -194,7 +221,7 @@ function AchievementRow({ ach, index }: { ach: Achievement; index: number }) {
       '0 24px 50px -10px rgba(0,0,0,0.16)'
     ]
   );
-  const overlayDim = useTransform(sh, [0, 1], [0, 0.12]);
+  const overlayDim = useTransform(sh, [0, 1], [0, 0.096]);
 
   const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     if (reduce || !imageBoxRef.current) return;
@@ -203,7 +230,8 @@ function AchievementRow({ ach, index }: { ach: Achievement; index: number }) {
     my.set((e.clientY - r.top) / r.height - 0.5);
   };
 
-  const src = ach.image || CATEGORY_FALLBACK[ach.category];
+  const rawSrc = ach.image || CATEGORY_FALLBACK[ach.category];
+  const src = getOptimizedCardUrl(rawSrc, 1200);
   const num = String(index + 1).padStart(2, '0');
   const dateLabel = new Date(ach.date).toLocaleDateString(undefined, {
     year: 'numeric',

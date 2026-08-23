@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { ArrowLeft, BookOpen, CheckCircle2, AlertCircle, Star, Calendar, Clock, ShieldAlert, ChevronUp, Minus, Plus, Barcode, FileText, Download } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { LoginPromptModal } from '@/components/auth/LoginPromptModal';
+import { getOptimizedCoverUrl, getOptimizedAvatarUrl } from '@/lib/image-optimization';
 
 interface Review {
   id: string;
@@ -242,10 +243,10 @@ export default function BookDetailPage() {
         
         {/* Left Column: Book Cover Pedestal (Symmetrical & Focused) */}
         <div className="lg:col-span-5 w-full">
-          <div className="w-full aspect-[4/5] bg-neutral-50 dark:bg-[#141416] rounded-[32px] flex items-center justify-center p-8 lg:p-12 border border-neutral-150 dark:border-neutral-900 shadow-inner">
+          <div className="w-full aspect-4/5 bg-neutral-50 dark:bg-[#141416] rounded-[32px] flex items-center justify-center p-8 lg:p-12 border border-neutral-150 dark:border-neutral-900 shadow-inner">
             <motion.div 
               whileHover="hover"
-              className="relative max-w-[240px] sm:max-w-[280px] w-full"
+              className="relative max-w-60 sm:max-w-70 w-full"
             >
               {/* Stable atmospheric drop shadow with spring animation */}
               <motion.div 
@@ -255,9 +256,9 @@ export default function BookDetailPage() {
                 transition={{ type: 'spring', stiffness: 180, damping: 24 }}
                 className="absolute inset-0 bg-black/15 dark:bg-black/45 rounded-lg blur-2xl transform translate-y-6 translate-x-2 pointer-events-none" 
               />
-              <div className="relative aspect-[2/3] w-full rounded-lg overflow-hidden border border-black/5 dark:border-white/10 shadow-2xl">
+              <div className="relative aspect-2/3 w-full rounded-lg overflow-hidden border border-black/5 dark:border-white/10 shadow-2xl">
                 <motion.img
-                  src={book.coverImage || 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?w=400&h=600&fit=crop'}
+                  src={book.coverImage ? getOptimizedCoverUrl(book.coverImage, 600) : 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?w=400&h=600&fit=crop'}
                   alt={book.title}
                   variants={{
                     hover: { scale: 1.05 }
@@ -265,7 +266,7 @@ export default function BookDetailPage() {
                   transition={{ type: 'spring', stiffness: 180, damping: 24 }}
                   className="w-full h-full object-cover"
                 />
-                <div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/5 to-white/10 pointer-events-none" />
+                <div className="absolute inset-0 bg-linear-to-tr from-white/0 via-white/5 to-white/10 pointer-events-none" />
               </div>
             </motion.div>
           </div>
@@ -330,14 +331,14 @@ export default function BookDetailPage() {
             {/* Copies Available Pill */}
             <div className="flex items-center gap-3 bg-neutral-50 dark:bg-neutral-950 border border-neutral-200/60 dark:border-neutral-900 rounded-full px-4 py-3 shrink-0">
               <span className="text-xs font-bold text-neutral-400 dark:text-neutral-500">Available</span>
-              <span className="text-sm font-bold text-neutral-900 dark:text-white min-w-[20px] text-center">
+              <span className="text-sm font-bold text-neutral-900 dark:text-white min-w-5 text-center">
                 {Math.max(0, book.totalCopies - book.issuedCopies)}
               </span>
             </div>
 
             {book.availabilityStatus === 'AVAILABLE' && (book.totalCopies - book.issuedCopies > 0) ? (
               userState.hasRequested ? (
-                <button disabled className="flex-grow py-3.5 bg-neutral-100 dark:bg-neutral-900 text-neutral-400 dark:text-neutral-555 rounded-full text-xs font-bold uppercase tracking-widest cursor-not-allowed">
+                <button disabled className="grow py-3.5 bg-neutral-100 dark:bg-neutral-900 text-neutral-400 dark:text-neutral-555 rounded-full text-xs font-bold uppercase tracking-widest cursor-not-allowed">
                   Loan Requested
                 </button>
               ) : session ? (
@@ -351,20 +352,20 @@ export default function BookDetailPage() {
                     }
                     setLoanModalOpen(true);
                   }}
-                  className="flex-grow py-3.5 bg-black hover:bg-neutral-900 dark:bg-white dark:hover:bg-neutral-100 dark:text-black text-white rounded-full text-xs font-bold uppercase tracking-widest transition-all duration-300 hover:shadow-lg shadow-black/10 dark:shadow-white/10 cursor-pointer"
+                  className="grow py-3.5 bg-black hover:bg-neutral-900 dark:bg-white dark:hover:bg-neutral-100 dark:text-black text-white rounded-full text-xs font-bold uppercase tracking-widest transition-all duration-300 hover:shadow-lg shadow-black/10 dark:shadow-white/10 cursor-pointer"
                 >
                   Request to Borrow
                 </button>
               ) : (
                 <button
                   onClick={() => setShowLoginModal(true)}
-                  className="flex-grow py-3.5 border border-black dark:border-white text-black dark:text-white hover:bg-neutral-50 dark:hover:bg-neutral-900 rounded-full text-xs font-bold uppercase tracking-widest transition cursor-pointer"
+                  className="grow py-3.5 border border-black dark:border-white text-black dark:text-white hover:bg-neutral-50 dark:hover:bg-neutral-900 rounded-full text-xs font-bold uppercase tracking-widest transition cursor-pointer"
                 >
                   Log In to Borrow
                 </button>
               )
             ) : (
-              <button disabled className="flex-grow py-3.5 bg-neutral-100 dark:bg-neutral-900 text-neutral-400 dark:text-neutral-555 rounded-full text-xs font-bold uppercase tracking-widest cursor-not-allowed">
+              <button disabled className="grow py-3.5 bg-neutral-100 dark:bg-neutral-900 text-neutral-400 dark:text-neutral-555 rounded-full text-xs font-bold uppercase tracking-widest cursor-not-allowed">
                 Currently Unavailable
               </button>
             )}
@@ -374,7 +375,7 @@ export default function BookDetailPage() {
                 href={book.amazonLink} 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="flex-grow py-3.5 border border-black dark:border-white text-black dark:text-white hover:bg-neutral-50 dark:hover:bg-neutral-900 rounded-full text-xs font-bold uppercase tracking-widest transition text-center cursor-pointer"
+                className="grow py-3.5 border border-black dark:border-white text-black dark:text-white hover:bg-neutral-50 dark:hover:bg-neutral-900 rounded-full text-xs font-bold uppercase tracking-widest transition text-center cursor-pointer"
               >
                 Buy Now
               </a>
@@ -432,7 +433,7 @@ export default function BookDetailPage() {
                     <span>{star}</span>
                     <Star className="w-3 h-3 fill-neutral-400 text-neutral-400" />
                   </div>
-                  <div className="flex-grow h-1 bg-neutral-100 dark:bg-neutral-900 rounded-full overflow-hidden">
+                  <div className="grow h-1 bg-neutral-100 dark:bg-neutral-900 rounded-full overflow-hidden">
                     <div style={{ width: `${pct}%` }} className="h-full bg-neutral-900 dark:bg-white rounded-full" />
                   </div>
                 </div>
@@ -507,7 +508,7 @@ export default function BookDetailPage() {
                    <div className="flex items-start justify-between gap-4 mb-3">
                      <div className="flex items-center gap-3">
                        <img
-                         src={rev.reviewer.profilePhoto || `https://api.dicebear.com/7.x/initials/svg?seed=${rev.reviewer.name}`}
+                         src={rev.reviewer.profilePhoto ? getOptimizedAvatarUrl(rev.reviewer.profilePhoto, 64) : `https://api.dicebear.com/7.x/initials/svg?seed=${rev.reviewer.name}`}
                          alt={rev.reviewer.name}
                          className="w-8 h-8 rounded-full object-cover bg-neutral-100"
                        />
@@ -555,7 +556,7 @@ export default function BookDetailPage() {
       {/* Borrow Loan Request Modal */}
       <AnimatePresence>
         {loanModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-1000 flex items-center justify-center p-4">
             <motion.div
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               onClick={() => setLoanModalOpen(false)}

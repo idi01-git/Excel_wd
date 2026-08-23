@@ -64,18 +64,21 @@ export default function SortDropdown({
   return (
     <div className="relative z-40">
       <motion.button
+        type="button"
         layout
         transition={smoothSpring}
+        whileTap={{ scale: 0.9 }}
         onClick={handleToggle}
-        className={`flex items-center gap-1.5 h-9 rounded-full bg-neutral-100/80 hover:bg-neutral-200/60 dark:bg-white/[0.06] dark:hover:bg-white/[0.1] text-neutral-700 dark:text-neutral-200 text-xs font-medium tracking-wide outline-none cursor-pointer transition-colors overflow-hidden ${
-          compact ? 'px-2.5 sm:px-4' : 'px-4'
+        className={`flex items-center justify-center gap-1.5 h-10 sm:h-9 rounded-full bg-neutral-100/80 hover:bg-neutral-200/80 dark:bg-white/[0.06] dark:hover:bg-white/[0.12] border border-neutral-200/80 dark:border-white/10 text-neutral-700 dark:text-neutral-200 text-xs font-medium tracking-wide outline-none cursor-pointer transition-colors overflow-hidden shadow-xs shrink-0 select-none ${
+          compact ? 'w-10 sm:w-auto px-0 sm:px-4' : 'px-4'
         }`}
         title={`Sort by: ${currentOption?.label}`}
+        aria-label={`Sort by: ${currentOption?.label}`}
       >
         <motion.span layout className={compact ? 'hidden sm:inline whitespace-nowrap' : 'inline whitespace-nowrap'}>
           {currentOption?.label}
         </motion.span>
-        <ArrowDownUp size={12} className="text-neutral-400 dark:text-neutral-500 shrink-0" />
+        <ArrowDownUp size={14} className="text-neutral-500 dark:text-neutral-400 shrink-0" />
       </motion.button>
 
       <AnimatePresence>

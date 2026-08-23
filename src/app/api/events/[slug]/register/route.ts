@@ -171,20 +171,21 @@ export async function POST(
         throw new Error('PAYMENT_PROOF_REQUIRED');
       }
 
-      // Check double registration
-      const existing = await tx.eventRegistration.findUnique({
+      // Check active registration (ignoring past CANCELLED or REFUNDED records)
+      const existing = await tx.eventRegistration.findFirst({
         where: {
-          eventId_userId: {
-            eventId,
-            userId: session.user.id
-          }
-        }
+          eventId,
+          userId: session.user.id,
+          NOT: {
+            paymentStatus: { in: ['CANCELLED', 'REFUNDED'] },
+          },
+        },
+        orderBy: { registeredAt: 'desc' },
       });
 
       if (existing) {
-        const isCancelled = existing.paymentStatus === 'CANCELLED_REFUND_PENDING' || existing.paymentStatus === 'CANCELLED';
-        // Allow re-submitting proof while payment is not yet verified or if re-registering after cancellation
-        if (isCancelled || (event.requirePayment && existing.paymentStatus !== 'VERIFIED' && paymentScreenshotUrl)) {
+        // Allow re-submitting proof while payment is not yet verified
+        if (event.requirePayment && existing.paymentStatus !== 'VERIFIED' && paymentScreenshotUrl) {
           const retry = await tx.eventRegistration.update({
             where: { id: existing.id },
             data: {
@@ -193,7 +194,7 @@ export async function POST(
               phone: phone || null,
               extraFields: sanitized.data,
               paymentScreenshotUrl: paymentScreenshotUrl || existing.paymentScreenshotUrl || null,
-              paymentStatus: event.requirePayment ? 'PENDING' : 'VERIFIED',
+              paymentStatus: 'PENDING',
               registeredAt: new Date(),
             },
           });
@@ -351,17 +352,19 @@ export async function DELETE(
       return NextResponse.json({ error: 'Cannot cancel registration for past events' }, { status: 400 });
     }
 
-    const existing = await db.eventRegistration.findUnique({
+    const existing = await db.eventRegistration.findFirst({
       where: {
-        eventId_userId: {
-          eventId,
-          userId: session.user.id,
+        eventId,
+        userId: session.user.id,
+        NOT: {
+          paymentStatus: { in: ['CANCELLED', 'REFUNDED'] },
         },
       },
+      orderBy: { registeredAt: 'desc' },
     });
 
     if (!existing) {
-      return NextResponse.json({ error: 'You are not registered for this event' }, { status: 404 });
+      return NextResponse.json({ error: 'You do not have an active registration for this event' }, { status: 404 });
     }
 
     // If the registration involved payment (paid event or proof submitted)
@@ -378,9 +381,21 @@ export async function DELETE(
         },
       });
 
-      // Notify Treasurer / Staff about refund action needed
+      // Notify Treasurer / Staff about refund action needed & Notify User
       try {
         const { createNotification } = await import('@/lib/notifications');
+        
+        // Notify user
+        await createNotification(
+          session.user.id,
+          'EVENT_UPDATE',
+          null,
+          'EVENT',
+          eventId,
+          `Registration cancelled for "${eventObj.title}". Your refund request is under review with our Treasurer.`
+        );
+
+        // Notify staff
         const treasurers = await db.user.findMany({
           where: { role: { in: ['TREASURER', 'COORDINATOR'] } },
           select: { id: true },
@@ -407,10 +422,34 @@ export async function DELETE(
       });
     }
 
-    // If free event without payments, delete directly
-    await db.eventRegistration.delete({
+    // For free events, mark CANCELLED to preserve historical record without deleting
+    await db.eventRegistration.update({
       where: { id: existing.id },
+      data: {
+        paymentStatus: 'CANCELLED',
+        extraFields: {
+          ...(typeof existing.extraFields === 'object' && existing.extraFields
+            ? (existing.extraFields as Record<string, any>)
+            : {}),
+          cancelledAt: new Date().toISOString(),
+          cancelledByUserId: session.user.id,
+        },
+      },
     });
+
+    try {
+      const { createNotification } = await import('@/lib/notifications');
+      await createNotification(
+        session.user.id,
+        'EVENT_UPDATE',
+        null,
+        'EVENT',
+        eventId,
+        `Your registration for "${eventObj.title}" has been cancelled.`
+      );
+    } catch (notifErr) {
+      console.warn('Cancellation notification error:', notifErr);
+    }
 
     return NextResponse.json({ success: true, cancelled: true });
   } catch (error: unknown) {

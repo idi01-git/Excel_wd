@@ -101,7 +101,7 @@ export default function Footer() {
                   className="group relative inline-flex items-center gap-2.5 rounded-full border border-background/40 bg-background/5 hover:bg-background hover:text-foreground px-6 py-3 font-mono text-[11px] uppercase tracking-[0.2em] text-background overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer"
                 >
                   {/* Subtle Ambient Light Sweep Shimmer on Hover */}
-                  <span className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out bg-gradient-to-r from-transparent via-white/20 to-transparent pointer-events-none" />
+                  <span className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out bg-linear-to-r from-transparent via-white/20 to-transparent pointer-events-none" />
                   
                   <span className="relative z-10">Join the society</span>
                   
@@ -117,7 +117,7 @@ export default function Footer() {
             {/* Social Links */}
             <div className={`flex items-center gap-5 ${session ? 'mt-8' : 'mt-8'}`}>
               <a
-                href="https://instagram.com/"
+                href="https://www.instagram.com/iet.excelsior/"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-background/50 transition-colors hover:text-background"
@@ -126,7 +126,7 @@ export default function Footer() {
                 <InstagramIcon size={18} />
               </a>
               <a
-                href="https://linkedin.com/"
+                href="https://www.linkedin.com/company/excelsior-iet-lucknow/"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-background/50 transition-colors hover:text-background"
@@ -144,45 +144,47 @@ export default function Footer() {
             </div>
           </div>
 
-          <nav className="md:col-span-3 md:col-start-7" aria-label={groups[0]?.heading || "Explore"}>
-            <h4 className="font-mono text-[10px] uppercase tracking-[0.28em] text-background/40">
-              Explore
-            </h4>
-            <ul className="mt-5 space-y-3">
-              {(groups[0]?.links || EXPLORE_LINKS).map((link: { label: string; href: string }) => (
-                <li key={link.href}>
-                  <Link
-                    href={link.href}
-                    className="text-sm text-background/70 transition-colors duration-200 hover:text-background"
-                  >
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </nav>
+          <div className="grid grid-cols-2 gap-8 md:col-span-6 md:col-start-7 md:gap-8">
+            <nav aria-label={groups[0]?.heading || "Explore"}>
+              <h4 className="font-mono text-[10px] uppercase tracking-[0.28em] text-background/40">
+                Explore
+              </h4>
+              <ul className="mt-5 space-y-3">
+                {(groups[0]?.links || EXPLORE_LINKS).map((link: { label: string; href: string }) => (
+                  <li key={link.href}>
+                    <Link
+                      href={link.href}
+                      className="text-sm text-background/70 transition-colors duration-200 hover:text-background"
+                    >
+                      {link.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </nav>
 
-          <nav className="md:col-span-3" aria-label={groups[1]?.heading || "Community"}>
-            <h4 className="font-mono text-[10px] uppercase tracking-[0.28em] text-background/40">
-              Community
-            </h4>
-            <ul className="mt-5 space-y-3">
-              {(groups[1]?.links || COMMUNITY_LINKS).map((link: { label: string; href: string }) => (
-                <li key={link.href}>
-                  <Link
-                    href={link.href}
-                    className="text-sm text-background/70 transition-colors duration-200 hover:text-background"
-                  >
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </nav>
+            <nav aria-label={groups[1]?.heading || "Community"}>
+              <h4 className="font-mono text-[10px] uppercase tracking-[0.28em] text-background/40">
+                Community
+              </h4>
+              <ul className="mt-5 space-y-3">
+                {(groups[1]?.links || COMMUNITY_LINKS).map((link: { label: string; href: string }) => (
+                  <li key={link.href}>
+                    <Link
+                      href={link.href}
+                      className="text-sm text-background/70 transition-colors duration-200 hover:text-background"
+                    >
+                      {link.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+          </div>
         </div>
 
         {/* Bottom bar */}
-        <div className="mt-14 flex flex-col gap-4 border-t border-background/15 pt-6 font-mono text-[10px] uppercase tracking-[0.22em] text-background/40 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-14 flex flex-col items-center text-center gap-4 border-t border-background/15 pt-6 font-mono text-[10px] uppercase tracking-[0.22em] text-background/40 sm:flex-row sm:items-center sm:justify-between sm:text-left">
           <span>© {new Date().getFullYear()} Excelsior Literary Society</span>
           <span>
             Brought into Existence by{' '}

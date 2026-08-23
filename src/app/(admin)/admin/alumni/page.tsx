@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { ImageCropperModal } from '@/components/ui/ImageCropperModal';
 import { uploadImageBlob } from '@/lib/upload';
+import { validateUploadFile, ACCEPT_MAP } from '@/lib/file-validation';
 import { useLenis } from 'lenis/react';
 import { formatRole } from '@/lib/rbac';
 
@@ -228,12 +229,21 @@ export default function AdminAlumniPage() {
   const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    const validation = validateUploadFile(file, 'AVATAR');
+    if (!validation.valid) {
+      setFeedback({ type: 'error', text: validation.error || 'Invalid photo format or size.' });
+      e.target.value = '';
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = () => {
       setCropperRawSrc(reader.result as string);
       setIsCropperOpen(true);
     };
     reader.readAsDataURL(file);
+    e.target.value = '';
   };
 
   const handleCropComplete = async (blob: Blob, previewUrl: string) => {
@@ -242,9 +252,10 @@ export default function AdminAlumniPage() {
     try {
       const url = await uploadImageBlob(blob, 'alumni-photos', `${name || 'alumni'}_photo.jpg`);
       setPhoto(url);
-    } catch (err) {
+      setFeedback({ type: 'success', text: 'Alumni portrait uploaded to Cloudinary.' });
+    } catch (err: any) {
       console.error(err);
-      setPhoto(previewUrl);
+      setFeedback({ type: 'error', text: err.message || 'Failed to upload photo to Cloudinary. Please try again.' });
     } finally {
       setUploadingPhoto(false);
     }
@@ -708,7 +719,7 @@ export default function AdminAlumniPage() {
                     <input
                       id="alumni-photo-upload"
                       type="file"
-                      accept="image/*"
+                      accept={ACCEPT_MAP.AVATAR}
                       onChange={handlePhotoSelect}
                       className="hidden"
                     />

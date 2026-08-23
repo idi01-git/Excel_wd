@@ -22,6 +22,7 @@ import {
 import { AchievementCategory } from '@prisma/client';
 import { ImageCropperModal } from '@/components/ui/ImageCropperModal';
 import { uploadImageBlob } from '@/lib/upload';
+import { validateUploadFile, ACCEPT_MAP } from '@/lib/file-validation';
 import { useLenis } from 'lenis/react';
 
 interface AchievementItem {
@@ -122,6 +123,14 @@ export default function AdminAchievementsPage() {
   const handleImageFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    const validation = validateUploadFile(file, 'MEDIA');
+    if (!validation.valid) {
+      setFeedback({ type: 'error', text: validation.error || 'Invalid image format or size.' });
+      e.target.value = '';
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = () => {
       setCropperRawSrc(reader.result as string);
@@ -137,9 +146,10 @@ export default function AdminAchievementsPage() {
     try {
       const uploadedUrl = await uploadImageBlob(blob, 'achievements', `achievement_${Date.now()}.jpg`);
       setImage(uploadedUrl);
-    } catch (err) {
+      setFeedback({ type: 'success', text: 'Achievement image uploaded to Cloudinary.' });
+    } catch (err: any) {
       console.error(err);
-      setImage(previewUrl);
+      setFeedback({ type: 'error', text: err.message || 'Failed to upload achievement image to Cloudinary.' });
     } finally {
       setUploadingImage(false);
     }
@@ -570,7 +580,7 @@ export default function AdminAchievementsPage() {
                       <input
                         id="achievement-photo"
                         type="file"
-                        accept="image/*"
+                        accept={ACCEPT_MAP.MEDIA}
                         onChange={handleImageFileSelect}
                         className="hidden"
                       />

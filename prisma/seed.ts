@@ -881,71 +881,56 @@ async function main() {
     },
   });
 
-  await prisma.eventRegistration.upsert({
-    where: {
-      eventId_userId: {
+  const reg1 = await prisma.eventRegistration.findFirst({
+    where: { eventId: paidEvent.id, userId: student1.id },
+  });
+  if (!reg1) {
+    await prisma.eventRegistration.create({
+      data: {
         eventId: paidEvent.id,
         userId: student1.id,
+        name: student1.name,
+        email: student1.email,
+        phone: '+91 99887 76655',
+        paymentStatus: 'PENDING',
+        paymentScreenshotUrl: 'https://images.unsplash.com/photo-1621416894569-0f39ed31d247?w=500&h=800&fit=crop',
       },
-    },
-    update: {
-      paymentStatus: 'PENDING',
-      paymentScreenshotUrl: 'https://images.unsplash.com/photo-1621416894569-0f39ed31d247?w=500&h=800&fit=crop',
-    },
-    create: {
-      eventId: paidEvent.id,
-      userId: student1.id,
-      name: student1.name,
-      email: student1.email,
-      phone: '+91 99887 76655',
-      paymentStatus: 'PENDING',
-      paymentScreenshotUrl: 'https://images.unsplash.com/photo-1621416894569-0f39ed31d247?w=500&h=800&fit=crop',
-    },
-  });
+    });
+  }
 
-  await prisma.eventRegistration.upsert({
-    where: {
-      eventId_userId: {
+  const reg2 = await prisma.eventRegistration.findFirst({
+    where: { eventId: paidEvent.id, userId: student2.id },
+  });
+  if (!reg2) {
+    await prisma.eventRegistration.create({
+      data: {
         eventId: paidEvent.id,
         userId: student2.id,
+        name: student2.name,
+        email: student2.email,
+        phone: '+91 88776 65544',
+        paymentStatus: 'VERIFIED',
+        paymentScreenshotUrl: 'https://images.unsplash.com/photo-1559526324-4b87b5e36e44?w=500&h=800&fit=crop',
       },
-    },
-    update: {
-      paymentStatus: 'VERIFIED',
-      paymentScreenshotUrl: 'https://images.unsplash.com/photo-1559526324-4b87b5e36e44?w=500&h=800&fit=crop',
-    },
-    create: {
-      eventId: paidEvent.id,
-      userId: student2.id,
-      name: student2.name,
-      email: student2.email,
-      phone: '+91 88776 65544',
-      paymentStatus: 'VERIFIED',
-      paymentScreenshotUrl: 'https://images.unsplash.com/photo-1559526324-4b87b5e36e44?w=500&h=800&fit=crop',
-    },
-  });
+    });
+  }
 
-  await prisma.eventRegistration.upsert({
-    where: {
-      eventId_userId: {
+  const reg3 = await prisma.eventRegistration.findFirst({
+    where: { eventId: paidEvent.id, userId: student3.id },
+  });
+  if (!reg3) {
+    await prisma.eventRegistration.create({
+      data: {
         eventId: paidEvent.id,
         userId: student3.id,
+        name: student3.name,
+        email: student3.email,
+        phone: '+91 77665 54433',
+        paymentStatus: 'PENDING',
+        paymentScreenshotUrl: 'https://images.unsplash.com/photo-1616077168712-fc6c788bc4ee?w=500&h=800&fit=crop',
       },
-    },
-    update: {
-      paymentStatus: 'PENDING',
-      paymentScreenshotUrl: 'https://images.unsplash.com/photo-1616077168712-fc6c788bc4ee?w=500&h=800&fit=crop',
-    },
-    create: {
-      eventId: paidEvent.id,
-      userId: student3.id,
-      name: student3.name,
-      email: student3.email,
-      phone: '+91 77665 54433',
-      paymentStatus: 'PENDING',
-      paymentScreenshotUrl: 'https://images.unsplash.com/photo-1616077168712-fc6c788bc4ee?w=500&h=800&fit=crop',
-    },
-  });
+    });
+  }
 
   console.log('Seeding complete!');
 }

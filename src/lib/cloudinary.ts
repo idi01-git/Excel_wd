@@ -14,13 +14,17 @@ export function getPublicIdFromUrl(url: string): string | null {
     const uploadIndex = url.indexOf('/upload/');
     if (uploadIndex === -1) return null;
     let afterUpload = url.substring(uploadIndex + '/upload/'.length);
-    // Strip transformations if present (segments prior to v[0-9]+)
+    
+    // Strip transformations if present (segments prior to v[0-9]+ or folder)
     const versionMatch = afterUpload.match(/(?:.*\/)?(v\d+\/.*)/);
     if (versionMatch) {
       afterUpload = versionMatch[1].replace(/^v\d+\//, '');
     } else {
-      afterUpload = afterUpload.replace(/^v\d+\//, '');
+      // Strip leading transformation segment if present
+      const transformRegex = /^((?:[a-z]{1,4}_[a-zA-Z0-9_:.-]+,?)+\/)+/i;
+      afterUpload = afterUpload.replace(transformRegex, '').replace(/^v\d+\//, '');
     }
+    
     const dotIndex = afterUpload.lastIndexOf('.');
     if (dotIndex === -1) return afterUpload;
     return afterUpload.substring(0, dotIndex);
@@ -50,3 +54,20 @@ export async function deleteImageByUrl(url: string): Promise<{ ok: boolean; resu
     return { ok: false };
   }
 }
+
+export {
+  getOptimizedImageUrl,
+  getOptimizedAvatarUrl,
+  getOptimizedCoverUrl,
+  getOptimizedCardUrl,
+  getOptimizedHeroUrl,
+  getOptimizedThumbnailUrl,
+  getOptimizedGalleryUrl,
+  getOptimizedCardwallCoverUrl,
+  getCloudinarySrcSet,
+  getResponsiveImageProps,
+  type ImageOptimizationOptions,
+} from './image-optimization';
+
+
+

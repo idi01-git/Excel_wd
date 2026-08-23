@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
 import { X } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 
 interface LoginPromptModalProps {
   isOpen: boolean;
@@ -14,11 +16,18 @@ interface LoginPromptModalProps {
 export function LoginPromptModal({ isOpen, action, onClose }: LoginPromptModalProps) {
   const pathname = usePathname();
   const callbackUrl = encodeURIComponent(pathname || '/');
+  const [mounted, setMounted] = useState(false);
 
-  return (
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted || typeof document === 'undefined') return null;
+
+  return createPortal(
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
           <motion.button
             type="button"
             aria-label="Close sign-in prompt"
@@ -63,6 +72,7 @@ export function LoginPromptModal({ isOpen, action, onClose }: LoginPromptModalPr
           </motion.section>
         </div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 }

@@ -4,6 +4,7 @@
 import { useParams, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { getOptimizedGalleryUrl } from '@/lib/image-optimization';
 
 interface GalleryItem {
   id: string;
@@ -127,7 +128,7 @@ export default function EventGalleryDetailPage() {
             >
               <div className="relative h-52 overflow-hidden bg-slate-950">
                 <img
-                  src={item.url}
+                  src={getOptimizedGalleryUrl(item.url, 800)}
                   alt={item.caption || 'Gallery Image'}
                   className="w-full h-full object-cover group-hover:scale-103 transition duration-500"
                 />
@@ -177,7 +178,7 @@ export default function EventGalleryDetailPage() {
             className="max-w-3xl max-h-[80vh] flex flex-col items-center justify-center"
           >
             <img
-              src={items[lightboxIndex].url}
+              src={getOptimizedGalleryUrl(items[lightboxIndex].url, 1600)}
               alt=""
               className="max-w-full max-h-[70vh] object-contain rounded-lg border border-white/10"
             />

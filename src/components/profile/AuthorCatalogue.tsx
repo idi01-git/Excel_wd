@@ -14,6 +14,7 @@ import {
 import { LayoutGrid, List, FileText, Star, MessageSquare, Heart, Bookmark } from "lucide-react"
 import { Button } from "@/components/tiptap-ui-primitive/button"
 import SortDropdown from "@/components/SortDropdown"
+import { getOptimizedCoverUrl } from "@/lib/image-optimization"
 
 const smoothSpring = {
   type: "spring" as const,
@@ -93,9 +94,10 @@ function ProfilePublicationCard({ pub, viewMode }: { pub: Publication; viewMode:
   };
 
   const dateStr = formatDate(pub.createdAt);
-  const cover =
+  const rawCover =
     pub.coverImage ||
     "https://images.unsplash.com/photo-1455390582262-044cdead277a?w=800&h=450&fit=crop";
+  const cover = getOptimizedCoverUrl(rawCover, viewMode === "list" ? 450 : 800);
 
   return (
     <motion.article
@@ -467,7 +469,8 @@ export default function AuthorCatalogue({
               {/* REVIEWS TAB */}
               {activeTab === "REVIEWS" && visibleReviews.map((review) => {
                 const dateStr = formatDate(review.createdAt)
-                const cover = review.book.coverImage || "https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=800&auto=format&fit=crop"
+                const rawCover = review.book.coverImage || "https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=800&auto=format&fit=crop"
+                const cover = getOptimizedCoverUrl(rawCover, 240)
                 
                 return (
                   <motion.div

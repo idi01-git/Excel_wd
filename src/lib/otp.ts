@@ -8,6 +8,8 @@ export function generateOtpCode(): string {
   return crypto.randomInt(100000, 1000000).toString();
 }
 
+import path from 'path';
+import fs from 'fs';
 import nodemailer from 'nodemailer';
 
 /**
@@ -31,58 +33,736 @@ export async function sendOtpEmail(email: string, code: string, recipientName: s
       },
     });
 
+    const logoPath = path.join(process.cwd(), 'public/images/image.png');
+    const attachments = fs.existsSync(logoPath)
+      ? [{ filename: 'image.png', path: logoPath, cid: 'clubLogo' }]
+      : [];
+
+    const safeName = recipientName || 'Member';
+
     await transporter.sendMail({
-      from: `"Excelsior" <${smtpUser}>`,
+      from: `"Excelsior-Literary Club of IET Lucknow" <${smtpUser}>`,
       to: email,
       subject: `${code} is your Excelsior verification code`,
-      html: `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <title>Excelsior Verification Code</title>
-        </head>
-        <body style="margin:0;padding:0;background-color:#09090b;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#f4f4f5;">
-          <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#09090b;padding:40px 16px;">
-            <tr>
-              <td align="center">
-                <table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background-color:#121214;border:1px solid #27272a;border-radius:24px;overflow:hidden;padding:36px 32px;box-shadow:0 20px 40px rgba(0,0,0,0.4);">
-                  <!-- Header -->
-                  <tr>
-                    <td align="center" style="padding-bottom:24px;">
-                      <p style="margin:0 0 8px 0;font-family:monospace;font-size:12px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:#a1a1aa;">EXCELSIOR SOCIETY</p>
-                      <h1 style="margin:0;font-size:24px;font-weight:700;letter-spacing:-0.5px;color:#ffffff;">Confirm Your Email</h1>
-                      <p style="margin:8px 0 0 0;font-size:14px;color:#a1a1aa;line-height:1.5;">Hello ${recipientName || 'Member'}, use the one-time code below to complete your registration.</p>
-                    </td>
-                  </tr>
-                  <!-- OTP Box -->
-                  <tr>
-                    <td align="center" style="padding:16px 0 24px 0;">
-                      <div style="display:inline-block;background-color:#18181b;border:1px solid #3f3f46;border-radius:16px;padding:18px 36px;text-align:center;">
-                        <span style="font-family:monospace;font-size:36px;font-weight:800;letter-spacing:8px;color:#ffffff;display:block;">${code}</span>
-                        <span style="display:block;font-size:11px;font-family:monospace;text-transform:uppercase;letter-spacing:1px;color:#71717a;margin-top:6px;">Expires in 10 minutes</span>
-                      </div>
-                    </td>
-                  </tr>
-                  <!-- Security Notice -->
-                  <tr>
-                    <td style="border-top:1px solid #27272a;padding-top:20px;text-align:center;">
-                      <p style="margin:0;font-size:12px;color:#71717a;line-height:1.5;">
-                        This code is single-use and will expire in 10 minutes. If you did not create an account on Excelsior, please safely disregard this email.
-                      </p>
-                    </td>
-                  </tr>
-                </table>
-              </td>
-            </tr>
-          </table>
-        </body>
-        </html>
-      `,
+      attachments,
+      html: `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Great+Vibes&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&display=swap');
+  body,table,td,p,div{margin:0;padding:0;border:0;}
+  body{background:#ffffff;font-family:Georgia,'Times New Roman',serif;}
+  img{border:0;display:block;}
+  .calli{
+    font-family:'Great Vibes','Brush Script MT','Lucida Handwriting',cursive;
+    font-size:52px;line-height:1.25;color:#001f3f;text-align:center;
+  }
+  .body-text{
+    font-family:'Cormorant Garamond',Georgia,'Times New Roman',serif;
+    font-size:16px;line-height:1.85;color:#3a3a3a;text-align:center;
+  }
+  @media only screen and (max-width:600px){
+    .email-card{width:100% !important;}
+    .inner-pad{padding:28px 18px !important;}
+    .calli{font-size:40px !important;}
+    .body-text{font-size:15px !important;}
+    .badge-cell{padding:10px 20px !important;}
+    .detail-val{font-size:13px !important;}
+    .logo-img{width:70px !important;height:70px !important;}
+    .club-name{font-size:18px !important;letter-spacing:5px !important;}
+    .footer-bar{padding:14px 20px !important;}
+  }
+</style>
+</head>
+<body style="margin:0;padding:0;background:#ffffff;">
+
+<table role="presentation" cellspacing="0" cellpadding="0"
+       border="0" width="100%" style="background:#ffffff;">
+  <tr>
+    <td align="center" style="padding:30px 10px 0;">
+
+      <table class="email-card" role="presentation"
+             cellspacing="0" cellpadding="0" border="0" width="600"
+             style="background:#fffdf7;border:1px solid #e2d9c8;
+                    border-top:5px solid #001f3f;">
+        <tr>
+          <td>
+            <table role="presentation" cellspacing="0"
+                   cellpadding="0" border="0" width="100%">
+              <tr>
+                <td class="inner-pad" style="padding:45px 50px;">
+
+                  <!-- LOGO -->
+                  <table role="presentation" cellspacing="0"
+                         cellpadding="0" border="0" width="100%">
+                    <tr>
+                      <td align="center" style="padding-bottom:14px;">
+                        <img class="logo-img"
+                             src="cid:clubLogo"
+                             alt="Excelsior"
+                             width="85" height="85"
+                             style="width:85px;height:85px;
+                                    object-fit:contain;border-radius:4px;margin:0 auto;">
+                      </td>
+                    </tr>
+                  </table>
+
+                  <!-- CLUB NAME -->
+                  <table role="presentation" cellspacing="0"
+                         cellpadding="0" border="0" width="100%">
+                    <tr>
+                      <td align="center">
+                        <div class="club-name"
+                             style="font-family:'Palatino Linotype',
+                                    'Book Antiqua',Palatino,Georgia,serif;
+                                    font-size:22px;font-weight:700;
+                                    letter-spacing:8px;color:#001f3f;
+                                    text-transform:uppercase;
+                                    margin-bottom:6px;">
+                          EXCELSIOR
+                        </div>
+                        <div style="font-family:Georgia,'Times New Roman',serif;
+                                    font-size:10px;letter-spacing:3px;
+                                    color:#d4af37;font-style:italic;
+                                    margin-bottom:22px;">
+                          The Literary Club of IET Lucknow
+                        </div>
+                      </td>
+                    </tr>
+                  </table>
+
+                  <!-- DIVIDER -->
+                  <table role="presentation" cellspacing="0"
+                         cellpadding="0" border="0" align="center"
+                         style="margin:0 auto 20px;">
+                    <tr>
+                      <td width="80" height="1"
+                          style="background:#d4af37;font-size:1px;
+                                 line-height:1px;opacity:0.5;">&nbsp;</td>
+                      <td width="10"></td>
+                      <td width="6" height="6"
+                          style="background:#d4af37;font-size:1px;"></td>
+                      <td width="10"></td>
+                      <td width="80" height="1"
+                          style="background:#d4af37;font-size:1px;
+                                 line-height:1px;opacity:0.5;">&nbsp;</td>
+                    </tr>
+                  </table>
+
+                  <!-- SALUTATION + CALLIGRAPHY NAME -->
+                  <table role="presentation" cellspacing="0"
+                         cellpadding="0" border="0" width="100%">
+                    <tr>
+                      <td align="center" style="padding-top:10px;">
+                        <p style="font-family:Georgia,'Times New Roman',serif;
+                                  font-size:14px;font-style:italic;
+                                  color:#999;letter-spacing:2px;
+                                  margin:0 0 14px 0;text-align:center;">
+                          Salutations,
+                        </p>
+                        <div class="calli">${safeName}</div>
+                        <table role="presentation" cellspacing="0"
+                               cellpadding="0" border="0" align="center"
+                               style="margin:10px auto 28px;">
+                          <tr>
+                            <td width="160" height="1"
+                                style="background:#d4af37;font-size:1px;
+                                       line-height:1px;">&nbsp;</td>
+                          </tr>
+                        </table>
+                      </td>
+                    </tr>
+                  </table>
+
+                  <!-- BODY MESSAGE 1 -->
+                  <table role="presentation" cellspacing="0"
+                         cellpadding="0" border="0" width="100%">
+                    <tr>
+                      <td>
+                        <p class="body-text" style="margin:0 0 24px 0;">
+                          Welcome to the threshold of our literary fellowship.
+                          To verify your email and complete your enrollment
+                          in the society records, please enter the security authentication
+                          code provided below.
+                        </p>
+                      </td>
+                    </tr>
+                  </table>
+
+                  <!-- CODE BADGE -->
+                  <table role="presentation" cellspacing="0"
+                         cellpadding="0" border="0" align="center"
+                         style="margin:0 auto 28px;border:1px solid #d4af37;background:#fdfbf7;">
+                    <tr>
+                      <td class="badge-cell"
+                          style="padding:16px 40px;text-align:center;">
+                        <div style="font-family:Arial,Helvetica,sans-serif;
+                                    font-size:8px;letter-spacing:2.5px;
+                                    color:#a0906a;text-transform:uppercase;
+                                    margin-bottom:6px;">
+                          SECURITY AUTHENTICATION CODE
+                        </div>
+                        <div style="font-family:monospace,'Courier New',serif;
+                                    font-size:36px;letter-spacing:10px;
+                                    color:#001f3f;font-weight:800;padding-left:10px;">
+                          ${code}
+                        </div>
+                        <div style="font-family:Georgia,serif;
+                                    font-size:10px;font-style:italic;
+                                    color:#8c8270;letter-spacing:1px;
+                                    margin-top:6px;">
+                          Single-use code &bull; Valid for 10 minutes
+                        </div>
+                      </td>
+                    </tr>
+                  </table>
+
+                  <!-- DETAILS PANEL -->
+                  <table role="presentation" cellspacing="0"
+                         cellpadding="0" border="0" width="100%"
+                         style="background:#f8f5ee;border:1px solid #e5ddd0;
+                                border-left:3px solid #d4af37;
+                                margin-bottom:32px;">
+                    <tr>
+                      <td style="padding:18px 22px;">
+                        <p style="font-family:Georgia,serif;font-size:10px;
+                                  font-style:italic;color:#a0906a;
+                                  letter-spacing:1px;margin:0 0 12px 0;">
+                          Verification Record
+                        </p>
+                        <table role="presentation" cellspacing="0"
+                               cellpadding="0" border="0" width="100%">
+
+                          <tr><td style="padding:7px 0;
+                                         border-bottom:1px dotted #ddd5c5;">
+                            <table role="presentation" cellspacing="0"
+                                   cellpadding="0" border="0" width="100%">
+                              <tr>
+                                <td style="font-family:Georgia,serif;
+                                           font-size:10px;font-style:italic;
+                                           color:#a0906a;width:45%;">Recipient</td>
+                                <td class="detail-val" align="right"
+                                    style="font-family:'Cormorant Garamond',
+                                           Georgia,serif;font-size:14px;
+                                           font-weight:600;color:#001f3f;
+                                           width:55%;">${safeName}</td>
+                              </tr>
+                            </table>
+                          </td></tr>
+
+                          <tr><td style="padding:7px 0;
+                                         border-bottom:1px dotted #ddd5c5;">
+                            <table role="presentation" cellspacing="0"
+                                   cellpadding="0" border="0" width="100%">
+                              <tr>
+                                <td style="font-family:Georgia,serif;
+                                           font-size:10px;font-style:italic;
+                                           color:#a0906a;">Registered Email</td>
+                                <td class="detail-val" align="right"
+                                    style="font-family:'Cormorant Garamond',
+                                           Georgia,serif;font-size:14px;
+                                           font-weight:600;
+                                           color:#001f3f;">${email}</td>
+                              </tr>
+                            </table>
+                          </td></tr>
+
+                          <tr><td style="padding:7px 0;">
+                            <table role="presentation" cellspacing="0"
+                                   cellpadding="0" border="0" width="100%">
+                              <tr>
+                                <td style="font-family:Georgia,serif;
+                                           font-size:10px;font-style:italic;
+                                           color:#a0906a;">Purpose</td>
+                                <td class="detail-val" align="right"
+                                    style="font-family:'Cormorant Garamond',
+                                           Georgia,serif;font-size:14px;
+                                           font-weight:600;
+                                           color:#001f3f;">
+                                  Email Authentication</td>
+                              </tr>
+                            </table>
+                          </td></tr>
+
+                        </table>
+                      </td>
+                    </tr>
+                  </table>
+
+                  <!-- CLOSING -->
+                  <table role="presentation" cellspacing="0"
+                         cellpadding="0" border="0" width="100%">
+                    <tr>
+                      <td align="center">
+                        <p style="font-family:Georgia,'Times New Roman',serif;
+                                  font-size:14px;font-style:italic;color:#777;
+                                  line-height:1.7;margin:0 0 18px 0;
+                                  text-align:center;">
+                          If you did not initiate this request, please safely disregard this email.<br>
+                          Your account records remain secure.
+                        </p>
+                        <p style="font-family:Georgia,'Times New Roman',serif;
+                                  font-size:13px;font-style:italic;color:#888;
+                                  margin:0 0 5px 0;text-align:center;">
+                          Warm Regards,
+                        </p>
+                        <p style="font-family:'Palatino Linotype',
+                                  'Book Antiqua',Palatino,Georgia,serif;
+                                  font-size:15px;font-weight:700;color:#001f3f;
+                                  letter-spacing:3px;margin:0 0 4px 0;
+                                  text-align:center;">
+                          TEAM EXCELSIOR
+                        </p>
+                        <p style="font-family:Georgia,'Times New Roman',serif;
+                                  font-size:10px;font-style:italic;
+                                  color:#b0a080;letter-spacing:1px;
+                                  margin:0;text-align:center;">
+                          IET Lucknow
+                        </p>
+                      </td>
+                    </tr>
+                  </table>
+
+                  <!-- QUOTE -->
+                  <table role="presentation" cellspacing="0"
+                         cellpadding="0" border="0" width="100%"
+                         style="border-top:1px solid #e8e0d0;margin-top:30px;">
+                    <tr>
+                      <td align="center" style="padding-top:22px;">
+                        <p style="font-family:Georgia,serif;font-size:26px;
+                                  color:#d4af37;line-height:1;
+                                  margin:0 0 4px 0;text-align:center;">
+                          &#8220;
+                        </p>
+                        <p style="font-family:Georgia,'Times New Roman',serif;
+                                  font-size:12px;font-style:italic;color:#aaa;
+                                  line-height:1.6;margin:0 0 6px 0;
+                                  text-align:center;">
+                          Words are, in my not-so-humble opinion, our most inexhaustible source of magic.
+                        </p>
+                        <p style="font-family:Georgia,'Times New Roman',serif;
+                                  font-size:11px;font-style:italic;
+                                  color:#c8bfaf;margin:0;text-align:center;">
+                          &mdash; Albus Dumbledore
+                        </p>
+                      </td>
+                    </tr>
+                  </table>
+
+                </td>
+              </tr>
+            </table>
+
+            <!-- FOOTER -->
+            <table role="presentation" cellspacing="0"
+                   cellpadding="0" border="0" width="100%">
+              <tr>
+                <td class="footer-bar"
+                    style="background:#001f3f;padding:14px 30px;
+                           text-align:center;">
+                  <p style="font-family:Arial,Helvetica,sans-serif;
+                             font-size:9px;letter-spacing:2px;
+                             color:rgba(212,175,55,0.65);
+                             text-transform:uppercase;margin:0;">
+                    &copy; 2026 EXCELSIOR &nbsp;&bull;&nbsp; IET LUCKNOW
+                  </p>
+                </td>
+              </tr>
+            </table>
+
+          </td>
+        </tr>
+      </table>
+
+    </td>
+  </tr>
+</table>
+
+</body>
+</html>`,
     });
     return { success: true, isDev: false };
   } catch (error) {
     console.error('Failed to send OTP email via Nodemailer:', error);
+    return { success: true, isDev: true, code };
+  }
+}
+
+/**
+ * Send a Password Reset OTP email
+ */
+export async function sendPasswordResetEmail(email: string, code: string, recipientName: string) {
+  const smtpUser = process.env.SMTP_USER;
+  const smtpPass = process.env.SMTP_PASS;
+
+  if (!smtpUser || !smtpPass) {
+    console.warn(`[DEV MODE] SMTP_USER or SMTP_PASS not configured. Password Reset OTP for ${email}: ${code}`);
+    return { success: true, isDev: true, code };
+  }
+
+  try {
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: smtpUser,
+        pass: smtpPass,
+      },
+    });
+
+    const logoPath = path.join(process.cwd(), 'public/images/image.png');
+    const attachments = fs.existsSync(logoPath)
+      ? [{ filename: 'image.png', path: logoPath, cid: 'clubLogo' }]
+      : [];
+
+    const safeName = recipientName || 'Member';
+
+    await transporter.sendMail({
+      from: `"Excelsior-Literary Club of IET Lucknow" <${smtpUser}>`,
+      to: email,
+      subject: `${code} is your Excelsior password reset code`,
+      attachments,
+      html: `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Great+Vibes&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&display=swap');
+  body,table,td,p,div{margin:0;padding:0;border:0;}
+  body{background:#ffffff;font-family:Georgia,'Times New Roman',serif;}
+  img{border:0;display:block;}
+  .calli{
+    font-family:'Great Vibes','Brush Script MT','Lucida Handwriting',cursive;
+    font-size:52px;line-height:1.25;color:#001f3f;text-align:center;
+  }
+  .body-text{
+    font-family:'Cormorant Garamond',Georgia,'Times New Roman',serif;
+    font-size:16px;line-height:1.85;color:#3a3a3a;text-align:center;
+  }
+  @media only screen and (max-width:600px){
+    .email-card{width:100% !important;}
+    .inner-pad{padding:28px 18px !important;}
+    .calli{font-size:40px !important;}
+    .body-text{font-size:15px !important;}
+    .badge-cell{padding:10px 20px !important;}
+    .detail-val{font-size:13px !important;}
+    .logo-img{width:70px !important;height:70px !important;}
+    .club-name{font-size:18px !important;letter-spacing:5px !important;}
+    .footer-bar{padding:14px 20px !important;}
+  }
+</style>
+</head>
+<body style="margin:0;padding:0;background:#ffffff;">
+
+<table role="presentation" cellspacing="0" cellpadding="0"
+       border="0" width="100%" style="background:#ffffff;">
+  <tr>
+    <td align="center" style="padding:30px 10px 0;">
+
+      <table class="email-card" role="presentation"
+             cellspacing="0" cellpadding="0" border="0" width="600"
+             style="background:#fffdf7;border:1px solid #e2d9c8;
+                    border-top:5px solid #001f3f;">
+        <tr>
+          <td>
+            <table role="presentation" cellspacing="0"
+                   cellpadding="0" border="0" width="100%">
+              <tr>
+                <td class="inner-pad" style="padding:45px 50px;">
+
+                  <!-- LOGO -->
+                  <table role="presentation" cellspacing="0"
+                         cellpadding="0" border="0" width="100%">
+                    <tr>
+                      <td align="center" style="padding-bottom:14px;">
+                        <img class="logo-img"
+                             src="cid:clubLogo"
+                             alt="Excelsior"
+                             width="85" height="85"
+                             style="width:85px;height:85px;
+                                    object-fit:contain;border-radius:4px;margin:0 auto;">
+                      </td>
+                    </tr>
+                  </table>
+
+                  <!-- CLUB NAME -->
+                  <table role="presentation" cellspacing="0"
+                         cellpadding="0" border="0" width="100%">
+                    <tr>
+                      <td align="center">
+                        <div class="club-name"
+                             style="font-family:'Palatino Linotype',
+                                    'Book Antiqua',Palatino,Georgia,serif;
+                                    font-size:22px;font-weight:700;
+                                    letter-spacing:8px;color:#001f3f;
+                                    text-transform:uppercase;
+                                    margin-bottom:6px;">
+                          EXCELSIOR
+                        </div>
+                        <div style="font-family:Georgia,'Times New Roman',serif;
+                                    font-size:10px;letter-spacing:3px;
+                                    color:#d4af37;font-style:italic;
+                                    margin-bottom:22px;">
+                          The Literary Club of IET Lucknow
+                        </div>
+                      </td>
+                    </tr>
+                  </table>
+
+                  <!-- DIVIDER -->
+                  <table role="presentation" cellspacing="0"
+                         cellpadding="0" border="0" align="center"
+                         style="margin:0 auto 20px;">
+                    <tr>
+                      <td width="80" height="1"
+                          style="background:#d4af37;font-size:1px;
+                                 line-height:1px;opacity:0.5;">&nbsp;</td>
+                      <td width="10"></td>
+                      <td width="6" height="6"
+                          style="background:#d4af37;font-size:1px;"></td>
+                      <td width="10"></td>
+                      <td width="80" height="1"
+                          style="background:#d4af37;font-size:1px;
+                                 line-height:1px;opacity:0.5;">&nbsp;</td>
+                    </tr>
+                  </table>
+
+                  <!-- SALUTATION + CALLIGRAPHY NAME -->
+                  <table role="presentation" cellspacing="0"
+                         cellpadding="0" border="0" width="100%">
+                    <tr>
+                      <td align="center" style="padding-top:10px;">
+                        <p style="font-family:Georgia,'Times New Roman',serif;
+                                  font-size:14px;font-style:italic;
+                                  color:#999;letter-spacing:2px;
+                                  margin:0 0 14px 0;text-align:center;">
+                          Salutations,
+                        </p>
+                        <div class="calli">${safeName}</div>
+                        <table role="presentation" cellspacing="0"
+                               cellpadding="0" border="0" align="center"
+                               style="margin:10px auto 28px;">
+                          <tr>
+                            <td width="160" height="1"
+                                style="background:#d4af37;font-size:1px;
+                                       line-height:1px;">&nbsp;</td>
+                          </tr>
+                        </table>
+                      </td>
+                    </tr>
+                  </table>
+
+                  <!-- BODY MESSAGE 1 -->
+                  <table role="presentation" cellspacing="0"
+                         cellpadding="0" border="0" width="100%">
+                    <tr>
+                      <td>
+                        <p class="body-text" style="margin:0 0 24px 0;">
+                          We received a request to reset the credentials for your
+                          Excelsior account. Use the one-time password recovery code below
+                          to select a new password.
+                        </p>
+                      </td>
+                    </tr>
+                  </table>
+
+                  <!-- CODE BADGE -->
+                  <table role="presentation" cellspacing="0"
+                         cellpadding="0" border="0" align="center"
+                         style="margin:0 auto 28px;border:1px solid #d4af37;background:#fdfbf7;">
+                    <tr>
+                      <td class="badge-cell"
+                          style="padding:16px 40px;text-align:center;">
+                        <div style="font-family:Arial,Helvetica,sans-serif;
+                                    font-size:8px;letter-spacing:2.5px;
+                                    color:#a0906a;text-transform:uppercase;
+                                    margin-bottom:6px;">
+                          PASSWORD RECOVERY CODE
+                        </div>
+                        <div style="font-family:monospace,'Courier New',serif;
+                                    font-size:36px;letter-spacing:10px;
+                                    color:#001f3f;font-weight:800;padding-left:10px;">
+                          ${code}
+                        </div>
+                        <div style="font-family:Georgia,serif;
+                                    font-size:10px;font-style:italic;
+                                    color:#8c8270;letter-spacing:1px;
+                                    margin-top:6px;">
+                          Single-use code &bull; Valid for 10 minutes
+                        </div>
+                      </td>
+                    </tr>
+                  </table>
+
+                  <!-- DETAILS PANEL -->
+                  <table role="presentation" cellspacing="0"
+                         cellpadding="0" border="0" width="100%"
+                         style="background:#f8f5ee;border:1px solid #e5ddd0;
+                                border-left:3px solid #d4af37;
+                                margin-bottom:32px;">
+                    <tr>
+                      <td style="padding:18px 22px;">
+                        <p style="font-family:Georgia,serif;font-size:10px;
+                                  font-style:italic;color:#a0906a;
+                                  letter-spacing:1px;margin:0 0 12px 0;">
+                          Account Security Record
+                        </p>
+                        <table role="presentation" cellspacing="0"
+                               cellpadding="0" border="0" width="100%">
+
+                          <tr><td style="padding:7px 0;
+                                         border-bottom:1px dotted #ddd5c5;">
+                            <table role="presentation" cellspacing="0"
+                                   cellpadding="0" border="0" width="100%">
+                              <tr>
+                                <td style="font-family:Georgia,serif;
+                                           font-size:10px;font-style:italic;
+                                           color:#a0906a;width:45%;">Account</td>
+                                <td class="detail-val" align="right"
+                                    style="font-family:'Cormorant Garamond',
+                                           Georgia,serif;font-size:14px;
+                                           font-weight:600;color:#001f3f;
+                                           width:55%;">${safeName}</td>
+                              </tr>
+                            </table>
+                          </td></tr>
+
+                          <tr><td style="padding:7px 0;
+                                         border-bottom:1px dotted #ddd5c5;">
+                            <table role="presentation" cellspacing="0"
+                                   cellpadding="0" border="0" width="100%">
+                              <tr>
+                                <td style="font-family:Georgia,serif;
+                                           font-size:10px;font-style:italic;
+                                           color:#a0906a;">Email Target</td>
+                                <td class="detail-val" align="right"
+                                    style="font-family:'Cormorant Garamond',
+                                           Georgia,serif;font-size:14px;
+                                           font-weight:600;
+                                           color:#001f3f;">${email}</td>
+                              </tr>
+                            </table>
+                          </td></tr>
+
+                          <tr><td style="padding:7px 0;">
+                            <table role="presentation" cellspacing="0"
+                                   cellpadding="0" border="0" width="100%">
+                              <tr>
+                                <td style="font-family:Georgia,serif;
+                                           font-size:10px;font-style:italic;
+                                           color:#a0906a;">Action</td>
+                                <td class="detail-val" align="right"
+                                    style="font-family:'Cormorant Garamond',
+                                           Georgia,serif;font-size:14px;
+                                           font-weight:600;
+                                           color:#001f3f;">
+                                  Password Reset</td>
+                              </tr>
+                            </table>
+                          </td></tr>
+
+                        </table>
+                      </td>
+                    </tr>
+                  </table>
+
+                  <!-- CLOSING -->
+                  <table role="presentation" cellspacing="0"
+                         cellpadding="0" border="0" width="100%">
+                    <tr>
+                      <td align="center">
+                        <p style="font-family:Georgia,'Times New Roman',serif;
+                                  font-size:14px;font-style:italic;color:#777;
+                                  line-height:1.7;margin:0 0 18px 0;
+                                  text-align:center;">
+                          If you did not request this password recovery, please ignore this email.<br>
+                          Your password will remain unchanged.
+                        </p>
+                        <p style="font-family:Georgia,'Times New Roman',serif;
+                                  font-size:13px;font-style:italic;color:#888;
+                                  margin:0 0 5px 0;text-align:center;">
+                          Warm Regards,
+                        </p>
+                        <p style="font-family:'Palatino Linotype',
+                                  'Book Antiqua',Palatino,Georgia,serif;
+                                  font-size:15px;font-weight:700;color:#001f3f;
+                                  letter-spacing:3px;margin:0 0 4px 0;
+                                  text-align:center;">
+                          TEAM EXCELSIOR
+                        </p>
+                        <p style="font-family:Georgia,'Times New Roman',serif;
+                                  font-size:10px;font-style:italic;
+                                  color:#b0a080;letter-spacing:1px;
+                                  margin:0;text-align:center;">
+                          IET Lucknow
+                        </p>
+                      </td>
+                    </tr>
+                  </table>
+
+                  <!-- QUOTE -->
+                  <table role="presentation" cellspacing="0"
+                         cellpadding="0" border="0" width="100%"
+                         style="border-top:1px solid #e8e0d0;margin-top:30px;">
+                    <tr>
+                      <td align="center" style="padding-top:22px;">
+                        <p style="font-family:Georgia,serif;font-size:26px;
+                                  color:#d4af37;line-height:1;
+                                  margin:0 0 4px 0;text-align:center;">
+                          &#8220;
+                        </p>
+                        <p style="font-family:Georgia,'Times New Roman',serif;
+                                  font-size:12px;font-style:italic;color:#aaa;
+                                  line-height:1.6;margin:0 0 6px 0;
+                                  text-align:center;">
+                          The art of writing is the art of discovering what you believe.
+                        </p>
+                        <p style="font-family:Georgia,'Times New Roman',serif;
+                                  font-size:11px;font-style:italic;
+                                  color:#c8bfaf;margin:0;text-align:center;">
+                          &mdash; Gustave Flaubert
+                        </p>
+                      </td>
+                    </tr>
+                  </table>
+
+                </td>
+              </tr>
+            </table>
+
+            <!-- FOOTER -->
+            <table role="presentation" cellspacing="0"
+                   cellpadding="0" border="0" width="100%">
+              <tr>
+                <td class="footer-bar"
+                    style="background:#001f3f;padding:14px 30px;
+                           text-align:center;">
+                  <p style="font-family:Arial,Helvetica,sans-serif;
+                             font-size:9px;letter-spacing:2px;
+                             color:rgba(212,175,55,0.65);
+                             text-transform:uppercase;margin:0;">
+                    &copy; 2026 EXCELSIOR &nbsp;&bull;&nbsp; IET LUCKNOW
+                  </p>
+                </td>
+              </tr>
+            </table>
+
+          </td>
+        </tr>
+      </table>
+
+    </td>
+  </tr>
+</table>
+
+</body>
+</html>`,
+    });
+    return { success: true, isDev: false };
+  } catch (error) {
+    console.error('Failed to send password reset email via Nodemailer:', error);
     return { success: true, isDev: true, code };
   }
 }

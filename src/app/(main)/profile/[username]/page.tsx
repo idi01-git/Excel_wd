@@ -9,8 +9,8 @@ import ProfileSocialLinks from '@/components/profile/ProfileSocialLinks';
 import AuthorCatalogue from '@/components/profile/AuthorCatalogue';
 import WorkspaceDashboard from '@/components/profile/WorkspaceDashboard';
 import { FadeUp, RevealWords } from '@/components/home/primitives';
-import { ArrowUpRight } from 'lucide-react';
 import { formatRole } from '@/lib/rbac';
+import { getOptimizedAvatarUrl } from '@/lib/image-optimization';
 
 export default async function ProfilePage({ params }: { params: Promise<{ username: string }> }) {
   const session = await getServerSession(authOptions);
@@ -21,6 +21,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
     include: {
       alumniProfile: true,
       publications: {
+        where: { alumniProfileId: null },
         include: {
           _count: { select: { interactions: true, comments: true } }
         },
@@ -104,34 +105,65 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
   const drafts = user.publications.filter(p => p.status === PublicationStatus.DRAFT || p.status === PublicationStatus.REJECTED);
   const pending = user.publications.filter(p => p.status === PublicationStatus.PENDING);
 
-  // Shorthand Batch string formatting (e.g. Batch: CS-28)
-  const rawBranch = (user.alumniProfile?.branch || 'CS').toUpperCase().trim();
-  const branchMap: Record<string, string> = {
-    'COMPUTER SCIENCE': 'CS',
-    'CSE': 'CS',
-    'CHEMICAL': 'CHE',
-    'CHEMICAL ENGINEERING': 'CHE',
-    'MECHANICAL': 'ME',
-    'MECHANICAL ENGINEERING': 'ME',
-    'ELECTRICAL': 'EE',
-    'ELECTRICAL ENGINEERING': 'EE',
-    'ELECTRONICS': 'ECE',
-    'CIVIL': 'CE',
-    'CIVIL ENGINEERING': 'CE',
-    'BIOTECHNOLOGY': 'BT',
-    'BIOTECH': 'BT',
-  };
-  const branch = branchMap[rawBranch] || rawBranch;
+  // Shorthand Batch string formatting (e.g. Batch: CSE-SF 28')
+  // Only display for internal campus students & alumni with branch/batch records (hidden for external visitors)
+  const rawBranch = (user.alumniProfile?.branch || user.branch || '').toUpperCase().trim();
+  const rawBatch = (user.alumniProfile?.batch || user.batch || '').trim();
 
-  let passoutYear = '28';
-  if (user.alumniProfile?.batch) {
-    const raw = user.alumniProfile.batch.trim();
-    const match = raw.match(/(\d{2,4})$/);
-    if (match) {
-      passoutYear = match[1].slice(-2);
+  let batchDisplay: string | null = null;
+  if (rawBranch || rawBatch) {
+    const branchMap: Record<string, string> = {
+      'CSE-SF': 'CSE-SF',
+      'CSE-AI': 'CSE-AI',
+      'CSE-R': 'CSE-R',
+      'COMPUTER SCIENCE ENGINEERING SF (CSE-SF)': 'CSE-SF',
+      'COMPUTER SCIENCE ENGINEERING AI (CSE-AI)': 'CSE-AI',
+      'COMPUTER SCIENCE ENGINEERING REGULAR (CSE-R)': 'CSE-R',
+      'COMPUTER SCIENCE & ENGINEERING': 'CSE-R',
+      'COMPUTER SCIENCE': 'CSE-R',
+      'CSE': 'CSE-R',
+      'ELECTRONICS AND COMMUNICATION ENGINEERING (ECE)': 'ECE',
+      'ELECTRONICS & COMMUNICATION ENGINEERING': 'ECE',
+      'ELECTRONICS': 'ECE',
+      'ECE': 'ECE',
+      'ELECTRICAL ENGINEERING (EE)': 'EE',
+      'ELECTRICAL ENGINEERING': 'EE',
+      'ELECTRICAL': 'EE',
+      'EE': 'EE',
+      'MECHANICAL ENGINEERING (ME)': 'ME',
+      'MECHANICAL ENGINEERING': 'ME',
+      'MECHANICAL': 'ME',
+      'ME': 'ME',
+      'CIVIL ENGINEERING (CE)': 'CE',
+      'CIVIL ENGINEERING': 'CE',
+      'CIVIL': 'CE',
+      'CE': 'CE',
+      'CHEMICAL ENGINEERING (CHE)': 'CHE',
+      'CHEMICAL ENGINEERING': 'CHE',
+      'CHEMICAL': 'CHE',
+      'CHE': 'CHE',
+      'MASTER IN COMPUTER APPLICATION (MCA)': 'MCA',
+      'MASTER IN COMPUTER APPLICATION': 'MCA',
+      'MCA': 'MCA',
+      'MASTER IN BUSINESS ADMINISTRATION (MBA)': 'MBA',
+      'MASTER IN BUSINESS ADMINISTRATION': 'MBA',
+      'MBA': 'MBA',
+      'BIOTECHNOLOGY': 'BT',
+      'BIOTECH': 'BT',
+    };
+    const branch = branchMap[rawBranch] || rawBranch;
+
+    let passoutYear = '';
+    if (rawBatch) {
+      const match = rawBatch.match(/(\d{2,4})$/);
+      if (match) {
+        passoutYear = ` ${match[1].slice(-2)}'`;
+      } else {
+        passoutYear = ` ${rawBatch}`;
+      }
     }
+    batchDisplay = branch ? `Batch: ${branch}${passoutYear}` : `Batch: ${rawBatch}`;
   }
-  const batchDisplay = `Batch: ${branch}-${passoutYear}`;
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 md:px-8 py-6 sm:py-10">
@@ -143,21 +175,21 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
             {/* Balanced Profile Avatar (15% scaled down) */}
             <div className="shrink-0 relative">
               <img
-                src={user.profilePhoto && user.profilePhoto.trim() !== "" ? user.profilePhoto : `https://api.dicebear.com/7.x/initials/svg?seed=${user.name}`}
+                src={user.profilePhoto && user.profilePhoto.trim() !== "" ? getOptimizedAvatarUrl(user.profilePhoto, 320) : `https://api.dicebear.com/7.x/initials/svg?seed=${user.name}`}
                 alt={user.name}
                 className="w-28 h-28 sm:w-32 sm:h-32 md:w-36 md:h-36 lg:w-40 lg:h-40 rounded-full object-cover shadow-md border-4 border-white dark:border-[#0a0a0a]"
               />
             </div>
 
             {/* Identity & Metrics in exactly 2 rows */}
-            <div className="flex-grow min-w-0 flex-col justify-center gap-1 sm:gap-2">
+            <div className="grow min-w-0 flex-col justify-center gap-1 sm:gap-2">
               {/* Row 1: Responsive Fluid Name & Role Badge */}
               <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
-                <h1 className="font-serif text-[clamp(1.6rem,5.5vw,3.25rem)] text-black dark:text-white font-bold leading-[1.08] tracking-tight break-words">
+                <h1 className="font-serif text-[clamp(1.6rem,5.5vw,3.25rem)] text-black dark:text-white font-bold leading-[1.08] tracking-tight wrap-break-word">
                   {user.name}
                 </h1>
                 <span className="inline-block px-2.5 py-0.5 bg-gray-100 dark:bg-neutral-800 text-gray-700 dark:text-neutral-300 border border-gray-200 dark:border-neutral-700 text-[10px] uppercase font-bold rounded shrink-0">
-                  {formatRole(user.role)}
+                  {formatRole(user.role, user)}
                 </span>
               </div>
 
@@ -179,12 +211,14 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
             "{user.bio || 'Reading is dreaming with open eyes.'}"
           </p>
 
-          {/* Batch Indicator placed just below bio */}
-          <div className="mt-2.5 sm:mt-3">
-            <span className="inline-block text-[11px] sm:text-xs font-semibold text-gray-600 dark:text-neutral-400 bg-gray-100 dark:bg-neutral-800/80 px-2.5 py-1 rounded-full border border-gray-200/60 dark:border-neutral-700/60">
-              {batchDisplay}
-            </span>
-          </div>
+          {/* Batch Indicator placed just below bio (rendered only for campus students & alumni) */}
+          {batchDisplay && (
+            <div className="mt-2.5 sm:mt-3">
+              <span className="inline-block text-[11px] sm:text-xs font-semibold text-gray-600 dark:text-neutral-400 bg-gray-100 dark:bg-neutral-800/80 px-2.5 py-1 rounded-full border border-gray-200/60 dark:border-neutral-700/60">
+                {batchDisplay}
+              </span>
+            </div>
+          )}
         </FadeUp>
 
         {/* Action Row: Social Media Icons on Left, Action Buttons on Right (Compact & Tight) */}

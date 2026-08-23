@@ -78,8 +78,8 @@ export const SPINE_WRAP_T = 0.06;
 export const PAGE_INSET = 0.025;
 
 // ── Background Images (Dual Theme Crossfade) ────────────────────────────────
-export const BG_IMAGE_DARK = "/images/night%20shelf.png";
-export const BG_IMAGE_LIGHT = "/images/Day%20shelf%202.png";
+export const BG_IMAGE_DARK = "/images/night%20shelf.webp";
+export const BG_IMAGE_LIGHT = "/images/Day%20shelf%202.webp";
 
 // ── The 12-Book Curated Reference Collection ────────────────────────────────
 export const BOOKS: BookData[] = [
@@ -91,7 +91,7 @@ export const BOOKS: BookData[] = [
     spineTextColor: "#f3ecd8",
     coverColor: "#1c3370",
     coverTextColor: "#f3ecd8",
-    coverImage: "/images/image.png",
+    coverImage: "/images/image.webp",
     motif: "lattice",
     foilColor: "#e7b55f",
     synopsis:
@@ -113,7 +113,7 @@ export const BOOKS: BookData[] = [
     spineTextColor: "#8b1e1a",
     coverColor: "#f3ebe0",
     coverTextColor: "#8b1e1a",
-    coverImage: "/images/gunaho%20ka%20devta.png",
+    coverImage: "/images/gunaho%20ka%20devta.webp",
     motif: "continuum",
     foilColor: "#8b1e1a",
     synopsis:

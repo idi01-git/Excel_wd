@@ -4,6 +4,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from 'motion/react';
+import { getOptimizedAvatarUrl } from '@/lib/image-optimization';
 
 interface Member {
   id: string;
@@ -31,81 +32,87 @@ const ROLE_DEFAULT_TITLES: Record<string, string> = {
   MEMBER: 'Member • Contributor',
 };
 
-const ROLE_DEFAULT_SECTIONS: Record<string, 'COORDINATORS' | 'CORE' | 'TEAM'> = {
+const ROLE_DEFAULT_SECTIONS: Record<string, 'COORDINATORS' | 'CORE' | 'TEAM' | 'MEMBERS'> = {
   COORDINATOR: 'COORDINATORS',
   TECH_LEAD: 'COORDINATORS',
   CONTENT_LEAD: 'COORDINATORS',
   PR_HEAD: 'CORE',
   OPERATIONS_HEAD: 'CORE',
   TREASURER: 'CORE',
-  MEMBER: 'TEAM',
+  MEMBER: 'MEMBERS',
   ALUMNI: 'TEAM',
   VISITOR: 'TEAM',
 };
 
 // ─── Smart Role Title Formatter ───────────────────────────────────────────
 function getMemberRoleTitle(member: Member) {
-  if (member.memberTitle) return member.memberTitle;
-  if (member.memberSection === 'CORE') return 'Core Committee Member';
+  // 1. Prioritize byline set by Admin / Coordinator / Tech Lead
+  if (member.memberTitle && member.memberTitle.trim() && member.memberTitle !== 'null' && member.memberTitle !== 'undefined') {
+    return member.memberTitle.trim();
+  }
+  if (member.memberSection === 'CORE') return 'Core Committee';
   if (member.memberSection === 'COORDINATORS') return 'Student Coordinator';
   if (member.memberSection === 'TEAM') return 'Team Member';
-  if (member.bio) {
-    const firstSentence = member.bio.split('.')[0].trim();
-    if (firstSentence.length > 0 && firstSentence.length <= 48) {
-      return firstSentence;
-    }
-  }
-  return ROLE_DEFAULT_TITLES[member.role] || member.role.replace(/_/g, ' ') || 'Member • Contributor';
+  return ROLE_DEFAULT_TITLES[member.role] || 'Student';
 }
 
 // ─── Classification Helper ────────────────────────────────────────────────
-function categorizeMember(member: Member): 'COORDINATORS' | 'CORE' | 'TEAM' {
-  if (member.memberSection) return member.memberSection;
-  return ROLE_DEFAULT_SECTIONS[member.role] || 'TEAM';
+function categorizeMember(member: Member): 'COORDINATORS' | 'CORE' | 'TEAM' | 'MEMBERS' {
+  if (member.memberSection === 'COORDINATORS') return 'COORDINATORS';
+  if (member.memberSection === 'CORE') return 'CORE';
+  if (member.memberSection === 'TEAM') return 'TEAM';
+
+  if (['COORDINATOR', 'TECH_LEAD', 'CONTENT_LEAD'].includes(member.role)) return 'COORDINATORS';
+  if (['PR_HEAD', 'OPERATIONS_HEAD', 'TREASURER'].includes(member.role)) return 'CORE';
+  if (member.role === 'MEMBER') return 'MEMBERS';
+
+  return 'MEMBERS';
+}
+
+function formatShortBranch(branch?: string | null): string {
+  if (!branch || branch === 'null' || branch === 'undefined') return 'CSE';
+  const clean = branch.trim();
+
+  // 1. Check parenthesized acronym like "Electronics ... (ECE)"
+  const parenMatch = clean.match(/\(([^)]+)\)/);
+  if (parenMatch && parenMatch[1]) {
+    return parenMatch[1].toUpperCase().trim();
+  }
+
+  // 2. Normalize known branch full names to short codes
+  const lower = clean.toLowerCase();
+  if (lower.includes('information tech') || lower === 'it') return 'IT';
+  if (lower.includes('computer science') || lower.includes('cse')) {
+    if (lower.includes('sf')) return 'CSE-SF';
+    if (lower.includes('ai')) return 'CSE-AI';
+    if (lower.includes('regular') || lower.includes('cse-r')) return 'CSE-R';
+    return 'CSE';
+  }
+  if (lower.includes('electronics') || lower === 'ece') return 'ECE';
+  if (lower.includes('electrical') || lower === 'ee') return 'EE';
+  if (lower.includes('mechanical') || lower === 'me') return 'ME';
+  if (lower.includes('civil') || lower === 'ce') return 'CE';
+  if (lower.includes('chemical') || lower === 'che') return 'CHE';
+  if (lower.includes('computer application') || lower === 'mca') return 'MCA';
+  if (lower.includes('business administration') || lower === 'mba') return 'MBA';
+  if (lower.includes('biotech') || lower === 'bt') return 'BT';
+
+  // 3. Fallback to clean uppercase word
+  return clean.toUpperCase().replace(/\s+/g, '-').slice(0, 10);
 }
 
 // ─── Branch & Batch Formatter ─────────────────────────────────────────────
 function getMemberBatchBranch(member: Member) {
-  if (member.branch && member.batch) {
-    return `${member.branch} · ${member.batch}`;
-  }
-  if (member.branch) return member.branch;
-  // Known mapping for core members
-  const knownTags: Record<string, string> = {
-    coordinator: "CSE-26'",
-    techlead: "CSE-27'",
-    pr_head: "IT-27'",
-    ops_head: "ME-27'",
-    treasurer: "CE-27'",
-    member: "CSE-28'",
-    admin: "CSE-26'",
-    alistair_vance: "FACULTY",
-    moderator: "ECE-26'",
-    priya_sharma: "IT-27'",
-    author: "ME-27'",
-    aarav_mehta: "CE-27'",
-    rohan_kapoor: "ECE-28'",
-    ananya_sen: "IT-28'",
-    kabir_das: "CE-28'",
-    devika_nair: "ME-29'",
-    tanya_verma: "CSE-29'",
-  };
+  const branchCode = formatShortBranch(member.branch);
+  const rawBatch = (member.batch || '').trim();
 
-  const usernameKey = (member.username || '').toLowerCase();
-  if (knownTags[usernameKey]) {
-    return knownTags[usernameKey];
+  let yearTag = "27'";
+  if (rawBatch) {
+    const match = rawBatch.match(/(\d{2,4})$/);
+    yearTag = match ? `${match[1].slice(-2)}'` : `${rawBatch.slice(-2)}'`;
   }
 
-  // Deterministic fallback for any other registered member
-  const branches = ['CSE', 'ECE', 'IT', 'ME', 'CE', 'EE'];
-  const years = ["26'", "27'", "28'", "29'"];
-  let hash = 0;
-  for (let i = 0; i < member.id.length; i++) {
-    hash = (hash * 31 + member.id.charCodeAt(i)) % 10000;
-  }
-  const branch = branches[hash % branches.length];
-  const year = years[(hash >> 2) % years.length];
-  return `${branch}-${year}`;
+  return `${branchCode}-${yearTag}`;
 }
 
 // ─── Smooth Member Card ───────────────────────────────────────────────────
@@ -144,7 +151,7 @@ function MemberCard({ member, className = '' }: { member: Member; className?: st
         y: cardLift,
         boxShadow: shadowLift,
       }}
-      className={`group flex flex-col border-[2px] border-neutral-300 dark:border-neutral-800 p-[12px] bg-card dark:bg-neutral-900/50 text-card-foreground rounded-none will-change-transform transition-all duration-300 hover:border-foreground dark:hover:border-neutral-200 dark:hover:bg-neutral-900/90 select-none h-full ${className}`}
+      className={`group flex flex-col border-2 border-neutral-300 dark:border-neutral-800 p-3 bg-card dark:bg-neutral-900/50 text-card-foreground rounded-none will-change-transform transition-all duration-300 hover:border-foreground dark:hover:border-neutral-200 dark:hover:bg-neutral-900/90 select-none h-full ${className}`}
     >
       {/* Portrait */}
       <Link
@@ -154,9 +161,11 @@ function MemberCard({ member, className = '' }: { member: Member; className?: st
         <motion.img
           style={{ scale: imgZoom }}
           src={
-            member.directoryPhoto ||
-            member.profilePhoto ||
-            `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(member.name)}`
+            member.directoryPhoto
+              ? getOptimizedAvatarUrl(member.directoryPhoto, 400)
+              : member.profilePhoto
+              ? getOptimizedAvatarUrl(member.profilePhoto, 400)
+              : `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(member.name)}`
           }
           alt={member.name}
           className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-[filter] duration-500 will-change-transform origin-center"
@@ -164,8 +173,8 @@ function MemberCard({ member, className = '' }: { member: Member; className?: st
       </Link>
 
       {/* Name */}
-      <Link href={`/profile/${member.username}`} className="mt-[14px]">
-        <h2 className="font-serif text-[28px] lg:text-[38px] font-normal uppercase leading-[0.92] text-foreground dark:text-neutral-50 tracking-[-0.04em] mb-[10px]">
+      <Link href={`/profile/${member.username}`} className="mt-3.5">
+        <h2 className="font-serif text-[28px] lg:text-[38px] font-normal uppercase leading-[0.92] text-foreground dark:text-neutral-50 tracking-[-0.04em] mb-2.5">
           {member.name.split(' ').map((word, i) => (
             <span key={i} className="block truncate">
               {word}
@@ -182,7 +191,7 @@ function MemberCard({ member, className = '' }: { member: Member; className?: st
         >
           {displayRole}
         </span>
-        <div className="flex-shrink-0">
+        <div className="shrink-0">
           <span className="font-mono text-[10px] uppercase tracking-[0.24em] font-medium text-muted-foreground dark:text-neutral-400">
             {batchBranch}
           </span>
@@ -192,7 +201,7 @@ function MemberCard({ member, className = '' }: { member: Member; className?: st
   );
 }
 
-// ─── Section Block Component ──────────────────────────────────────────────
+// ─── Section Block Component (Photo Card Grid) ────────────────────────────
 function SectionBlock({
   title,
   members,
@@ -213,7 +222,7 @@ function SectionBlock({
 
       {/* Section Grid */}
       <motion.div
-        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-[18px]"
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4.5"
         initial="hidden"
         animate="visible"
         variants={{
@@ -238,6 +247,102 @@ function SectionBlock({
               />
             );
           })}
+        </AnimatePresence>
+      </motion.div>
+    </div>
+  );
+}
+
+// ─── Boxy Typographic Member Card (No Portrait, Pure Editorial Form) ──────
+function MemberNameCard({ member }: { member: Member }) {
+  const hov = useMotionValue(0);
+  const sh = useSpring(hov, { stiffness: 200, damping: 26 });
+  const cardScale = useTransform(sh, [0, 1], [1, 1.02]);
+  const cardLift = useTransform(sh, [0, 1], [0, -4]);
+  const shadowLift = useTransform(
+    sh,
+    [0, 1],
+    [
+      '0 2px 10px rgba(0,0,0,0.03)',
+      '0 18px 35px -8px rgba(0,0,0,0.14)',
+    ]
+  );
+
+  const batchBranch = getMemberBatchBranch(member);
+
+  return (
+    <Link href={`/profile/${member.username}`} className="block h-full">
+      <motion.div
+        variants={{
+          hidden: { opacity: 0, y: 15 },
+          visible: {
+            opacity: 1,
+            y: 0,
+            transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] },
+          },
+        }}
+        onPointerEnter={() => hov.set(1)}
+        onPointerLeave={() => hov.set(0)}
+        style={{
+          scale: cardScale,
+          y: cardLift,
+          boxShadow: shadowLift,
+        }}
+        className="group flex flex-col justify-between border-2 border-neutral-300 dark:border-neutral-800 p-3.5 bg-card dark:bg-neutral-900/50 text-card-foreground rounded-none will-change-transform transition-all duration-300 hover:border-foreground dark:hover:border-neutral-200 dark:hover:bg-neutral-900/90 select-none min-h-27.5 h-full cursor-pointer"
+      >
+        {/* Name */}
+        <h3 className="font-serif text-[24px] lg:text-[30px] font-normal uppercase leading-[0.92] text-foreground dark:text-neutral-50 tracking-[-0.04em] mb-2.5 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
+          {member.name.split(' ').map((word, i) => (
+            <span key={i} className="block truncate">
+              {word}
+            </span>
+          ))}
+        </h3>
+
+        {/* Bottom Editorial Roster Row: Branch & Batch Only */}
+        <div className="flex justify-end items-center mt-auto pt-3 border-t border-neutral-200/80 dark:border-neutral-800/90">
+          <span className="font-mono text-[10px] uppercase tracking-[0.24em] font-medium text-muted-foreground dark:text-neutral-400">
+            {batchBranch}
+          </span>
+        </div>
+      </motion.div>
+    </Link>
+  );
+}
+
+// ─── Typographic Member Names Grid (4 columns, boxy directory list) ────────
+function MemberNamesSection({ members }: { members: Member[] }) {
+  if (members.length === 0) return null;
+
+  return (
+    <div className="mb-20 last:mb-0">
+      {/* Clean Editorial Section Header */}
+      <div className="border-b-[3px] border-double border-neutral-300 dark:border-neutral-800 pb-3 mb-8 flex items-baseline justify-between">
+        <h2 className="font-serif text-3xl md:text-5xl font-bold uppercase tracking-tight text-foreground">
+          MEMBERS
+        </h2>
+        <span className="font-mono text-xs uppercase tracking-[0.2em] text-muted-foreground font-semibold">
+          {members.length} {members.length === 1 ? 'MEMBER' : 'MEMBERS'}
+        </span>
+      </div>
+
+      {/* 4-Column Boxy Grid */}
+      <motion.div
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4.5"
+        initial="hidden"
+        animate="visible"
+        variants={{
+          hidden: { opacity: 0 },
+          visible: {
+            opacity: 1,
+            transition: { staggerChildren: 0.03 },
+          },
+        }}
+      >
+        <AnimatePresence mode="popLayout">
+          {members.map((member) => (
+            <MemberNameCard key={member.id} member={member} />
+          ))}
         </AnimatePresence>
       </motion.div>
     </div>
@@ -273,13 +378,14 @@ export default function MembersDirectoryPage() {
   const coordinators = members.filter((m) => categorizeMember(m) === 'COORDINATORS');
   const coreCommittee = members.filter((m) => categorizeMember(m) === 'CORE');
   const teamMembers = members.filter((m) => categorizeMember(m) === 'TEAM');
+  const societyMembers = members.filter((m) => categorizeMember(m) === 'MEMBERS');
 
   return (
-    <div className="w-full bg-background min-h-screen px-6 md:px-10 pt-4 md:pt-6 pb-[80px] text-foreground font-sans">
+    <div className="w-full bg-background min-h-screen px-6 md:px-10 pt-4 md:pt-6 pb-20 text-foreground font-sans">
       {/* Hero Header & Nav Lockup */}
       <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 border-b border-neutral-300 dark:border-neutral-800 pb-8 mb-12">
         {/* Animated Masked Title */}
-        <h1 className="font-serif text-[64px] md:text-[116px] leading-[0.88] tracking-[-0.05em] uppercase text-foreground font-normal">
+        <h1 className="font-serif text-[64px] md:text-[116px] leading-[0.88] tracking-tighter uppercase text-foreground font-normal">
           <span className="block overflow-hidden">
             <motion.span
               initial={{ y: '115%' }}
@@ -307,7 +413,7 @@ export default function MembersDirectoryPage() {
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
-            className="flex items-center gap-[14px] text-[14px] md:text-[15px] font-medium uppercase tracking-[0.02em] text-foreground shrink-0"
+            className="flex items-center gap-3.5 text-[14px] md:text-[15px] font-medium uppercase tracking-[0.02em] text-foreground shrink-0"
           >
             <span className="cursor-pointer hover:opacity-75 transition">MEMBERS</span>
             <span className="text-muted-foreground/40">/</span>
@@ -330,11 +436,11 @@ export default function MembersDirectoryPage() {
       {/* Content Area */}
       <div>
         {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-[18px]">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4.5">
             {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
               <div
                 key={n}
-                className="w-full aspect-[4/4.3] bg-neutral-100 dark:bg-neutral-900 border-[2px] border-neutral-300 dark:border-neutral-800 p-[12px] animate-pulse"
+                className="w-full aspect-[4/4.3] bg-neutral-100 dark:bg-neutral-900 border-2 border-neutral-300 dark:border-neutral-800 p-3 animate-pulse"
               />
             ))}
           </div>
@@ -354,9 +460,13 @@ export default function MembersDirectoryPage() {
               title="TEAM"
               members={teamMembers}
             />
+
+            <MemberNamesSection
+              members={societyMembers}
+            />
           </div>
         ) : (
-          <div className="text-center py-[80px] border-t border-neutral-200 dark:border-neutral-800">
+          <div className="text-center py-20 border-t border-neutral-200 dark:border-neutral-800">
             <span className="text-xs uppercase tracking-[0.2em] text-muted-foreground font-medium">
               Directory is empty
             </span>

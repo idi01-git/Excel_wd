@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { BellIcon, ChevronDownIcon, ChevronUpIcon } from 'lucide-react';
 import { formatRole } from '@/lib/rbac';
+import { getOptimizedAvatarUrl } from '@/lib/image-optimization';
 
 interface NotificationItem {
   id: string;
@@ -46,23 +47,23 @@ const getNotificationText = (n: NotificationItem) => {
     case 'NEW_FOLLOWED_POST':
       return `${actorName} published a new piece`;
     case 'EVENT_REGISTRATION_CONFIRMED':
-      return name ? `Your registration for "${name}" is confirmed!` : `Your event registration is confirmed.`;
+      return n.message || (name ? `Your registration for "${name}" is confirmed!` : `Your event registration is confirmed.`);
     case 'EVENT_UPDATE':
-      return name ? `Update posted for "${name}"` : `An event update was posted.`;
+      return n.message || (name ? `Update posted for "${name}"` : `An event update was posted.`);
     case 'EVENT_WINNER_ANNOUNCED':
       return name ? `Winners announced for "${name}"!` : `Event winners announced!`;
     case 'ISSUE_REQUEST_APPROVED':
-      return `Your loan request for "${name || 'book'}" has been approved.`;
+      return n.message || `Your loan request for "${name || 'book'}" has been approved.`;
     case 'ISSUE_REQUEST_REJECTED':
-      return `Your loan request for "${name || 'book'}" was rejected.`;
+      return n.message || `Your loan request for "${name || 'book'}" was rejected.`;
     case 'ACCOUNT_VERIFICATION_REQUEST':
-      return `${actorName} submitted a membership verification request.`;
+      return n.message || `${actorName} submitted a membership verification request.`;
     case 'ACCOUNT_VERIFIED':
-      return `Congratulations! Your Excelsior membership has been verified.`;
+      return n.message || `Congratulations! Your Excelsior membership has been verified.`;
     case 'ACCOUNT_REJECTED':
-      return `Your membership application was not approved.`;
+      return n.message || `Your membership application was not approved.`;
     case 'ROLE_CHANGED':
-      return `Your role was updated to ${formatRole(n.message || '')}.`;
+      return n.message || `Your role was updated to ${formatRole(n.message || '')}.`;
     default:
       return n.message || 'New update available';
   }
@@ -106,7 +107,7 @@ function NotificationItemRow({
         <div className="flex gap-2.5 items-start grow min-w-0">
           {n.actor?.profilePhoto ? (
             <img
-              src={n.actor.profilePhoto}
+              src={getOptimizedAvatarUrl(n.actor.profilePhoto, 56)}
               alt=""
               className="w-7 h-7 rounded-full object-cover border border-gray-200 dark:border-neutral-700 mt-0.5 shrink-0"
             />
@@ -119,11 +120,12 @@ function NotificationItemRow({
           )}
           <div className="grow min-w-0">
             <p
-              className={`text-[11px] leading-snug transition-colors ${
+              className={`text-[11px] leading-snug transition-colors line-clamp-2 wrap-break-word ${
                 !n.isRead
                   ? 'text-gray-900 dark:text-neutral-100 font-medium'
                   : 'text-gray-400 dark:text-neutral-500'
               }`}
+              title={getNotificationText(n)}
             >
               {getNotificationText(n)}
             </p>
@@ -157,7 +159,7 @@ function NotificationItemRow({
       </div>
 
       {n.message && isExpanded && (
-        <div className="mt-1 ml-[38px] p-2.5 rounded bg-gray-50 dark:bg-neutral-800/50 border border-gray-150 dark:border-neutral-800 text-[10px] text-gray-600 dark:text-neutral-400 font-medium italic">
+        <div className="mt-1 ml-9.5 p-2.5 rounded bg-gray-50 dark:bg-neutral-800/50 border border-gray-150 dark:border-neutral-800 text-[10px] text-gray-600 dark:text-neutral-400 font-medium italic">
           <span className="font-bold text-gray-800 dark:text-neutral-200 not-italic block mb-0.5">
             Admin Note:
           </span>
@@ -283,9 +285,9 @@ export default function NotificationBell() {
         <div
           id="notification-dropdown"
           onClick={(e) => e.stopPropagation()}
-          className="absolute right-0 mt-3 w-80 bg-white dark:bg-neutral-950 border border-gray-200 dark:border-neutral-800 shadow-2xl rounded-xl overflow-hidden z-200 animate-in fade-in slide-in-from-top-1 duration-200"
+          className="absolute right-0 mt-3 w-80 bg-white/95 dark:bg-[#121212]/95 backdrop-blur-2xl border border-neutral-200/90 dark:border-neutral-800 shadow-[0_20px_45px_rgba(0,0,0,0.15)] dark:shadow-[0_20px_45px_rgba(0,0,0,0.6)] ring-1 ring-black/5 dark:ring-white/10 rounded-2xl overflow-hidden z-100 animate-in fade-in slide-in-from-top-1 duration-200"
         >
-          <div className="px-4 py-2.5 bg-gray-50 dark:bg-neutral-900/50 border-b border-gray-100 dark:border-neutral-800 flex items-center justify-between">
+          <div className="px-4 py-2.5 bg-neutral-50 dark:bg-neutral-900/60 border-b border-neutral-100 dark:border-neutral-800 flex items-center justify-between">
             <span className="text-xs font-semibold text-gray-800 dark:text-neutral-200">
               Notifications
             </span>

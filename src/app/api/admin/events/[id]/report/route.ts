@@ -30,20 +30,32 @@ export async function POST(
       return NextResponse.json({ error: 'Event not found' }, { status: 404 });
     }
 
+    // Check existing report coverImage
+    const existingReport = await db.eventReport.findUnique({
+      where: { eventId },
+      select: { coverImage: true },
+    });
+
+    const nextCover = coverImage || null;
+    if (nextCover !== existingReport?.coverImage && existingReport?.coverImage) {
+      const { deleteImageByUrl } = await import('@/lib/cloudinary');
+      await deleteImageByUrl(existingReport.coverImage);
+    }
+
     // Upsert Event Report
     const report = await db.eventReport.upsert({
       where: { eventId },
       update: {
         title,
         content,
-        coverImage: coverImage || null,
+        coverImage: nextCover,
         authorId: session.user.id,
       },
       create: {
         eventId,
         title,
         content,
-        coverImage: coverImage || null,
+        coverImage: nextCover,
         authorId: session.user.id,
       },
     });

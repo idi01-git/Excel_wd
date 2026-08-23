@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import {
   AnimatePresence,
@@ -13,6 +14,8 @@ import {
 } from 'motion/react';
 import { ArrowUpRight, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { Eyebrow, FadeUp, RevealWords, EASE } from './primitives';
+import { restoreChromeFromModal, yieldChromeToModal } from '@/lib/cardwall-events';
+import { getOptimizedGalleryUrl, getOptimizedThumbnailUrl } from '@/lib/image-optimization';
 
 export interface GalleryItem {
   id: string;
@@ -268,12 +271,13 @@ function GalleryTile({
         onPointerLeave={() => setIsHovered(false)}
         className="relative block w-full cursor-pointer overflow-hidden rounded-xl sm:rounded-2xl border border-neutral-200/80 dark:border-neutral-800/90 bg-neutral-100 dark:bg-neutral-900 text-left shadow-[0_4px_20px_rgba(0,0,0,0.04)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.4)] transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:shadow-[0_28px_65px_-10px_rgba(0,0,0,0.22)] dark:group-hover:shadow-[0_28px_65px_-10px_rgba(0,0,0,0.75)] group-hover:border-foreground/35"
       >
-        <div className="relative w-full overflow-hidden [will-change:transform] [transform:translateZ(0)]">
+        <div className={`relative w-full overflow-hidden [will-change:transform] [transform:translateZ(0)] ${item.type === 'PHOTO' || item.type === 'MEMORY' ? 'aspect-[3/4] sm:aspect-[4/5]' : 'aspect-[4/3] sm:aspect-[16/10]'}`}>
           {/* Smooth Hardware-Accelerated Kinetic Zoom */}
           <motion.img
-            src={item.url}
+            src={getOptimizedGalleryUrl(item.url, 800)}
             alt={item.caption || TYPE_LABEL[item.type]}
             loading="lazy"
+            decoding="async"
             animate={{
               scale: isHovered && !reduce ? 1.075 : 1.0,
               filter: isHovered ? 'contrast(104%) brightness(102%)' : 'contrast(100%) brightness(100%)',
@@ -282,7 +286,7 @@ function GalleryTile({
               scale: { duration: 1.2, ease: [0.16, 1, 0.3, 1] },
               filter: { duration: 0.8, ease: [0.16, 1, 0.3, 1] },
             }}
-            className="block w-full object-cover transform-gpu backface-hidden [transform-style:preserve-3d]"
+            className="block h-full w-full object-cover transform-gpu backface-hidden [transform-style:preserve-3d]"
           />
 
           {/* Ambient Radial Specular Sheen tracking pointer */}
@@ -293,9 +297,9 @@ function GalleryTile({
             style={{ background: spotlightBg }}
           />
 
-          {/* Subtle Dark Velvet Vignette on Hover */}
+          {/* Subtle Dark Velvet Vignette on Hover (20% more transparent) */}
           <motion.div
-            animate={{ opacity: isHovered ? 0.35 : 0 }}
+            animate={{ opacity: isHovered ? 0.28 : 0 }}
             transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
             className="pointer-events-none absolute inset-0 z-10 bg-gradient-to-t from-black/60 via-transparent to-black/20"
           />
@@ -324,6 +328,8 @@ function Lightbox({
   onStep: (dir: 1 | -1) => void;
   onSelect: (id: string) => void;
 }) {
+  const isOpen = item !== null;
+
   useEffect(() => {
     if (!item) return;
     const onKey = (e: KeyboardEvent) => {
@@ -339,6 +345,20 @@ function Lightbox({
     };
   }, [item, onClose, onStep]);
 
+  // Yield the screen (Navbar fades away) so nothing covers the close button.
+  // Keyed on open/close only — stepping between images must not flash it back.
+  useEffect(() => {
+    if (!isOpen) return;
+    yieldChromeToModal();
+    return () => restoreChromeFromModal();
+  }, [isOpen]);
+
+  // Portal host: only exists after hydration on the client.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const touchX = useRef<number | null>(null);
 
   const onTouchStart = (e: React.TouchEvent) => {
@@ -351,7 +371,12 @@ function Lightbox({
     touchX.current = null;
   };
 
-  return (
+  if (!mounted) return null;
+
+  // Portaled to document.body so the lightbox escapes the below-fold wrapper's
+  // z-[300] stacking context — otherwise the fixed Navbar (z-[9999]) paints
+  // above it and covers the close button.
+  return createPortal(
     <AnimatePresence>
       {item && (
         <motion.div
@@ -400,7 +425,7 @@ function Lightbox({
                 {/* Media Element */}
                 <div className="relative flex items-center justify-center max-h-[58vh] sm:max-h-[66vh] md:max-h-[70vh] max-w-full">
                   <img
-                    src={item.url}
+                    src={getOptimizedGalleryUrl(item.url, 1600)}
                     alt={item.caption || TYPE_LABEL[item.type]}
                     className="max-h-[58vh] sm:max-h-[66vh] md:max-h-[70vh] max-w-full rounded-lg object-contain shadow-2xl border border-white/10"
                   />
@@ -464,7 +489,7 @@ function Lightbox({
                     }}
                   >
                     <img
-                      src={s.url}
+                      src={getOptimizedThumbnailUrl(s.url, 120)}
                       alt=""
                       loading="lazy"
                       className="h-full w-full object-cover transition-opacity duration-300"
@@ -477,6 +502,7 @@ function Lightbox({
           )}
         </motion.div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 }

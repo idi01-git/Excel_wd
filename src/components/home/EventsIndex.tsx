@@ -56,9 +56,30 @@ const EVENTS = [
 
 type HomeEvent = (typeof EVENTS)[number] & { href?: string };
 
-export default function EventsIndex() {
-  const [events, setEvents] = useState<HomeEvent[]>(EVENTS);
-  useEffect(() => { void fetch('/api/site-settings').then((response) => response.json()).then((data) => { const items = data.settings?.['home.eventsStrip']?.items; if (Array.isArray(items) && items.length) setEvents(items.slice(0, 8).map((item: any, index: number) => ({ index: String(index + 1).padStart(2, '0'), title: item.title, kind: item.kind, date: item.date, venue: item.venue, image: item.image, href: item.href || '/events' }))); }).catch(() => {}); }, []);
+export default function EventsIndex({ initialEvents }: { initialEvents?: HomeEvent[] }) {
+  const [events, setEvents] = useState<HomeEvent[]>(initialEvents && initialEvents.length > 0 ? initialEvents : EVENTS);
+  useEffect(() => {
+    if (initialEvents && initialEvents.length > 0) return;
+    void fetch('/api/site-settings')
+      .then((response) => response.json())
+      .then((data) => {
+        const items = data.settings?.['home.eventsStrip']?.items;
+        if (Array.isArray(items) && items.length) {
+          setEvents(
+            items.slice(0, 8).map((item: any, index: number) => ({
+              index: String(index + 1).padStart(2, '0'),
+              title: item.title,
+              kind: item.kind,
+              date: item.date,
+              venue: item.venue,
+              image: item.image,
+              href: item.href || '/events',
+            }))
+          );
+        }
+      })
+      .catch(() => {});
+  }, [initialEvents]);
   const listRef = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState<number | null>(null);
 

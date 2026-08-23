@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { BookData } from './hardback-data';
+import { getOptimizedCoverUrl } from '@/lib/image-optimization';
 
 export const SERIF_STACK = `"Playfair Display", "Rozha One", "Martel", "Noto Serif Devanagari", "Lora", "Cormorant Garamond", Georgia, serif`;
 export const SANS_STACK = `"Noto Sans Devanagari", "Outfit", "Inter", "Helvetica Neue", Arial, sans-serif`;
@@ -431,7 +432,7 @@ export async function preloadBookAssets(books: BookData[]): Promise<void> {
   const promises: Promise<any>[] = [];
   for (const book of books) {
     if (book.coverImage) {
-      promises.push(preloadBookImage(book.coverImage));
+      promises.push(preloadBookImage(getOptimizedCoverUrl(book.coverImage, 800)));
     }
   }
   await Promise.allSettled(promises);
@@ -539,7 +540,10 @@ export function makeSpineTexture(book: BookData): THREE.CanvasTexture {
  * Procedural Front Cover Texture (720 x 1080)
  * Tactile clothbound board with central foil-stamped motif, debossed frame, and refined typography
  */
-export function makeCoverTexture(book: BookData): THREE.CanvasTexture {
+export function makeCoverTexture(
+  book: BookData,
+  onAsyncUpdate?: () => void
+): THREE.CanvasTexture {
   const cacheKey = `${book.id}-${book.coverImage || 'procedural'}-${book.coverColor}-${book.motif}`;
   if (COVER_TEX_CACHE.has(cacheKey)) {
     return COVER_TEX_CACHE.get(cacheKey)!;
@@ -602,6 +606,9 @@ export function makeCoverTexture(book: BookData): THREE.CanvasTexture {
       if (img.complete && img.naturalWidth > 0) {
         drawCoverImg(img);
         tex.needsUpdate = true;
+        // Lets demand-mode render loops (frameloop="demand") re-render once
+        // the real cover art has landed on the texture.
+        onAsyncUpdate?.();
       }
     });
   }
@@ -764,7 +771,7 @@ export function makeImageCoverTexture(book: BookData): THREE.Texture {
   const loader = new THREE.TextureLoader();
   loader.crossOrigin = 'anonymous';
   const tex = loader.load(
-    book.coverImage!,
+    getOptimizedCoverUrl(book.coverImage!, 800),
     (t) => {
       t.colorSpace = THREE.SRGBColorSpace;
       t.anisotropy = 8;

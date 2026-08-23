@@ -31,6 +31,7 @@ import {
 import NotificationBell from '@/components/navigation/NotificationBell';
 import ThemeToggle from '@/components/ThemeToggle';
 import { isStaff } from '@/lib/rbac';
+import { getOptimizedAvatarUrl } from '@/lib/image-optimization';
 
 // ─── Silky Smooth Calibrated Physics ─────────────────────────────────────────
 const EASE_LUXURY = [0.16, 1, 0.3, 1] as const;
@@ -53,7 +54,7 @@ export function Wordmark() {
     <span className="relative inline-flex items-baseline py-1 select-none">
       {/* Subtle Ambient Liquid Glow Aura */}
       <span
-        className="pointer-events-none absolute -inset-x-3.5 -inset-y-1.5 rounded-full bg-foreground/[0.04] dark:bg-white/[0.06] opacity-0 blur-md transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:opacity-100 group-hover:scale-110"
+        className="pointer-events-none absolute -inset-x-3.5 -inset-y-1.5 rounded-full bg-foreground/4 dark:bg-white/6 opacity-0 blur-md transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:opacity-100 group-hover:scale-110"
         aria-hidden
       />
 
@@ -70,7 +71,7 @@ export function Wordmark() {
         {BRAND_LETTERS.map((char, i) => (
           <span
             key={i}
-            className="inline-block transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:-translate-y-[2px]"
+            className="inline-block transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:-translate-y-0.5"
             style={{
               transitionDelay: `${i * 18}ms`,
             }}
@@ -79,7 +80,7 @@ export function Wordmark() {
           </span>
         ))}
         <span
-          className="inline-block text-muted-foreground/60 transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover:text-foreground group-hover:scale-135 group-hover:-translate-y-[2.5px] origin-bottom ml-[0.5px]"
+          className="inline-block text-muted-foreground/60 transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover:text-foreground group-hover:scale-135 group-hover:translate-y-[-2.5px] origin-bottom ml-[0.5px]"
           style={{
             transitionDelay: `${BRAND_LETTERS.length * 18}ms`,
           }}
@@ -157,7 +158,7 @@ function NavItem({
       {isHovered && (
         <motion.div
           layoutId="nav-dock-pill"
-          className="absolute inset-0 z-0 rounded-full bg-foreground/[0.06] dark:bg-white/[0.09] shadow-xs pointer-events-none"
+          className="absolute inset-0 z-0 rounded-full bg-foreground/6 dark:bg-white/9 shadow-xs pointer-events-none"
           transition={SPRING_SMOOTH}
         />
       )}
@@ -191,9 +192,9 @@ function NavItem({
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 4, scale: 0.98 }}
               transition={{ duration: 0.16, ease: EASE_LUXURY }}
-              className="absolute left-1/2 top-full z-[10000] mt-2.5 w-64 -translate-x-1/2 origin-top"
+              className="absolute left-1/2 top-full z-100 mt-2.5 w-64 -translate-x-1/2 origin-top"
             >
-              <div className="overflow-hidden rounded-2xl border border-border/70 bg-background/95 backdrop-blur-xl p-2 shadow-2xl shadow-black/10 dark:shadow-black/60">
+              <div className="overflow-hidden rounded-2xl border border-neutral-200/90 dark:border-neutral-800 bg-white/95 dark:bg-[#121212]/95 backdrop-blur-2xl p-2 shadow-[0_20px_45px_rgba(0,0,0,0.15)] dark:shadow-[0_20px_45px_rgba(0,0,0,0.6)] ring-1 ring-black/5 dark:ring-white/10">
                 <div
                   className="relative space-y-1"
                   onMouseLeave={() => setHoveredSubItem(null)}
@@ -212,7 +213,7 @@ function NavItem({
                         {isSubHovered && (
                           <motion.div
                             layoutId={`subnav-pill-${id}`}
-                            className="absolute inset-0 z-0 rounded-xl bg-foreground/[0.06] dark:bg-white/[0.08] pointer-events-none"
+                            className="absolute inset-0 z-0 rounded-xl bg-foreground/6 dark:bg-white/8 pointer-events-none"
                             transition={SPRING_SUB}
                           />
                         )}
@@ -265,7 +266,7 @@ function AnimatedHamburger({ isOpen, toggle }: { isOpen: boolean; toggle: () => 
       className={`relative z-50 flex h-10 w-10 items-center justify-center rounded-full border transition-all duration-300 focus:outline-none cursor-pointer ${
         isOpen
           ? 'border-foreground/20 bg-foreground text-background shadow-md'
-          : 'border-border/60 bg-background/80 backdrop-blur-md hover:bg-foreground/[0.06] text-foreground'
+          : 'border-border/60 bg-background/80 backdrop-blur-md hover:bg-foreground/6 text-foreground'
       }`}
       aria-label={isOpen ? 'Close menu' : 'Open menu'}
     >
@@ -305,7 +306,7 @@ function NavJoinButton() {
         aria-label="Join Excelsior"
       >
         {/* Subtle Ambient Light Sweep Shimmer on Hover */}
-        <span className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out bg-gradient-to-r from-transparent via-white/25 dark:via-white/10 to-transparent pointer-events-none" />
+        <span className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out bg-linear-to-r from-transparent via-white/25 dark:via-white/10 to-transparent pointer-events-none" />
 
         {/* Text */}
         <span className="relative z-10 leading-none">
@@ -333,17 +334,18 @@ export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [hoveredNav, setHoveredNav] = useState<string | null>(null);
   const [hoveredProfileItem, setHoveredProfileItem] = useState<string | null>(null);
-  const [modalOpen, setModalOpen] = useState(false);
+  const [modalChromeHidden, setModalChromeHidden] = useState(false);
 
   const currentUser = session?.user;
   const userRole = currentUser?.role;
   const isStaffUser = currentUser ? isStaff(userRole) : false;
 
-  // Listen for Cardwall Detail Modal open state
+  // Listen for full-screen modal open state (Cardwall detail, gallery lightbox…)
+  // so this header smoothly yields the screen — including the top-right corner
+  // where modal close buttons live.
   useEffect(() => {
     const checkModal = () => {
-      const isOpen = document.documentElement.dataset.cardwallModal === 'open';
-      setModalOpen(isOpen);
+      setModalChromeHidden(document.documentElement.dataset.cardwallModal === 'open');
     };
     checkModal();
     const observer = new MutationObserver(checkModal);
@@ -500,17 +502,28 @@ export default function Navbar() {
 
   return (
     <>
-      {/* ── High Z-Index Isolated Header (Stays cleanly above 3D Cardwall and canvas elements) ── */}
-      <header
-        className={`w-full transition-all duration-300 ${
-          modalOpen ? 'z-40' : 'z-[9999]'
+      {/* ── High Z-Index Isolated Header (Stays cleanly above 3D Cardwall and canvas elements.
+             Smoothly fades + slides away when a full-screen modal opens, and glides
+             back down when it closes.) ── */}
+      <motion.header
+        initial={false}
+        animate={{
+          opacity: modalChromeHidden ? 0 : 1,
+          y: modalChromeHidden ? -14 : 0,
+        }}
+        transition={{ duration: 0.32, ease: EASE_LUXURY }}
+        inert={modalChromeHidden}
+        className={`w-full transition-[background-color,border-color,box-shadow] duration-300 ${
+          modalChromeHidden ? 'pointer-events-none' : 'z-600'
         } ${isHome ? 'fixed top-0 left-0 right-0' : 'sticky top-0'} ${
-          scrolled
-            ? 'bg-background/85 backdrop-blur-2xl border-b border-border/60 shadow-xs py-1.5'
-            : 'bg-transparent border-b border-transparent py-2.5'
+          isHome
+            ? scrolled
+              ? 'bg-white/90 dark:bg-[#0a0a0a]/90 backdrop-blur-2xl border-b border-neutral-200/80 dark:border-neutral-800/80 shadow-xs'
+              : 'bg-transparent border-b border-transparent'
+            : 'bg-white/95 dark:bg-[#0a0a0a]/95 backdrop-blur-2xl border-b border-neutral-200/80 dark:border-neutral-800/80 shadow-xs'
         }`}
       >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2">
           <div className="flex items-center justify-between h-16">
             {/* ── Brand — Left with Liquid Hover (Pure Link with CSS transitions) ── */}
             <Link
@@ -524,7 +537,7 @@ export default function Navbar() {
             {/* ── Desktop Nav — Center Docked with LayoutGroup for Liquid Spring Pill Glide ── */}
             <LayoutGroup id="navbar-dock-group">
               <nav
-                className="hidden md:flex items-center justify-center gap-1.5 bg-foreground/[0.02] dark:bg-white/[0.02] border border-border/40 px-3 py-1.5 rounded-full backdrop-blur-md"
+                className="hidden md:flex items-center justify-center gap-1.5 bg-foreground/2 dark:bg-white/2 border border-border/40 px-3 py-1.5 rounded-full backdrop-blur-md"
                 onMouseLeave={() => setHoveredNav(null)}
                 aria-label="Primary"
               >
@@ -576,14 +589,14 @@ export default function Navbar() {
                     whileTap={{ scale: 0.95 }}
                     transition={SPRING_TAP}
                     onClick={() => setDropdownOpen((v) => !v)}
-                    className="flex items-center gap-1.5 rounded-full border border-border/70 bg-background/80 p-1.5 pr-2.5 shadow-xs transition-colors hover:border-foreground/30 hover:bg-foreground/[0.05] cursor-pointer"
+                    className="flex items-center gap-1.5 rounded-full border border-border/70 bg-background/80 p-1.5 pr-2.5 shadow-xs transition-colors hover:border-foreground/30 hover:bg-foreground/5 cursor-pointer"
                     aria-expanded={dropdownOpen}
                     aria-haspopup="true"
                     aria-label="User menu"
                   >
                     {currentUser.image ? (
                       <img
-                        src={currentUser.image}
+                        src={getOptimizedAvatarUrl(currentUser.image, 64)}
                         alt={currentUser.name ?? 'Avatar'}
                         className="h-7 w-7 rounded-full object-cover ring-1 ring-border/80"
                       />
@@ -606,14 +619,14 @@ export default function Navbar() {
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 4, scale: 0.98 }}
                         transition={{ duration: 0.16, ease: EASE_LUXURY }}
-                        className="absolute right-0 top-full z-[10000] mt-2.5 w-64 overflow-hidden rounded-2xl border border-border/70 bg-background/95 backdrop-blur-xl shadow-2xl shadow-black/10 dark:shadow-black/60 p-2 origin-top-right"
+                        className="absolute right-0 top-full z-100 mt-2.5 w-64 overflow-hidden rounded-2xl border border-neutral-200/90 dark:border-neutral-800 bg-white/95 dark:bg-[#121212]/95 backdrop-blur-2xl shadow-[0_20px_45px_rgba(0,0,0,0.15)] dark:shadow-[0_20px_45px_rgba(0,0,0,0.6)] ring-1 ring-black/5 dark:ring-white/10 p-2 origin-top-right"
                       >
                         {/* Compact User Header */}
                         <div className="px-3.5 py-3 border-b border-border/50 mb-1">
                           <div className="flex items-center gap-3">
                             {currentUser.image ? (
                               <img
-                                src={currentUser.image}
+                                src={getOptimizedAvatarUrl(currentUser.image, 64)}
                                 alt={currentUser.name ?? 'Avatar'}
                                 className="h-8 w-8 rounded-full object-cover ring-1 ring-border/80 shrink-0"
                               />
@@ -747,7 +760,7 @@ export default function Navbar() {
             </div>
           </div>
         </div>
-      </header>
+      </motion.header>
 
       {/* ── Full-Screen Kinetic Curtain Mobile Navigation with Drill-Down Submenus ── */}
       <AnimatePresence>
@@ -757,7 +770,7 @@ export default function Navbar() {
             animate="open"
             exit="closed"
             variants={curtainVariants}
-            className="fixed inset-0 z-[9998] flex flex-col justify-between bg-background/98 dark:bg-[#080808]/98 backdrop-blur-3xl pt-20 pb-8 px-6 md:hidden overflow-y-auto"
+            className="fixed inset-0 z-550 flex flex-col justify-between bg-background/98 dark:bg-[#080808]/98 backdrop-blur-3xl pt-20 pb-8 px-6 md:hidden overflow-y-auto"
           >
             {/* ── Top Header Strip ── */}
             <motion.div
@@ -786,7 +799,7 @@ export default function Navbar() {
             </motion.div>
 
             {/* ── Main View vs Submenu Drill-Down View ── */}
-            <div className="py-6 min-h-[280px] flex flex-col justify-center">
+            <div className="py-6 min-h-70 flex flex-col justify-center">
               <AnimatePresence mode="wait">
                 {mobileSubmenu ? (
                   /* ── Submenu Drill-Down Options ── */
@@ -824,8 +837,8 @@ export default function Navbar() {
                             }}
                             className={`group flex items-center justify-between p-3.5 rounded-2xl border transition-all ${
                               active
-                                ? 'bg-foreground/[0.08] border-foreground/30 text-foreground font-semibold'
-                                : 'bg-foreground/[0.02] border-border/50 text-muted-foreground hover:text-foreground hover:bg-foreground/[0.05]'
+                                ? 'bg-foreground/8 border-foreground/30 text-foreground font-semibold'
+                                : 'bg-foreground/2 border-border/50 text-muted-foreground hover:text-foreground hover:bg-foreground/5'
                             }`}
                           >
                             <div className="flex items-center gap-3.5">
@@ -860,75 +873,69 @@ export default function Navbar() {
 
                       if (item.hasSubmenu) {
                         return (
-                          <div key={item.title} className="overflow-hidden">
-                            <motion.div variants={textMaskVariants}>
-                              <button
-                                onClick={() => {
-                                  if ('submenuKey' in item && item.submenuKey) {
-                                    setMobileSubmenu(item.submenuKey);
-                                  }
-                                }}
-                                className="group w-full flex flex-col py-3 border-b border-border/30 text-left transition-all cursor-pointer"
-                              >
-                                <div className="flex items-baseline justify-between w-full">
-                                  <div className="flex items-baseline gap-3.5">
-                                    <span className="font-mono text-xs text-muted-foreground/50 font-light">
-                                      {item.num}
-                                    </span>
-                                    <span
-                                      className="text-2xl sm:text-3xl font-light tracking-tight text-foreground transition-all duration-300 group-hover:translate-x-1.5"
-                                      style={{ fontFamily: 'var(--font-playfair), "Playfair Display", Georgia, serif' }}
-                                    >
-                                      {item.title}
-                                    </span>
-                                  </div>
-                                  <div className="flex items-center gap-1.5 text-muted-foreground group-hover:text-foreground">
-                                    <span className="text-[11px] font-mono uppercase tracking-widest opacity-60">Explore</span>
-                                    <ChevronRight size={16} />
-                                  </div>
-                                </div>
-                                <span className="pl-8 text-xs text-muted-foreground/60 tracking-wide font-sans mt-1">
-                                  {item.subtitle}
+                          <button
+                            key={item.title}
+                            onClick={() => {
+                              if ('submenuKey' in item && item.submenuKey) {
+                                setMobileSubmenu(item.submenuKey);
+                              }
+                            }}
+                            className="group w-full flex flex-col py-3 border-b border-border/30 text-left transition-all cursor-pointer"
+                          >
+                            <div className="flex items-baseline justify-between w-full">
+                              <div className="flex items-baseline gap-3.5">
+                                <span className="font-mono text-xs text-muted-foreground/50 font-light">
+                                  {item.num}
                                 </span>
-                              </button>
-                            </motion.div>
-                          </div>
+                                <span
+                                  className="text-2xl sm:text-3xl font-light tracking-tight text-foreground transition-all duration-300 group-hover:translate-x-1.5"
+                                  style={{ fontFamily: 'var(--font-playfair), "Playfair Display", Georgia, serif' }}
+                                >
+                                  {item.title}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1.5 text-muted-foreground group-hover:text-foreground">
+                                <span className="text-[11px] font-mono uppercase tracking-widest opacity-60">Explore</span>
+                                <ChevronRight size={16} />
+                              </div>
+                            </div>
+                            <span className="pl-8 text-xs text-muted-foreground/60 tracking-wide font-sans mt-1">
+                              {item.subtitle}
+                            </span>
+                          </button>
                         );
                       }
 
                       return (
-                        <div key={item.title} className="overflow-hidden">
-                          <motion.div variants={textMaskVariants}>
-                            <Link
-                              href={item.href!}
-                              onClick={() => setMobileOpen(false)}
-                              className="group flex flex-col py-3 border-b border-border/30 transition-all"
-                            >
-                              <div className="flex items-baseline justify-between">
-                                <div className="flex items-baseline gap-3.5">
-                                  <span className="font-mono text-xs text-muted-foreground/50 font-light">
-                                    {item.num}
-                                  </span>
-                                  <span
-                                    className={`text-2xl sm:text-3xl font-light tracking-tight transition-all duration-300 group-hover:translate-x-1.5 ${
-                                      active ? 'text-foreground font-normal' : 'text-foreground hover:text-foreground'
-                                    }`}
-                                    style={{ fontFamily: 'var(--font-playfair), "Playfair Display", Georgia, serif' }}
-                                  >
-                                    {item.title}
-                                  </span>
-                                </div>
-                                <ArrowUpRight
-                                  size={18}
-                                  className="text-muted-foreground/40 transition-all duration-300 group-hover:text-foreground group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
-                                />
-                              </div>
-                              <span className="pl-8 text-xs text-muted-foreground/60 tracking-wide font-sans mt-1">
-                                {item.subtitle}
+                        <Link
+                          key={item.title}
+                          href={item.href!}
+                          onClick={() => setMobileOpen(false)}
+                          className="group flex flex-col py-3 border-b border-border/30 transition-all"
+                        >
+                          <div className="flex items-baseline justify-between">
+                            <div className="flex items-baseline gap-3.5">
+                              <span className="font-mono text-xs text-muted-foreground/50 font-light">
+                                {item.num}
                               </span>
-                            </Link>
-                          </motion.div>
-                        </div>
+                              <span
+                                className={`text-2xl sm:text-3xl font-light tracking-tight transition-all duration-300 group-hover:translate-x-1.5 ${
+                                  active ? 'text-foreground font-normal' : 'text-foreground hover:text-foreground'
+                                }`}
+                                style={{ fontFamily: 'var(--font-playfair), "Playfair Display", Georgia, serif' }}
+                              >
+                                {item.title}
+                              </span>
+                            </div>
+                            <ArrowUpRight
+                              size={18}
+                              className="text-muted-foreground/40 transition-all duration-300 group-hover:text-foreground group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+                            />
+                          </div>
+                          <span className="pl-8 text-xs text-muted-foreground/60 tracking-wide font-sans mt-1">
+                            {item.subtitle}
+                          </span>
+                        </Link>
                       );
                     })}
                   </motion.div>
@@ -943,11 +950,11 @@ export default function Navbar() {
             >
               {currentUser ? (
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between p-3.5 rounded-2xl bg-foreground/[0.03] border border-border/60">
+                  <div className="flex items-center justify-between p-3.5 rounded-2xl bg-foreground/3 border border-border/60">
                     <div className="flex items-center gap-3">
                       {currentUser.image ? (
                         <img
-                          src={currentUser.image}
+                          src={getOptimizedAvatarUrl(currentUser.image, 80)}
                           alt={currentUser.name ?? 'Avatar'}
                           className="h-10 w-10 rounded-full object-cover"
                         />
@@ -979,7 +986,7 @@ export default function Navbar() {
                     <Link
                       href="/profile"
                       onClick={() => setMobileOpen(false)}
-                      className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-foreground/[0.04] text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+                      className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-foreground/4 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
                     >
                       <UserIcon size={14} />
                       Profile
@@ -987,7 +994,7 @@ export default function Navbar() {
                     <Link
                       href="/profile/issue-requests"
                       onClick={() => setMobileOpen(false)}
-                      className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-foreground/[0.04] text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+                      className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-foreground/4 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
                     >
                       <BookMarkedIcon size={14} />
                       Loans
@@ -1009,7 +1016,7 @@ export default function Navbar() {
                     className="group relative flex items-center justify-center gap-2 w-full py-4 rounded-full bg-foreground text-background text-xs font-semibold uppercase tracking-wider overflow-hidden active:scale-98 transition-all shadow-md"
                   >
                     {/* Ambient Light Sweep Shimmer on Hover */}
-                    <span className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out bg-gradient-to-r from-transparent via-white/25 dark:via-white/10 to-transparent pointer-events-none" />
+                    <span className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out bg-linear-to-r from-transparent via-white/25 dark:via-white/10 to-transparent pointer-events-none" />
                     <span className="relative z-10">Join Excelsior Society</span>
                     <ArrowUpRight
                       size={15}
@@ -1063,7 +1070,7 @@ function DropdownMenuLink({
       {isHovered && (
         <motion.div
           layoutId="profile-sub-pill"
-          className="absolute inset-0 z-0 rounded-xl bg-foreground/[0.06] dark:bg-white/[0.08] pointer-events-none"
+          className="absolute inset-0 z-0 rounded-xl bg-foreground/6 dark:bg-white/8 pointer-events-none"
           transition={SPRING_SUB}
         />
       )}

@@ -4,6 +4,8 @@ import { MemberSection, Role } from '@prisma/client';
 import { requirePermission } from '@/lib/api-auth';
 import { recordAuditEvent } from '@/lib/audit';
 
+import { deleteImageByUrl } from '@/lib/cloudinary';
+
 const STAFF_ROLES = [
   Role.COORDINATOR,
   Role.TECH_LEAD,
@@ -25,6 +27,17 @@ async function updateMember(req: Request, id: string, actorId: string) {
     return NextResponse.json({ error: 'Member title must be 60 characters or fewer' }, { status: 400 });
   }
 
+  const existing = await db.user.findUnique({
+    where: { id },
+    select: { directoryPhoto: true },
+  });
+
+  const nextPhoto = directoryPhoto === undefined ? undefined : (directoryPhoto ? String(directoryPhoto).trim() : null);
+
+  if (nextPhoto !== undefined && nextPhoto !== existing?.directoryPhoto && existing?.directoryPhoto) {
+    await deleteImageByUrl(existing.directoryPhoto);
+  }
+
   const updated = await db.user.update({
     where: { id },
     data: {
@@ -32,7 +45,7 @@ async function updateMember(req: Request, id: string, actorId: string) {
       memberTitle: title === undefined ? undefined : title || null,
       branch: branch === undefined ? undefined : String(branch).trim() || null,
       batch: batch === undefined ? undefined : String(batch).trim() || null,
-      directoryPhoto: directoryPhoto === undefined ? undefined : (directoryPhoto ? String(directoryPhoto).trim() : null),
+      directoryPhoto: nextPhoto,
       showSocialLinks: showSocialLinks === undefined ? undefined : Boolean(showSocialLinks),
     },
   });
@@ -42,7 +55,7 @@ async function updateMember(req: Request, id: string, actorId: string) {
     action: 'MEMBER_UPDATE',
     entityType: 'USER',
     entityId: id,
-    metadata: { memberSection, memberTitle: title, branch, batch, directoryPhoto, showSocialLinks },
+    metadata: { memberSection, memberTitle: title, branch, batch, directoryPhoto: nextPhoto, showSocialLinks },
     request: req,
   });
 

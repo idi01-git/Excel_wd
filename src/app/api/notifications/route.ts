@@ -13,6 +13,12 @@ export async function GET(req: Request) {
 
     const { searchParams } = new URL(req.url);
     const unreadOnly = searchParams.get('unreadOnly') === 'true';
+    const limitParam = searchParams.get('limit');
+    const pageParam = searchParams.get('page');
+
+    const limit = limitParam ? Math.min(50, Math.max(1, parseInt(limitParam, 10))) : 30;
+    const page = pageParam ? Math.max(1, parseInt(pageParam, 10)) : 1;
+    const skip = (page - 1) * limit;
 
     const whereClause: any = {
       recipientId: session.user.id
@@ -22,22 +28,29 @@ export async function GET(req: Request) {
       whereClause.isRead = false;
     }
 
-    const notifications = await db.notification.findMany({
-      where: whereClause,
-      include: {
-        actor: {
-          select: {
-            id: true,
-            name: true,
-            username: true,
-            profilePhoto: true
+    const [totalCount, notifications] = await Promise.all([
+      db.notification.count({ where: whereClause }),
+      db.notification.findMany({
+        where: whereClause,
+        include: {
+          actor: {
+            select: {
+              id: true,
+              name: true,
+              username: true,
+              profilePhoto: true
+            }
           }
-        }
-      },
-      orderBy: {
-        createdAt: 'desc'
-      }
-    });
+        },
+        orderBy: {
+          createdAt: 'desc'
+        },
+        skip,
+        take: limit
+      })
+    ]);
+
+    const hasMore = skip + notifications.length < totalCount;
 
     const resolvedNotifications = await Promise.all(
       notifications.map(async (n) => {
@@ -152,7 +165,12 @@ export async function GET(req: Request) {
       })
     );
 
-    return NextResponse.json({ success: true, notifications: resolvedNotifications });
+    return NextResponse.json({
+      success: true,
+      notifications: resolvedNotifications,
+      totalCount,
+      hasMore
+    });
   } catch (error: any) {
     console.error('Fetch notifications error:', error);
     return NextResponse.json({ error: 'Failed to retrieve notifications' }, { status: 500 });

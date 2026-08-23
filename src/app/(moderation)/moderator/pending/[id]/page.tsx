@@ -6,6 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, CheckCircle2, XCircle, Calendar, BookOpen, Clock, Tag, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { getOptimizedCoverUrl, getOptimizedAvatarUrl, getOptimizedImageUrl } from '@/lib/image-optimization';
 
 interface Publication {
   id: string;
@@ -86,7 +87,7 @@ function renderTipTapJSON(node: any, index: number = 0): React.ReactNode {
       return (
         <img
           key={index}
-          src={node.attrs?.src}
+          src={getOptimizedImageUrl(node.attrs?.src, { width: 1400, quality: 'auto:good' })}
           alt={node.attrs?.alt || 'Inline image'}
           className="max-w-full h-auto rounded-2xl border border-gray-200 dark:border-white/10 my-8 mx-auto shadow-sm"
         />
@@ -299,7 +300,7 @@ export default function ModeratorDetailReviewPage() {
                 }}
               >
                 <img
-                  src={pub.coverImage}
+                  src={getOptimizedCoverUrl(pub.coverImage, 1400)}
                   alt={pub.title}
                   className="w-full h-full object-cover"
                 />
@@ -322,10 +323,10 @@ export default function ModeratorDetailReviewPage() {
                 <img
                   src={
                     pub.alumniProfile?.photo && pub.alumniProfile.photo.trim() !== ''
-                      ? pub.alumniProfile.photo
+                      ? getOptimizedAvatarUrl(pub.alumniProfile.photo, 96)
                       : pub.authorName
                       ? `https://api.dicebear.com/7.x/initials/svg?seed=${pub.authorName}`
-                      : pub.author.profilePhoto || `https://api.dicebear.com/7.x/initials/svg?seed=${pub.author.name}`
+                      : pub.author.profilePhoto ? getOptimizedAvatarUrl(pub.author.profilePhoto, 96) : `https://api.dicebear.com/7.x/initials/svg?seed=${pub.author.name}`
                   }
                   alt={pub.authorName || pub.alumniProfile?.name || pub.author.name}
                   className="w-10 h-10 rounded-full object-cover border border-gray-200"

@@ -72,9 +72,11 @@ const SECTIONS: { value: MemberSection | 'NONE'; label: string }[] = [
   { value: 'TEAM', label: 'Team Members' },
 ];
 
+type TabKey = 'members' | 'alumni' | 'pending' | 'all';
+
 export default function AdminRolesPage() {
   const lenis = useLenis();
-  const [activeTab, setActiveTab] = useState<'pending' | 'all'>('pending');
+  const [activeTab, setActiveTab] = useState<TabKey>('members');
   const [pendingUsers, setPendingUsers] = useState<UserRecord[]>([]);
   const [allUsers, setAllUsers] = useState<UserRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -84,6 +86,24 @@ export default function AdminRolesPage() {
     type: 'success' | 'error';
     text: string;
   } | null>(null);
+
+  // Grouped user lists for quick role management
+  const memberUsers = useMemo(() => {
+    return allUsers.filter(
+      (u) => u.role !== Role.ALUMNI && u.role !== Role.VISITOR
+    );
+  }, [allUsers]);
+
+  const alumniUsers = useMemo(() => {
+    return allUsers.filter((u) => u.role === Role.ALUMNI);
+  }, [allUsers]);
+
+  const displayedUsers = useMemo(() => {
+    if (activeTab === 'pending') return pendingUsers;
+    if (activeTab === 'members') return memberUsers;
+    if (activeTab === 'alumni') return alumniUsers;
+    return allUsers;
+  }, [activeTab, pendingUsers, memberUsers, alumniUsers, allUsers]);
 
   // Modal states
   const [rejectModalUser, setRejectModalUser] = useState<UserRecord | null>(null);
@@ -220,7 +240,15 @@ export default function AdminRolesPage() {
     setDetailModalUser(user);
     setEditRole(user.role);
     setEditSection(user.memberSection || 'NONE');
-    setEditTitle(user.memberTitle || '');
+    
+    // Auto-suggest alumni byline (e.g. IT 24' Alumnus) if not already set
+    if (user.role === 'ALUMNI' && !user.memberTitle) {
+      const b = user.branch || '';
+      const y = user.batch ? ` ${user.batch.slice(-2)}'` : '';
+      setEditTitle(b ? `${b}${y} Alumnus` : 'Alumnus');
+    } else {
+      setEditTitle(user.memberTitle || '');
+    }
   };
 
   // Save User Role & Attribute Customizations
@@ -324,28 +352,50 @@ export default function AdminRolesPage() {
         {/* Search & Tabs Toolbar */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
           {/* Tabs */}
-          <div className="flex items-center p-1 rounded-2xl bg-neutral-200/60 dark:bg-[#141414] border border-neutral-200/80 dark:border-neutral-800 w-full sm:w-auto">
+          <div className="flex flex-wrap items-center p-1 rounded-2xl bg-neutral-200/60 dark:bg-[#141414] border border-neutral-200/80 dark:border-neutral-800 gap-1 w-full sm:w-auto">
+            <button
+              onClick={() => setActiveTab('members')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold font-mono uppercase tracking-wider transition-all cursor-pointer flex items-center gap-2 ${
+                activeTab === 'members'
+                  ? 'bg-white dark:bg-[#222222] text-neutral-950 dark:text-white shadow-xs'
+                  : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
+              }`}
+            >
+              <Users size={14} className="text-emerald-500" />
+              <span>Club Members ({memberUsers.length})</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('alumni')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold font-mono uppercase tracking-wider transition-all cursor-pointer flex items-center gap-2 ${
+                activeTab === 'alumni'
+                  ? 'bg-white dark:bg-[#222222] text-neutral-950 dark:text-white shadow-xs'
+                  : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
+              }`}
+            >
+              <Sparkles size={14} className="text-purple-500" />
+              <span>Alumni ({alumniUsers.length})</span>
+            </button>
             <button
               onClick={() => setActiveTab('pending')}
-              className={`flex-1 sm:flex-none px-5 py-2 rounded-xl text-xs font-bold font-mono uppercase tracking-wider transition-all cursor-pointer flex items-center gap-2 justify-center ${
+              className={`px-4 py-2 rounded-xl text-xs font-bold font-mono uppercase tracking-wider transition-all cursor-pointer flex items-center gap-2 ${
                 activeTab === 'pending'
                   ? 'bg-white dark:bg-[#222222] text-neutral-950 dark:text-white shadow-xs'
                   : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
               }`}
             >
-              <Clock size={14} />
-              <span>Pending Queue ({pendingUsers.length})</span>
+              <Clock size={14} className="text-amber-500" />
+              <span>Pending ({pendingUsers.length})</span>
             </button>
             <button
               onClick={() => setActiveTab('all')}
-              className={`flex-1 sm:flex-none px-5 py-2 rounded-xl text-xs font-bold font-mono uppercase tracking-wider transition-all cursor-pointer flex items-center gap-2 justify-center ${
+              className={`px-4 py-2 rounded-xl text-xs font-bold font-mono uppercase tracking-wider transition-all cursor-pointer flex items-center gap-2 ${
                 activeTab === 'all'
                   ? 'bg-white dark:bg-[#222222] text-neutral-950 dark:text-white shadow-xs'
                   : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
               }`}
             >
-              <Users size={14} />
-              <span>All Registered ({allUsers.length})</span>
+              <Layers size={14} />
+              <span>All ({allUsers.length})</span>
             </button>
           </div>
 
@@ -513,14 +563,14 @@ export default function AdminRolesPage() {
                         Loading member registry...
                       </td>
                     </tr>
-                  ) : allUsers.length === 0 ? (
+                  ) : displayedUsers.length === 0 ? (
                     <tr>
                       <td colSpan={6} className="py-20 text-center text-neutral-500 font-mono">
-                        No registered users matched the query.
+                        No users found in this section.
                       </td>
                     </tr>
                   ) : (
-                    allUsers.map((u) => (
+                    displayedUsers.map((u) => (
                       <tr
                         key={u.id}
                         className="hover:bg-neutral-50/80 dark:hover:bg-neutral-900/40 transition-colors"
@@ -560,7 +610,7 @@ export default function AdminRolesPage() {
                           <span className="font-bold text-neutral-900 dark:text-white">
                             {u.rollNumber || '—'}
                           </span>
-                          <span className="text-[10px] text-neutral-500 block truncate max-w-[180px]">
+                          <span className="text-[10px] text-neutral-500 block truncate max-w-45">
                             {u.branch || '—'} {u.batch ? `(${u.batch})` : ''}
                           </span>
                         </td>
@@ -588,7 +638,7 @@ export default function AdminRolesPage() {
                                 : 'bg-neutral-100 dark:bg-neutral-850 text-neutral-600 dark:text-neutral-400 border border-neutral-200 dark:border-neutral-800'
                             }`}
                           >
-                            {formatRole(u.role)}
+                            {formatRole(u.role, u)}
                           </span>
                         </td>
 
@@ -602,7 +652,7 @@ export default function AdminRolesPage() {
                             <span className="text-neutral-400 dark:text-neutral-600">—</span>
                           )}
                           {u.memberTitle && (
-                            <span className="text-amber-500 block text-[10px] font-serif italic truncate max-w-[140px]">
+                            <span className="text-amber-500 block text-[10px] font-serif italic truncate max-w-35">
                               &ldquo;{u.memberTitle}&rdquo;
                             </span>
                           )}
@@ -730,7 +780,9 @@ export default function AdminRolesPage() {
 
                 {detailModalUser.bio && (
                   <div className="pt-2 border-t border-neutral-200/60 dark:border-neutral-800/60">
-                    <span className="font-mono text-[10px] text-neutral-400 block uppercase">Byline Bio</span>
+                    <span className="font-mono text-[10px] text-neutral-400 block uppercase">
+                      {detailModalUser.role === 'ALUMNI' ? 'Message to Club / Verification Note' : 'Byline Bio'}
+                    </span>
                     <p className="text-neutral-700 dark:text-neutral-300 italic mt-0.5">&ldquo;{detailModalUser.bio}&rdquo;</p>
                   </div>
                 )}
@@ -756,7 +808,7 @@ export default function AdminRolesPage() {
                           >
                             <ExternalLink size={11} />
                             <span className="font-bold capitalize">{link.platform}:</span>
-                            <span className="truncate max-w-[140px]">{link.handle || link.url}</span>
+                            <span className="truncate max-w-35">{link.handle || link.url}</span>
                           </a>
                         ))
                     ) : (
@@ -779,7 +831,17 @@ export default function AdminRolesPage() {
                     <label className="font-mono text-[10.5px] uppercase font-bold text-neutral-400">Society Role</label>
                     <select
                       value={editRole}
-                      onChange={(e) => setEditRole(e.target.value as Role)}
+                      onChange={(e) => {
+                        const newRole = e.target.value as Role;
+                        setEditRole(newRole);
+                        if (newRole === 'ALUMNI') {
+                          if (!editTitle && detailModalUser) {
+                            const b = detailModalUser.branch || '';
+                            const y = detailModalUser.batch ? ` ${detailModalUser.batch.slice(-2)}'` : '';
+                            setEditTitle(b ? `${b}${y} Alumnus` : 'Alumnus');
+                          }
+                        }
+                      }}
                       className="w-full h-11 px-3 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-[#141414] text-xs font-mono font-bold text-neutral-900 dark:text-white focus:border-neutral-950 dark:focus:border-white focus:outline-none"
                     >
                       {ALL_ROLES.map((r) => (

@@ -272,7 +272,7 @@ export default function CommentNode({
                   size={16}
                   className="hover:bg-neutral-300/50 dark:hover:bg-neutral-600/50 px-2 py-1"
                 />
-                <span className={`text-[12px] font-bold px-1 select-none min-w-[12px] text-center ${
+                <span className={`text-[12px] font-bold px-1 select-none min-w-3 text-center ${
                   optimisticUpvoted 
                     ? 'text-[#ff4500]' 
                     : optimisticDownvoted 

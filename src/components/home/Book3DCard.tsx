@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useRef, useState, useMemo, Suspense } from 'react';
+import React, { useRef, useState, useMemo, useEffect, Suspense } from 'react';
 import * as THREE from 'three';
-import { Canvas, useFrame } from '@react-three/fiber';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import Link from 'next/link';
 import { BookData, SPINE_WRAP_T } from '@/components/sections/hardback/hardback-data';
 import {
@@ -50,12 +50,15 @@ interface Book3DMeshProps {
   book: BookData;
   index: number;
   isHovered: boolean;
+  /** False while the shelf is off-screen — used to kick a render on re-entry. */
+  active: boolean;
 }
 
-function Book3DMesh({ book, index, isHovered }: Book3DMeshProps) {
+function Book3DMesh({ book, index, isHovered, active }: Book3DMeshProps) {
   const groupRef = useRef<THREE.Group>(null);
   const sheenMatRef = useRef<THREE.ShaderMaterial>(null);
   const progressRef = useRef(0);
+  const invalidate = useThree((state) => state.invalidate);
 
   const W = 1.75;
   const H = 2.62;
@@ -65,10 +68,11 @@ function Book3DMesh({ book, index, isHovered }: Book3DMeshProps) {
   const PAGE_RECESS = 0.055;
   const xCenter = SPINE_WRAP_T / 2;
 
-  // Textures memoized
+  // Textures memoized. The cover texture may redraw asynchronously once its
+  // image decodes — the callback re-invalidates the demand render loop.
   const textures = useMemo(() => {
     const spineTex = makeSpineTexture(book);
-    const coverTex = makeCoverTexture(book);
+    const coverTex = makeCoverTexture(book, invalidate);
     const backCoverTex = makeBackCoverTexture(book);
 
     return {
@@ -165,8 +169,21 @@ function Book3DMesh({ book, index, isHovered }: Book3DMeshProps) {
     return variants[index % variants.length];
   }, [index]);
 
+  // Kick a frame whenever interaction state changes (hover in/out, shelf
+  // re-entering the viewport) — the convergence loop below keeps rendering
+  // until the springs settle, then the loop parks itself.
+  useEffect(() => {
+    invalidate();
+  }, [isHovered, active, invalidate]);
+
   useFrame((_, delta) => {
     if (!groupRef.current) return;
+
+    // Clamp delta: in demand mode the first frame after a long park carries
+    // the full elapsed time, which would make damp() leap straight to its
+    // target (perceived as a "snap"). A ≤33ms step keeps every transition
+    // buttery regardless of how long the loop was parked.
+    const dt = Math.min(delta, 1 / 30);
 
     // Luxurious weighted spring inertia
     const targetRotY = isHovered ? 0.0 : restAngles.y;
@@ -175,20 +192,31 @@ function Book3DMesh({ book, index, isHovered }: Book3DMeshProps) {
     const targetPosY = isHovered ? 0.12 : 0.0;
     const targetPosZ = isHovered ? 0.42 : 0.0;
 
-    groupRef.current.rotation.y = THREE.MathUtils.damp(groupRef.current.rotation.y, targetRotY, 5.5, delta);
-    groupRef.current.rotation.x = THREE.MathUtils.damp(groupRef.current.rotation.x, targetRotX, 5.5, delta);
-    groupRef.current.rotation.z = THREE.MathUtils.damp(groupRef.current.rotation.z, targetRotZ, 5.5, delta);
-    groupRef.current.position.y = THREE.MathUtils.damp(groupRef.current.position.y, targetPosY, 5.5, delta);
-    groupRef.current.position.z = THREE.MathUtils.damp(groupRef.current.position.z, targetPosZ, 5.5, delta);
+    groupRef.current.rotation.y = THREE.MathUtils.damp(groupRef.current.rotation.y, targetRotY, 5.5, dt);
+    groupRef.current.rotation.x = THREE.MathUtils.damp(groupRef.current.rotation.x, targetRotX, 5.5, dt);
+    groupRef.current.rotation.z = THREE.MathUtils.damp(groupRef.current.rotation.z, targetRotZ, 5.5, dt);
+    groupRef.current.position.y = THREE.MathUtils.damp(groupRef.current.position.y, targetPosY, 5.5, dt);
+    groupRef.current.position.z = THREE.MathUtils.damp(groupRef.current.position.z, targetPosZ, 5.5, dt);
 
     // Physical motion-driven glint progress (only glints smoothly as the book rotates)
     const targetProgress = isHovered ? 1.0 : 0.0;
-    progressRef.current = THREE.MathUtils.damp(progressRef.current, targetProgress, 4.5, delta);
+    progressRef.current = THREE.MathUtils.damp(progressRef.current, targetProgress, 4.5, dt);
 
     if (sheenMatRef.current) {
       sheenMatRef.current.uniforms.uProgress.value = progressRef.current;
       sheenMatRef.current.uniforms.uHover.value = progressRef.current;
     }
+
+    // Demand-mode loop: keep requesting frames while the springs are still in
+    // motion; once converged, stop invalidating and the render loop parks.
+    const stillMoving =
+      Math.abs(groupRef.current.rotation.y - targetRotY) > 1e-3 ||
+      Math.abs(groupRef.current.rotation.x - targetRotX) > 1e-3 ||
+      Math.abs(groupRef.current.rotation.z - targetRotZ) > 1e-3 ||
+      Math.abs(groupRef.current.position.y - targetPosY) > 1e-3 ||
+      Math.abs(groupRef.current.position.z - targetPosZ) > 1e-3 ||
+      Math.abs(progressRef.current - targetProgress) > 1e-3;
+    if (stillMoving) invalidate();
   });
 
   return (
@@ -250,9 +278,20 @@ function Book3DMesh({ book, index, isHovered }: Book3DMeshProps) {
 export interface Book3DCardProps {
   book: BookData;
   index: number;
+  /** When true, the WebGL render loop is fully parked (frameloop="never"). */
+  paused?: boolean;
 }
 
-export function Book3DCard({ book, index }: Book3DCardProps) {
+const noopEvents: any = () => ({
+  enabled: false,
+  priority: 0,
+  handlers: {},
+  connect: () => {},
+  disconnect: () => {},
+  update: () => {},
+});
+
+export function Book3DCard({ book, index, paused = false }: Book3DCardProps) {
   const [isHovered, setIsHovered] = useState(false);
 
   return (
@@ -274,14 +313,19 @@ export function Book3DCard({ book, index }: Book3DCardProps) {
           }`}
         />
 
-        {/* 3D Canvas with Studio 3-Point Exhibition Lighting & ACES Filmic Tone Mapping */}
+        {/* 3D Canvas with Studio 3-Point Exhibition Lighting & ACES Filmic Tone Mapping.
+            Demand-mode render loop: renders on mount and whenever interaction or
+            the spring motion requires it, then parks itself. */}
         <div className="relative w-full h-full cursor-pointer overflow-visible">
           <Canvas
+            events={noopEvents}
+            frameloop={paused ? 'never' : 'demand'}
             shadows={{ type: THREE.PCFShadowMap }}
             camera={{ position: [0, -0.04, 6.4], fov: 32 }}
             gl={{
               antialias: true,
               alpha: true,
+              stencil: false,
               powerPreference: 'high-performance',
               toneMapping: THREE.ACESFilmicToneMapping,
               toneMappingExposure: 1.12,
@@ -309,7 +353,7 @@ export function Book3DCard({ book, index }: Book3DCardProps) {
             <pointLight position={[-2.0, -1.6, 3.5]} intensity={1.1} color="#d79b72" />
 
             <Suspense fallback={null}>
-              <Book3DMesh book={book} index={index} isHovered={isHovered} />
+              <Book3DMesh book={book} index={index} isHovered={isHovered} active={!paused} />
             </Suspense>
           </Canvas>
         </div>

@@ -18,6 +18,7 @@ import {
   ArrowUpRight,
   Globe,
 } from 'lucide-react';
+import { getOptimizedAvatarUrl } from '@/lib/image-optimization';
 
 // ─── Universal Social Media Icon Renderer ──────────────────────────────────
 export function SocialIcon({
@@ -191,6 +192,66 @@ interface Alumnus {
   showSocialsToTeam?: boolean;
 }
 
+const formatShortBranch = (branch?: string | null): string => {
+  if (!branch || branch === 'null' || branch === 'undefined') return 'EE';
+  const clean = branch.trim();
+
+  // 1. Check parenthesized acronym like "Electronics ... (ECE)"
+  const parenMatch = clean.match(/\(([^)]+)\)/);
+  if (parenMatch && parenMatch[1]) {
+    return parenMatch[1].toUpperCase().trim();
+  }
+
+  // 2. Normalize known branch full names to short codes
+  const lower = clean.toLowerCase();
+  if (lower.includes('information tech') || lower === 'it') return 'IT';
+  if (lower.includes('computer science') || lower.includes('cse')) {
+    if (lower.includes('sf')) return 'CSE-SF';
+    if (lower.includes('ai')) return 'CSE-AI';
+    if (lower.includes('regular') || lower.includes('cse-r')) return 'CSE-R';
+    return 'CSE';
+  }
+  if (lower.includes('electronics') || lower === 'ece') return 'ECE';
+  if (lower.includes('electrical') || lower === 'ee') return 'EE';
+  if (lower.includes('mechanical') || lower === 'me') return 'ME';
+  if (lower.includes('civil') || lower === 'ce') return 'CE';
+  if (lower.includes('chemical') || lower === 'che') return 'CHE';
+  if (lower.includes('computer application') || lower === 'mca') return 'MCA';
+  if (lower.includes('business administration') || lower === 'mba') return 'MBA';
+  if (lower.includes('biotech') || lower === 'bt') return 'BT';
+
+  // 3. Fallback to clean uppercase word
+  return clean.toUpperCase().replace(/\s+/g, '-').slice(0, 10);
+};
+
+const formatBylineCase = (text?: string | null): string => {
+  if (!text) return 'Student';
+  const clean = text.trim();
+  if (!clean || clean === 'null' || clean === 'undefined') return 'Student';
+
+  // If text already contains lowercase letters (e.g. "Graduate Assistant at Stanford"), keep user/admin input intact
+  const hasLowercase = /[a-z]/.test(clean);
+  const isAllCaps = clean === clean.toUpperCase() && /[A-Z]/.test(clean);
+
+  if (!isAllCaps && hasLowercase) {
+    return clean;
+  }
+
+  // If ALL CAPS (e.g. "COORDINATOR", "TECH LEAD", "PR HEAD", "OPERATIONS HEAD", "CORE TEAM")
+  // Convert into proper elegant Title Case (e.g. "Coordinator", "Tech Lead", "PR Head")
+  const words = clean.toLowerCase().split(/\s+/);
+  const acronyms = new Set(['pr', 'it', 'ai', 'sf', 'ui', 'ux', 'ceo', 'cto', 'cfo', 'coo', 'hr', 'iiit', 'iit', 'nit']);
+  const minorWords = new Set(['at', 'in', 'of', 'for', 'and', 'the', 'to', 'on', 'with', 'by']);
+
+  return words
+    .map((word, idx) => {
+      if (acronyms.has(word)) return word.toUpperCase();
+      if (idx > 0 && minorWords.has(word)) return word.toLowerCase();
+      return word.charAt(0).toUpperCase() + word.slice(1);
+    })
+    .join(' ');
+};
+
 const getPassingYear = (batch: string) => {
   if (!batch || batch === 'All') return '';
   const parts = batch.split('-');
@@ -230,7 +291,7 @@ function AlumnusCard({
 
   const photoUrl =
     alum.photo && alum.photo.trim() !== ''
-      ? alum.photo
+      ? getOptimizedAvatarUrl(alum.photo, 400)
       : `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(alum.name)}`;
 
   return (
@@ -251,7 +312,7 @@ function AlumnusCard({
         boxShadow: shadowLift,
       }}
       onClick={onSelect}
-      className="group flex flex-col border-[2px] border-neutral-300 dark:border-neutral-800 p-[12px] bg-card dark:bg-neutral-900/50 text-card-foreground rounded-none will-change-transform transition-all duration-300 hover:border-foreground dark:hover:border-neutral-200 dark:hover:bg-neutral-900/90 select-none cursor-pointer h-full"
+      className="group flex flex-col border-2 border-neutral-300 dark:border-neutral-800 p-3 bg-card dark:bg-neutral-900/50 text-card-foreground rounded-none will-change-transform transition-all duration-300 hover:border-foreground dark:hover:border-neutral-200 dark:hover:bg-neutral-900/90 select-none cursor-pointer h-full"
     >
       {/* Portrait */}
       <div className="block w-full aspect-[4/4.3] relative overflow-hidden bg-neutral-100 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800/80">
@@ -264,8 +325,8 @@ function AlumnusCard({
       </div>
 
       {/* Name */}
-      <div className="mt-[14px]">
-        <h2 className="font-serif text-[32px] lg:text-[44px] font-normal uppercase leading-[0.92] text-foreground dark:text-neutral-50 tracking-[-0.04em] mb-[10px]">
+      <div className="mt-3.5">
+        <h2 className="font-serif text-[32px] lg:text-[44px] font-normal uppercase leading-[0.92] text-foreground dark:text-neutral-50 tracking-[-0.04em] mb-2.5">
           {alum.name.split(' ').map((word, i) => (
             <span key={i} className="block truncate">
               {word}
@@ -275,16 +336,39 @@ function AlumnusCard({
       </div>
 
       {/* Bottom Editorial Roster Row */}
-      <div className="flex justify-between items-center mt-auto pt-3.5 border-t border-neutral-200/80 dark:border-neutral-800/90 gap-3">
-        <span className="font-serif italic text-[14px] md:text-[15px] text-foreground/90 dark:text-neutral-200 max-w-[65%] leading-none truncate">
-          {alum.currentPosition || alum.branch}
-        </span>
-        <div className="flex-shrink-0">
-          <span className="font-mono text-[10px] uppercase tracking-[0.24em] font-medium text-muted-foreground dark:text-neutral-400">
-            {getPassingYear(alum.batch) ? `'${getPassingYear(alum.batch).slice(-2)}` : alum.batch}
-          </span>
-        </div>
-      </div>
+      {(() => {
+        const rawPos = (alum.currentPosition || '').trim();
+        const rawBranch = (alum.branch || '').trim();
+
+        // 1. Byline / Position formatting (Present Journey only, fallback to 'Student', Title Case consistency)
+        let resolvedPosition = 'Student';
+        if (rawPos && rawPos !== 'null' && rawPos !== 'undefined') {
+          resolvedPosition = rawPos;
+        }
+        const displayPosition = formatBylineCase(resolvedPosition);
+
+        // 2. Batch & Branch tag formatting (e.g. "IT 24'", "EE 24'", "CSE-SF 24'")
+        const branchTag = formatShortBranch(rawBranch);
+        const passingYear = getPassingYear(alum.batch);
+        const yearTag = passingYear ? `${passingYear.slice(-2)}'` : "24'";
+        const batchBranch = `${branchTag} ${yearTag}`;
+
+        return (
+          <div className="flex justify-between items-end mt-auto pt-3.5 border-t border-neutral-200/80 dark:border-neutral-800/90 gap-3">
+            <span
+              title={displayPosition}
+              className="font-serif italic text-[13px] md:text-[14px] text-foreground/90 dark:text-neutral-200 flex-1 leading-tight line-clamp-2 wrap-break-word"
+            >
+              {displayPosition}
+            </span>
+            <div className="shrink-0 pb-0.5">
+              <span className="font-mono text-[10px] uppercase tracking-[0.24em] font-medium text-muted-foreground dark:text-neutral-400 whitespace-nowrap">
+                {batchBranch}
+              </span>
+            </div>
+          </div>
+        );
+      })()}
     </motion.div>
   );
 }
@@ -554,7 +638,7 @@ export default function AlumniDirectoryPage() {
               </span>
               <ChevronDown
                 size={16}
-                className={`text-muted-foreground transition-transform flex-shrink-0 ml-2 ${
+                className={`text-muted-foreground transition-transform shrink-0 ml-2 ${
                   isBatchDropdownOpen ? 'rotate-180' : ''
                 }`}
               />
@@ -605,7 +689,7 @@ export default function AlumniDirectoryPage() {
         {filteredAlumni.length > 0 ? (
           <>
             <motion.div
-              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-[18px] pt-[34px]"
+              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4.5 pt-8.5"
               initial="hidden"
               animate="visible"
               variants={{
@@ -662,7 +746,7 @@ export default function AlumniDirectoryPage() {
             )}
           </>
         ) : (
-          <div className="py-32 text-center mt-[34px]">
+          <div className="py-32 text-center mt-8.5">
             <p className="font-serif italic text-2xl text-muted-foreground">
               No alumni records found for this batch.
             </p>
@@ -678,7 +762,7 @@ export default function AlumniDirectoryPage() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 dark:bg-black/85 backdrop-blur-md overflow-y-auto"
+            className="fixed inset-0 z-1000 flex items-center justify-center bg-black/70 dark:bg-black/85 backdrop-blur-md overflow-y-auto"
             onClick={() => setActiveId(null)}
           >
             <div className="w-full max-w-2xl px-6 py-24 my-auto relative">
@@ -712,7 +796,7 @@ export default function AlumniDirectoryPage() {
                 {/* Quote / Testimonial */}
                 {activeAlum.message ? (
                   <div className="relative mb-12 text-center">
-                    <span className="absolute -top-12 left-1/2 -translate-x-1/2 text-8xl font-serif text-foreground/5 dark:text-white/[0.04] select-none pointer-events-none">
+                    <span className="absolute -top-12 left-1/2 -translate-x-1/2 text-8xl font-serif text-foreground/5 dark:text-white/4 select-none pointer-events-none">
                       &ldquo;
                     </span>
                     <p className="relative z-10 font-serif text-xl md:text-2xl leading-relaxed text-foreground dark:text-neutral-100">
@@ -728,28 +812,46 @@ export default function AlumniDirectoryPage() {
                 )}
 
                 {/* Roles / Positions */}
-                <div className="flex flex-col sm:flex-row gap-8 sm:gap-12 justify-center mb-12 text-center">
-                  {activeAlum.excelsiorPosition && (
-                    <div>
-                      <h4 className="font-mono text-[9px] uppercase tracking-[0.3em] font-bold text-muted-foreground dark:text-neutral-400 mb-1.5">
-                        Excelsior Mark
-                      </h4>
-                      <p className="font-serif font-bold text-base md:text-lg text-foreground dark:text-neutral-100">
-                        {activeAlum.excelsiorPosition}
-                      </p>
+                {(() => {
+                  const excelsiorMark = formatBylineCase(
+                    activeAlum.excelsiorPosition &&
+                    activeAlum.excelsiorPosition.trim() !== '' &&
+                    activeAlum.excelsiorPosition !== 'null' &&
+                    activeAlum.excelsiorPosition !== 'undefined'
+                      ? activeAlum.excelsiorPosition
+                      : 'Alumnus'
+                  );
+
+                  const presentJourney = formatBylineCase(
+                    activeAlum.currentPosition &&
+                    activeAlum.currentPosition.trim() !== '' &&
+                    activeAlum.currentPosition !== 'null' &&
+                    activeAlum.currentPosition !== 'undefined'
+                      ? activeAlum.currentPosition
+                      : 'Student'
+                  );
+
+                  return (
+                    <div className="flex flex-col sm:flex-row gap-8 sm:gap-12 justify-center mb-12 text-center">
+                      <div>
+                        <h4 className="font-mono text-[9px] uppercase tracking-[0.3em] font-bold text-muted-foreground dark:text-neutral-400 mb-1.5">
+                          Excelsior Mark
+                        </h4>
+                        <p className="font-serif font-bold text-base md:text-lg text-foreground dark:text-neutral-100">
+                          {excelsiorMark}
+                        </p>
+                      </div>
+                      <div>
+                        <h4 className="font-mono text-[9px] uppercase tracking-[0.3em] font-bold text-muted-foreground dark:text-neutral-400 mb-1.5">
+                          Present Journey
+                        </h4>
+                        <p className="font-serif font-bold text-base md:text-lg text-foreground dark:text-neutral-100">
+                          {presentJourney}
+                        </p>
+                      </div>
                     </div>
-                  )}
-                  {activeAlum.currentPosition && (
-                    <div>
-                      <h4 className="font-mono text-[9px] uppercase tracking-[0.3em] font-bold text-muted-foreground dark:text-neutral-400 mb-1.5">
-                        Present Journey
-                      </h4>
-                      <p className="font-serif font-bold text-base md:text-lg text-foreground dark:text-neutral-100">
-                        {activeAlum.currentPosition}
-                      </p>
-                    </div>
-                  )}
-                </div>
+                  );
+                })()}
 
                 {/* Correspondence / Universal Social Media Icons */}
                 <div className="pt-8 border-t border-neutral-200 dark:border-neutral-800 text-center">

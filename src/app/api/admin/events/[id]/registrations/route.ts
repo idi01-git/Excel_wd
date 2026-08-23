@@ -122,15 +122,28 @@ export async function PATCH(
     // Notify registrant if payment status changed
     if (paymentStatus && paymentStatus !== registration.paymentStatus) {
       const { createNotification } = await import('@/lib/notifications');
+      
+      let notifType: 'EVENT_REGISTRATION_CONFIRMED' | 'EVENT_UPDATE' = 'EVENT_UPDATE';
+      let notifMessage = `Payment status updated to ${paymentStatus} for event: ${registration.event.title}`;
+
+      if (paymentStatus === 'REFUNDED') {
+        notifType = 'EVENT_UPDATE';
+        notifMessage = `✅ Refund Processed: Your refund for event "${registration.event.title}" has been completed.`;
+      } else if (paymentStatus === 'VERIFIED') {
+        notifType = 'EVENT_REGISTRATION_CONFIRMED';
+        notifMessage = `✅ Payment Verified: Your registration for "${registration.event.title}" is confirmed!`;
+      } else if (paymentStatus === 'FAILED') {
+        notifType = 'EVENT_UPDATE';
+        notifMessage = `⚠️ Payment Verification Failed for "${registration.event.title}". Please re-submit your transaction proof.`;
+      }
+
       await createNotification(
         registration.userId,
-        'EVENT_UPDATE',
+        notifType,
         session.user.id,
         'EVENT',
         eventId,
-        paymentStatus === 'REFUNDED'
-          ? `Refund processed for your cancelled registration for: ${registration.event.title}`
-          : `Payment status updated to ${paymentStatus} for event: ${registration.event.title}`
+        notifMessage
       );
 
       if (paymentStatus === 'VERIFIED') {
@@ -152,10 +165,20 @@ export async function PATCH(
       request: req,
     });
 
-    // After marking REFUNDED, delete the registration row to free the seat
-    // and allow the user to re-register if they wish.
+    // When marking REFUNDED, record refund timestamp in extraFields, retaining full historical audit record
     if (paymentStatus === 'REFUNDED') {
-      await db.eventRegistration.delete({ where: { id: registrationId } });
+      await db.eventRegistration.update({
+        where: { id: registrationId },
+        data: {
+          extraFields: {
+            ...(typeof registration.extraFields === 'object' && registration.extraFields
+              ? (registration.extraFields as Record<string, any>)
+              : {}),
+            refundedAt: new Date().toISOString(),
+            refundedByUserId: session.user.id,
+          },
+        },
+      });
     }
 
     return NextResponse.json({ success: true, registration: updated });

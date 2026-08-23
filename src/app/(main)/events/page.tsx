@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'motion/react';
 import { ArrowUpRight, ArrowLeft, CalendarPlus } from 'lucide-react';
+import { getOptimizedCardUrl } from '@/lib/image-optimization';
 
 interface EventItem {
   id: string;
@@ -143,7 +144,7 @@ export default function EventsHubPage() {
                       {/* Cinematic Image Crop (Left) */}
                       <div className="w-full md:w-[35%] lg:w-[30%] h-[300px] md:h-auto min-h-[240px] overflow-hidden bg-slate-100 dark:bg-slate-900 relative">
                         <img 
-                          src={event.posterImage || 'https://images.unsplash.com/photo-1511578314322-379afb476865?w=1200&fit=crop'} 
+                          src={getOptimizedCardUrl(event.posterImage || 'https://images.unsplash.com/photo-1511578314322-379afb476865?w=1200&fit=crop', 800)} 
                           alt={event.title}
                           className="absolute inset-0 w-full h-full object-cover grayscale opacity-90 group-hover:grayscale-0 group-hover:scale-105 group-hover:opacity-100 transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]"
                         />

@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { ImageCropperModal } from '@/components/ui/ImageCropperModal';
 import { uploadImageBlob } from '@/lib/upload';
+import { validateUploadFile, ACCEPT_MAP } from '@/lib/file-validation';
 import { useLenis } from 'lenis/react';
 
 interface ShelfItem {
@@ -327,6 +328,14 @@ export default function AdminEditorsShelfPage() {
   const handleCoverFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    const validation = validateUploadFile(file, 'COVER');
+    if (!validation.valid) {
+      setFeedback({ type: 'error', text: validation.error || 'Invalid cover format or size.' });
+      e.target.value = '';
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = () => {
       setCropperRawSrc(reader.result as string);
@@ -342,9 +351,10 @@ export default function AdminEditorsShelfPage() {
     try {
       const url = await uploadImageBlob(blob, 'shelf-covers', `${slug || 'book'}_cover.jpg`);
       setCoverImage(url);
-    } catch (err) {
+      setFeedback({ type: 'success', text: 'Book cover uploaded to Cloudinary.' });
+    } catch (err: any) {
       console.error(err);
-      setCoverImage(previewUrl);
+      setFeedback({ type: 'error', text: err.message || 'Failed to upload cover to Cloudinary.' });
     } finally {
       setUploadingCover(false);
     }
@@ -1163,7 +1173,7 @@ export default function AdminEditorsShelfPage() {
                           <input
                             id="cover-upload"
                             type="file"
-                            accept="image/*"
+                            accept={ACCEPT_MAP.COVER}
                             onChange={handleCoverFileSelect}
                             className="hidden"
                           />

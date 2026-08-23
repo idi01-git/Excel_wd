@@ -1,11 +1,14 @@
 'use client';
 
-import React, { useState, useRef, useEffect, ChangeEvent } from 'react';
+import React, { useState, useRef, useEffect, useMemo, ChangeEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import { X, Upload, Loader2, Camera, Check, ExternalLink, ShieldCheck, AlertCircle } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { X, Upload, Loader2, Camera, Check, ExternalLink, ShieldCheck, AlertCircle, Info } from 'lucide-react';
 import { useLenis } from 'lenis/react';
 import { ImageCropperModal } from '@/components/ui/ImageCropperModal';
+import { validateUploadFile, ACCEPT_MAP } from '@/lib/file-validation';
+import { validateUsername } from '@/lib/registration';
 
 interface EditProfileModalProps {
   isOpen: boolean;
@@ -143,6 +146,71 @@ export default function EditProfileModal({ isOpen, onClose, currentUser }: EditP
       : Boolean(initialSocials?.showEmail)
   );
 
+  const usernameValidation = useMemo(() => validateUsername(username), [username]);
+
+  const [usernameStatus, setUsernameStatus] = useState<{
+    checking: boolean;
+    available: boolean | null;
+    message: string | null;
+  }>({
+    checking: false,
+    available: null,
+    message: null,
+  });
+
+  useEffect(() => {
+    const clean = username.trim().toLowerCase();
+    if (!clean || clean === currentUser.username.toLowerCase()) {
+      setUsernameStatus({ checking: false, available: null, message: null });
+      return;
+    }
+
+    const validation = validateUsername(clean);
+    if (!validation.valid) {
+      setUsernameStatus({
+        checking: false,
+        available: false,
+        message: validation.error || 'Invalid username',
+      });
+      return;
+    }
+
+    setUsernameStatus({
+      checking: true,
+      available: null,
+      message: 'Checking availability...',
+    });
+
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/auth/check-username?username=${encodeURIComponent(clean)}`);
+        const data = await res.json();
+        if (data.available) {
+          setUsernameStatus({
+            checking: false,
+            available: true,
+            message: `@${clean} is available`,
+          });
+        } else {
+          setUsernameStatus({
+            checking: false,
+            available: false,
+            message: data.error || 'Username is already taken',
+          });
+        }
+      } catch {
+        setUsernameStatus({
+          checking: false,
+          available: null,
+          message: null,
+        });
+      }
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [username, currentUser.username]);
+
+  const [showUsernameTooltip, setShowUsernameTooltip] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -154,15 +222,10 @@ export default function EditProfileModal({ isOpen, onClose, currentUser }: EditP
 
     setError(null);
 
-    // Limit to 2MB
-    if (file.size > 2 * 1024 * 1024) {
-      setError('Image must be under 2MB. Please compress or choose a smaller image.');
+    const validation = validateUploadFile(file, 'AVATAR');
+    if (!validation.valid) {
+      setError(validation.error || 'Invalid photo format or size.');
       if (fileInputRef.current) fileInputRef.current.value = '';
-      return;
-    }
-
-    if (!file.type.startsWith('image/')) {
-      setError('Please select a valid image file (PNG, JPG, WebP)');
       return;
     }
 
@@ -200,8 +263,10 @@ export default function EditProfileModal({ isOpen, onClose, currentUser }: EditP
       scrollContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
-    if (!username.trim()) {
-      setError('Username is required.');
+
+    const userValid = validateUsername(username);
+    if (!userValid.valid) {
+      setError(userValid.error || 'Invalid username format.');
       scrollContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
@@ -289,7 +354,7 @@ export default function EditProfileModal({ isOpen, onClose, currentUser }: EditP
     <>
       <div
         data-lenis-prevent
-        className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 md:p-6 overflow-y-auto"
+        className="fixed inset-0 z-1000 flex items-center justify-center p-3 sm:p-4 md:p-6 overflow-y-auto"
       >
         {/* Backdrop */}
         <div 
@@ -376,7 +441,7 @@ export default function EditProfileModal({ isOpen, onClose, currentUser }: EditP
                 <input 
                   ref={fileInputRef}
                   type="file" 
-                  accept="image/*" 
+                  accept={ACCEPT_MAP.AVATAR} 
                   onChange={handleFileChange} 
                   className="hidden" 
                 />
@@ -399,16 +464,76 @@ export default function EditProfileModal({ isOpen, onClose, currentUser }: EditP
               </div>
 
               <div className="space-y-1.5">
-                <label className="font-mono text-[11px] font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
-                  Username
-                </label>
+                <div className="flex items-center gap-1.5">
+                  <label className="font-mono text-[11px] font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
+                    Username
+                  </label>
+                  <div className="relative inline-flex items-center">
+                    <motion.button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowUsernameTooltip((prev) => !prev);
+                      }}
+                      onMouseEnter={() => setShowUsernameTooltip(true)}
+                      onMouseLeave={() => setShowUsernameTooltip(false)}
+                      whileHover={{ scale: 1.15 }}
+                      whileTap={{ scale: 0.85 }}
+                      className="p-0.5 rounded-full text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors cursor-pointer focus:outline-none"
+                      aria-label="Username format info"
+                    >
+                      <Info size={11.5} />
+                    </motion.button>
+
+                    <AnimatePresence>
+                      {showUsernameTooltip && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 4, scale: 0.95 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: 2, scale: 0.97 }}
+                          transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                          className="absolute -right-2 bottom-full mb-2 z-50 w-52 p-2.5 rounded-xl bg-neutral-950/95 dark:bg-[#161618]/95 backdrop-blur-xl text-white shadow-xl border border-white/10 pointer-events-none text-left"
+                        >
+                          <div className="flex items-center gap-1.5 text-emerald-400 font-mono text-[9.5px] font-bold uppercase tracking-wider mb-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0 shadow-[0_0_6px_rgba(52,211,153,0.8)]" />
+                            <span>Requirement</span>
+                          </div>
+                          <p className="text-[11px] font-medium text-neutral-200 leading-snug">
+                            3–20 characters (lowercase letters, numbers &amp; underscores)
+                          </p>
+                          <div className="absolute right-3 top-full w-0 h-0 border-x-[5px] border-x-transparent border-t-[5px] border-t-neutral-950 dark:border-t-[#161618]" />
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                </div>
                 <input
                   type="text"
                   required
+                  minLength={3}
+                  maxLength={20}
                   value={username}
-                  onChange={(e) => setUsername(e.target.value.toLowerCase())}
+                  onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
                   className="w-full h-11 px-3.5 rounded-xl border border-neutral-200/90 dark:border-neutral-800 bg-white/80 dark:bg-[#121212] text-sm text-neutral-900 dark:text-white focus:border-neutral-950 dark:focus:border-white focus:outline-none"
                 />
+                <div className="text-[10.5px] font-mono min-h-4 flex items-center">
+                  {usernameStatus.checking ? (
+                    <span className="text-neutral-500 dark:text-neutral-400 flex items-center gap-1.5">
+                      <Loader2 size={11} className="animate-spin text-purple-600 dark:text-purple-400 shrink-0" />
+                      <span>Checking availability...</span>
+                    </span>
+                  ) : usernameStatus.available === true ? (
+                    <span className="text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1.5">
+                      <Check size={12} className="shrink-0" />
+                      <span>{usernameStatus.message}</span>
+                    </span>
+                  ) : usernameStatus.available === false ? (
+                    <span className="text-red-500 dark:text-red-400 font-semibold flex items-center gap-1.5">
+                      <X size={12} className="shrink-0" />
+                      <span>{usernameStatus.message}</span>
+                    </span>
+                  ) : null}
+                </div>
               </div>
             </div>
 
@@ -743,13 +868,15 @@ export default function EditProfileModal({ isOpen, onClose, currentUser }: EditP
         </form>
       </div>
 
-      {/* 1:1 Square Image Cropper Modal */}
+      {/* Circular Profile Photo Cropper Modal */}
       {isCropperOpen && rawImageSrc && (
         <ImageCropperModal
           isOpen={isCropperOpen}
           imageSrc={rawImageSrc}
           aspectRatio={1}
-          aspectPresetLabel="Square (1:1)"
+          cropShape="round"
+          circular={true}
+          aspectPresetLabel="Profile Photo"
           allowRatioSelection={false}
           onCropComplete={handleCropComplete}
           onCancel={() => {

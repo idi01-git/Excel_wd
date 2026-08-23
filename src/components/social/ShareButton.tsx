@@ -12,6 +12,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { getOptimizedCoverUrl, getOptimizedAvatarUrl } from '@/lib/image-optimization';
 
 interface ShareButtonProps {
   title: string;
@@ -138,7 +139,7 @@ export default function ShareButton({
       {mounted && typeof document !== 'undefined' && createPortal(
         <AnimatePresence>
           {open && (
-            <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 sm:p-6">
+            <div className="fixed inset-0 z-1000 flex items-center justify-center p-4 sm:p-6">
               {/* Backdrop */}
               <motion.div
                 initial={{ opacity: 0 }}
@@ -185,11 +186,11 @@ export default function ShareButton({
                     {coverImage && (
                       <div className="relative w-full h-32 bg-neutral-100 dark:bg-neutral-800 overflow-hidden">
                         <img
-                          src={coverImage}
+                          src={getOptimizedCoverUrl(coverImage, 400)}
                           alt={title}
                           className="w-full h-full object-cover"
                         />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+                        <div className="absolute inset-0 bg-linear-to-t from-black/60 via-black/20 to-transparent" />
                         {category && (
                           <span className="absolute bottom-2.5 left-3 text-[10px] font-bold uppercase tracking-wider text-white bg-black/50 backdrop-blur-md px-2.5 py-0.5 rounded-full border border-white/20">
                             {category}
@@ -213,7 +214,7 @@ export default function ShareButton({
                         <div className="flex items-center gap-2 min-w-0">
                           {authorPhoto ? (
                             <img
-                              src={authorPhoto}
+                              src={getOptimizedAvatarUrl(authorPhoto, 48)}
                               alt={authorName || "Author"}
                               className="w-5 h-5 rounded-full object-cover border border-neutral-200 dark:border-neutral-700 shrink-0"
                             />

@@ -126,7 +126,7 @@ export default function EventReminderButton({ event }: EventReminderButtonProps)
       <button
         type="button"
         onClick={() => setMenuOpen(!menuOpen)}
-        className="group w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl border border-black/20 dark:border-white/20 bg-foreground/[0.03] hover:bg-foreground/[0.08] text-xs font-mono font-bold uppercase tracking-wider text-foreground transition-all cursor-pointer shadow-xs hover:border-black/40 dark:hover:border-white/40 active:scale-[0.99]"
+        className="group w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl border border-black/20 dark:border-white/20 bg-foreground/3 hover:bg-foreground/8 text-xs font-mono font-bold uppercase tracking-wider text-foreground transition-all cursor-pointer shadow-xs hover:border-black/40 dark:hover:border-white/40 active:scale-[0.99]"
       >
         <Bell size={14} className="text-amber-500 transition-transform group-hover:rotate-12" />
         <span>Add 3-Hour Reminder</span>
@@ -158,7 +158,7 @@ export default function EventReminderButton({ event }: EventReminderButtonProps)
                 <button
                   type="button"
                   onClick={() => setMenuOpen(false)}
-                  className="p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-foreground/[0.05]"
+                  className="p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-foreground/5"
                 >
                   <X size={14} />
                 </button>
@@ -174,7 +174,7 @@ export default function EventReminderButton({ event }: EventReminderButtonProps)
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={() => setMenuOpen(false)}
-                  className="flex items-center justify-between w-full p-2.5 rounded-xl border border-black/10 dark:border-white/10 bg-foreground/[0.02] hover:bg-foreground/[0.06] text-xs font-semibold text-foreground transition-all group"
+                  className="flex items-center justify-between w-full p-2.5 rounded-xl border border-black/10 dark:border-white/10 bg-foreground/2 hover:bg-foreground/6 text-xs font-semibold text-foreground transition-all group"
                 >
                   <div className="flex items-center gap-2.5">
                     <Calendar size={15} className="text-blue-500" />
@@ -186,7 +186,7 @@ export default function EventReminderButton({ event }: EventReminderButtonProps)
                 <button
                   type="button"
                   onClick={downloadIcs}
-                  className="flex items-center justify-between w-full p-2.5 rounded-xl border border-black/10 dark:border-white/10 bg-foreground/[0.02] hover:bg-foreground/[0.06] text-xs font-semibold text-foreground transition-all text-left group cursor-pointer"
+                  className="flex items-center justify-between w-full p-2.5 rounded-xl border border-black/10 dark:border-white/10 bg-foreground/2 hover:bg-foreground/6 text-xs font-semibold text-foreground transition-all text-left group cursor-pointer"
                 >
                   <div className="flex items-center gap-2.5">
                     <Download size={15} className="text-amber-500" />

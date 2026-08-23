@@ -93,6 +93,30 @@ export async function PATCH(
       data: updateData,
     });
 
+    // Auto-provision or link AlumniProfile if graduated to ALUMNI
+    if (updatedUser.role === Role.ALUMNI) {
+      const existingAlumni = await db.alumniProfile.findUnique({
+        where: { userId: id },
+      });
+      if (!existingAlumni) {
+        await db.alumniProfile.create({
+          data: {
+            userId: id,
+            name: updatedUser.name,
+            branch: updatedUser.branch || 'CSE',
+            batch: updatedUser.batch || String(new Date().getFullYear()),
+            photo: updatedUser.directoryPhoto || updatedUser.profilePhoto,
+            excelsiorPosition:
+              targetUser.memberTitle ||
+              (targetUser.role !== Role.VISITOR ? targetUser.role : 'Alumnus'),
+            currentPosition: null,
+            message: null,
+            email: updatedUser.email,
+          },
+        });
+      }
+    }
+
     // Notifications
     const { createNotification } = await import('@/lib/notifications');
     if (verificationStatus === VerificationStatus.VERIFIED) {

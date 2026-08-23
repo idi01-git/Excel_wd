@@ -22,7 +22,10 @@ export async function GET(req: Request) {
     }
 
     const publications = await db.publication.findMany({
-      where: { authorId: user.id },
+      where: {
+        authorId: user.id,
+        alumniProfileId: null, // Don't show in coordinator's personal workspace if written for alumni
+      },
       orderBy: { updatedAt: 'desc' }
     });
 

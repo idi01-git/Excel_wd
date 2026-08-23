@@ -20,8 +20,13 @@ import {
   LayoutGrid,
   List,
   FileText,
+  Trash2,
+  Edit,
+  Loader2,
+  XCircle,
 } from 'lucide-react';
 import { FadeUp } from '@/components/home/primitives';
+import { hasPermission } from '@/lib/rbac';
 
 interface Publication {
   id: string;
@@ -70,6 +75,11 @@ export default function WorkspaceDashboardPage() {
   const [loading, setLoading] = useState<boolean>(true);
   const [activeTab, setActiveTab] = useState<string>('DRAFT');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [itemToDelete, setItemToDelete] = useState<Publication | null>(null);
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  const canModerate = hasPermission(session?.user?.role, 'MODERATE_PUBLICATIONS');
 
   useEffect(() => {
     const fetchWorkspaceItems = async () => {
@@ -96,6 +106,27 @@ export default function WorkspaceDashboardPage() {
     }
   };
 
+  const confirmDelete = async () => {
+    if (!itemToDelete || isDeleting) return;
+    setIsDeleting(true);
+    try {
+      const res = await fetch(`/api/workspace/editor/${itemToDelete.id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        setPubs((prev) => prev.filter((p) => p.id !== itemToDelete.id));
+        setItemToDelete(null);
+        setToast({ message: 'Publication deleted successfully.', type: 'success' });
+      } else {
+        setToast({ message: data.error || 'Failed to delete publication.', type: 'error' });
+      }
+    } catch (err) {
+      console.error('Delete error:', err);
+      setToast({ message: 'An error occurred while deleting.', type: 'error' });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const drafts    = pubs.filter(p => p.status === 'DRAFT');
   const pending   = pubs.filter(p => p.status === 'PENDING');
   const published = pubs.filter(p => p.status === 'PUBLISHED');
@@ -108,12 +139,7 @@ export default function WorkspaceDashboardPage() {
     REJECTED: rejected.length,
   };
 
-  const activeList = (() => {
-    if (activeTab === 'DRAFT')     return drafts;
-    if (activeTab === 'PENDING')   return pending;
-    if (activeTab === 'PUBLISHED') return published;
-    return rejected;
-  })();
+  const activeList = pubs.filter(p => p.status === activeTab);
 
   if (loading) {
     return (
@@ -130,20 +156,19 @@ export default function WorkspaceDashboardPage() {
   }
 
   return (
-    <div className="w-full max-w-4xl mx-auto py-6 sm:py-8 px-4 sm:px-6">
-
-      {/* ── Page Header ────────────────────────────────────────────────────── */}
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 md:py-16 text-black dark:text-white">
+      {/* ── Top Header ──────────────────────────────────────────────────────── */}
       <FadeUp delay={0.04} y={16}>
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10 sm:mb-12 border-b border-gray-200 dark:border-neutral-800 pb-6 sm:pb-8">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10 sm:mb-12 border-b border-gray-200/80 dark:border-neutral-800 pb-8 sm:pb-10">
           <div>
-            <p className="text-[10px] text-gray-400 dark:text-neutral-500 uppercase tracking-widest font-bold mb-2">
-              Writer Workspace
-            </p>
-            <h1 className="font-serif text-3xl sm:text-4xl md:text-5xl text-black dark:text-white font-bold tracking-tight leading-tight">
-              {session?.user?.name ? `${session.user.name}'s Desk` : 'My Desk'}
+            <span className="text-[11px] sm:text-xs font-bold text-gray-400 dark:text-neutral-500 uppercase tracking-widest block mb-2 sm:mb-3">
+              Editorial Studio
+            </span>
+            <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold font-serif tracking-tight text-black dark:text-white leading-tight">
+              Author Workspace
             </h1>
-            <p className="text-gray-500 dark:text-neutral-400 text-xs sm:text-sm mt-2">
-              Draft new pieces, review editorial notes, and submit creations for review.
+            <p className="text-sm sm:text-base text-gray-500 dark:text-neutral-400 mt-2 max-w-xl leading-relaxed">
+              Craft, refine, and track the journey of your written publications.
             </p>
           </div>
           <motion.button
@@ -174,12 +199,10 @@ export default function WorkspaceDashboardPage() {
               transition={{ type: 'spring', stiffness: 350, damping: 25, mass: 0.8 }}
               className={`group relative overflow-hidden flex flex-col p-5 sm:p-6 rounded-3xl border border-gray-200/60 dark:border-neutral-800 bg-gradient-to-br ${stat.gradient} shadow-[0_2px_10px_rgb(0,0,0,0.02)] h-full`}
             >
-              {/* Background Watermark Icon */}
               <stat.icon 
                 className={`absolute -right-4 -bottom-4 w-24 sm:w-28 h-24 sm:h-28 ${stat.color} opacity-[0.04] dark:opacity-[0.06] -rotate-12 transition-transform duration-500 group-hover:scale-110 group-hover:-rotate-6`} 
                 strokeWidth={1} 
               />
-              
               <div className="relative z-10 flex flex-col h-full">
                 <span className="text-[10px] sm:text-[11px] md:text-xs font-semibold text-gray-500 dark:text-neutral-400 uppercase tracking-widest mb-4 sm:mb-6">
                   {stat.label}
@@ -298,7 +321,7 @@ export default function WorkspaceDashboardPage() {
                     <div className="shrink-0 w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-gray-100 dark:bg-neutral-800 border border-gray-200/60 dark:border-neutral-700/60 flex items-center justify-center text-gray-500 dark:text-neutral-400">
                       <Icon size={18} strokeWidth={1.5} />
                     </div>
-                    <div className="flex flex-1 items-center justify-between min-w-0 gap-4">
+                    <div className="flex flex-1 items-center justify-between min-w-0 gap-4 flex-wrap sm:flex-nowrap">
                       <div className="min-w-0">
                         <h3 className="text-sm sm:text-base font-semibold text-black dark:text-white leading-snug truncate">
                           {p.title || 'Untitled Draft'}
@@ -319,28 +342,43 @@ export default function WorkspaceDashboardPage() {
                           </span>
                         </div>
                       </div>
-                      <div className="shrink-0">
+                      <div className="shrink-0 flex items-center gap-2">
                         {p.status === 'PUBLISHED' ? (
-                          <motion.div className="inline-block" whileHover={{ scale: 1.04, y: -1 }} whileTap={{ scale: 0.96 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }}>
+                          <>
                             <Link
                               href={`/publications/${p.slug}`}
-                              className="inline-flex items-center gap-1.5 py-1.5 px-3.5 sm:px-4 border border-gray-200 dark:border-neutral-700 text-black dark:text-white text-xs font-semibold rounded-full hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black transition-colors duration-200 cursor-pointer"
+                              className="inline-flex items-center gap-1.5 py-1.5 px-3.5 border border-gray-200 dark:border-neutral-700 text-black dark:text-white text-xs font-semibold rounded-full hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black transition-colors duration-200 cursor-pointer"
                             >
-                              View Live
+                              <span>Live</span>
                               <ArrowUpRight size={11} strokeWidth={2.5} />
                             </Link>
-                          </motion.div>
+                            {canModerate && (
+                              <Link
+                                href={`/workspace/editor/${p.id}`}
+                                className="inline-flex items-center gap-1.5 py-1.5 px-3.5 bg-black dark:bg-white text-white dark:text-black text-xs font-semibold rounded-full hover:bg-gray-900 dark:hover:bg-neutral-100 transition-colors duration-200 cursor-pointer shadow-xs"
+                              >
+                                <span>Edit</span>
+                                <PenLine size={11} strokeWidth={2.5} />
+                              </Link>
+                            )}
+                          </>
                         ) : (
-                          <motion.div className="inline-block" whileHover={{ scale: 1.04, y: -1 }} whileTap={{ scale: 0.96 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }}>
-                            <Link
-                              href={`/workspace/editor/${p.id}`}
-                              className="inline-flex items-center gap-1.5 py-1.5 px-3.5 sm:px-4 bg-black dark:bg-white text-white dark:text-black text-xs font-semibold rounded-full hover:bg-gray-900 dark:hover:bg-neutral-100 transition-colors duration-200 cursor-pointer shadow-xs"
-                            >
-                              {p.status === 'REJECTED' ? 'Revise' : 'Edit'}
-                              <PenLine size={11} strokeWidth={2.5} />
-                            </Link>
-                          </motion.div>
+                          <Link
+                            href={`/workspace/editor/${p.id}`}
+                            className="inline-flex items-center gap-1.5 py-1.5 px-3.5 bg-black dark:bg-white text-white dark:text-black text-xs font-semibold rounded-full hover:bg-gray-900 dark:hover:bg-neutral-100 transition-colors duration-200 cursor-pointer shadow-xs"
+                          >
+                            <span>{p.status === 'REJECTED' ? 'Revise' : 'Open'}</span>
+                            <PenLine size={11} strokeWidth={2.5} />
+                          </Link>
                         )}
+                        <button
+                          type="button"
+                          onClick={() => setItemToDelete(p)}
+                          className="p-2 text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-full transition-colors cursor-pointer"
+                          title="Delete publication"
+                        >
+                          <Trash2 size={13} />
+                        </button>
                       </div>
                     </div>
                   </motion.div>
@@ -357,7 +395,6 @@ export default function WorkspaceDashboardPage() {
                   key={p.id}
                   className="relative flex flex-col w-full rounded-2xl overflow-hidden border border-gray-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-900 hover:border-gray-300 dark:hover:border-neutral-700 transition-colors duration-300 group"
                 >
-                  {/* Top section with badge and icon */}
                   <div className="p-5 flex flex-col flex-grow">
                     <div className="flex justify-between items-start mb-4">
                       <div className="shrink-0 w-10 h-10 rounded-full bg-gray-100 dark:bg-neutral-800 flex items-center justify-center text-gray-600 dark:text-neutral-300">
@@ -388,28 +425,45 @@ export default function WorkspaceDashboardPage() {
                   </div>
 
                   {/* Bottom action bar */}
-                  <div className="border-t border-gray-100 dark:border-neutral-800 p-3 bg-gray-50/70 dark:bg-neutral-900/50 flex justify-end">
-                    {p.status === 'PUBLISHED' ? (
-                      <motion.div className="w-full" whileHover={{ scale: 1.02, y: -1 }} whileTap={{ scale: 0.98 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }}>
-                        <Link
-                          href={`/publications/${p.slug}`}
-                          className="inline-flex items-center gap-1.5 py-1.5 px-4 bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 text-black dark:text-white text-xs font-semibold rounded-full hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black transition-colors duration-200 w-full justify-center cursor-pointer"
-                        >
-                          View Live
-                          <ArrowUpRight size={12} strokeWidth={2.5} />
-                        </Link>
-                      </motion.div>
-                    ) : (
-                      <motion.div className="w-full" whileHover={{ scale: 1.02, y: -1 }} whileTap={{ scale: 0.98 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }}>
+                  <div className="border-t border-gray-100 dark:border-neutral-800 p-3 bg-gray-50/70 dark:bg-neutral-900/50 flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                      {p.status === 'PUBLISHED' ? (
+                        <>
+                          <Link
+                            href={`/publications/${p.slug}`}
+                            className="inline-flex items-center justify-center gap-1 py-1.5 px-4 bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 text-black dark:text-white text-xs font-semibold rounded-full hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black transition-colors flex-1 cursor-pointer"
+                          >
+                            <span>Live</span>
+                            <ArrowUpRight size={11} strokeWidth={2.5} />
+                          </Link>
+                          {canModerate && (
+                            <Link
+                              href={`/workspace/editor/${p.id}`}
+                              className="inline-flex items-center justify-center gap-1 py-1.5 px-3.5 bg-black dark:bg-white text-white dark:text-black text-xs font-semibold rounded-full hover:bg-gray-800 dark:hover:bg-neutral-200 transition-colors flex-1 cursor-pointer"
+                            >
+                              <span>Edit Piece</span>
+                              <PenLine size={11} strokeWidth={2.5} />
+                            </Link>
+                          )}
+                        </>
+                      ) : (
                         <Link
                           href={`/workspace/editor/${p.id}`}
-                          className="inline-flex items-center gap-1.5 py-1.5 px-4 bg-black dark:bg-white text-white dark:text-black text-xs font-semibold rounded-full hover:bg-gray-800 dark:hover:bg-neutral-200 transition-colors duration-200 w-full justify-center cursor-pointer"
+                          className="inline-flex items-center justify-center gap-1 py-1.5 px-3.5 bg-black dark:bg-white text-white dark:text-black text-xs font-semibold rounded-full hover:bg-gray-800 dark:hover:bg-neutral-200 transition-colors flex-1 cursor-pointer"
                         >
-                          {p.status === 'REJECTED' ? 'Revise Draft' : 'Edit Draft'}
-                          <PenLine size={12} strokeWidth={2.5} />
+                          <span>{p.status === 'REJECTED' ? 'Revise' : 'Edit Draft'}</span>
+                          <PenLine size={11} strokeWidth={2.5} />
                         </Link>
-                      </motion.div>
-                    )}
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setItemToDelete(p)}
+                      className="p-1.5 text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-full transition-colors cursor-pointer shrink-0"
+                      title="Delete publication"
+                    >
+                      <Trash2 size={14} />
+                    </button>
                   </div>
                 </motion.div>
               );
@@ -432,6 +486,99 @@ export default function WorkspaceDashboardPage() {
                 : `No ${activeTab.toLowerCase()} submissions to show.`}
             </p>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Delete Confirmation Modal */}
+      <AnimatePresence>
+        {itemToDelete && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => !isDeleting && setItemToDelete(null)}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="relative bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl max-w-md w-full p-6 shadow-2xl z-10"
+            >
+              <div className="flex items-center gap-3 text-red-600 dark:text-red-400 mb-3">
+                <div className="p-2.5 rounded-full bg-red-100 dark:bg-red-950/60 border border-red-200 dark:border-red-800/60">
+                  <Trash2 className="w-5 h-5" />
+                </div>
+                <h3 className="font-serif text-lg font-bold text-neutral-950 dark:text-neutral-50">
+                  Delete Publication?
+                </h3>
+              </div>
+              <p className="text-sm text-neutral-600 dark:text-neutral-400 leading-relaxed mb-6">
+                Are you sure you want to delete <strong className="text-neutral-900 dark:text-neutral-100">"{itemToDelete.title || 'Untitled Draft'}"</strong>? This will permanently remove this piece and cannot be undone.
+              </p>
+              <div className="flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setItemToDelete(null)}
+                  disabled={isDeleting}
+                  className="px-4 py-2 text-xs font-semibold rounded-full border border-neutral-200 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors disabled:opacity-50 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmDelete}
+                  disabled={isDeleting}
+                  className="px-5 py-2 text-xs font-semibold rounded-full bg-red-600 hover:bg-red-700 text-white shadow-sm flex items-center gap-1.5 transition-colors disabled:opacity-50 cursor-pointer"
+                >
+                  {isDeleting ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Deleting…</span>
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Delete</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Floating Toast Notification */}
+      <AnimatePresence>
+        {toast && (
+          <div className="fixed bottom-6 right-6 z-50 pointer-events-auto">
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 16 }}
+              className={`p-4 rounded-xl shadow-xl border flex items-center gap-3 backdrop-blur-xl ${
+                toast.type === 'success'
+                  ? 'bg-emerald-50/95 dark:bg-emerald-950/90 border-emerald-200 dark:border-emerald-500/30 text-emerald-900 dark:text-emerald-200'
+                  : 'bg-red-50/95 dark:bg-red-950/90 border-red-200 dark:border-red-500/30 text-red-900 dark:text-red-200'
+              }`}
+            >
+              {toast.type === 'success' ? (
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+              ) : (
+                <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 shrink-0" />
+              )}
+              <span className="text-xs font-semibold">{toast.message}</span>
+              <button
+                type="button"
+                onClick={() => setToast(null)}
+                className="ml-2 text-gray-400 hover:text-black dark:hover:text-white cursor-pointer"
+              >
+                <XCircle className="w-4 h-4" />
+              </button>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
     </div>

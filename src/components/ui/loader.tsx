@@ -46,7 +46,7 @@ export default function Loader({
   return (
     <div
       className={cn(
-        "flex flex-col items-center justify-center gap-8 p-8 select-none",
+        "flex flex-col items-center justify-center gap-8 p-8 select-none contain-[layout]",
         className
       )}
       {...props}

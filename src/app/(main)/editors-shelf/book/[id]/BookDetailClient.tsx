@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { getOptimizedCoverUrl } from '@/lib/image-optimization';
 
 export default function BookDetailClient({ book, reviews: initialReviews, user }: { book: any, reviews: any[], user: any }) {
   const [reviews, setReviews] = useState(initialReviews);
@@ -18,13 +19,16 @@ export default function BookDetailClient({ book, reviews: initialReviews, user }
   
   const handleEndorse = async () => {
     if (!user) return alert('Please sign in to endorse');
-    if (hasEndorsed) return;
-    
-    setEndorseCount(prev => prev + 1);
-    setHasEndorsed(true);
-    
-    // In a real app, call API here to increment endorse count
-    await fetch(`/api/books/${book.id}/endorse`, { method: 'POST' }).catch(console.error);
+    try {
+      const res = await fetch(`/api/books/${book.id}/endorse`, { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        setEndorseCount(data.endorseCount);
+        setHasEndorsed(data.hasEndorsed);
+      }
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   const submitReview = async (e: React.FormEvent) => {
@@ -86,7 +90,7 @@ export default function BookDetailClient({ book, reviews: initialReviews, user }
                 style={{ background: `linear-gradient(45deg, ${themeColor}, transparent)` }}
               ></div>
               <img 
-                src={book.coverImage || 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?w=800&h=1200&fit=crop'} 
+                src={getOptimizedCoverUrl(book.coverImage || 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?w=800&h=1200&fit=crop', 800)} 
                 alt={book.title}
                 className="w-full h-full object-cover relative z-10 transform group-hover:scale-105 transition-transform duration-700"
               />

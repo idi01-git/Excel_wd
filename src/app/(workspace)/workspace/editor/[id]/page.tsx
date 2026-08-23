@@ -21,13 +21,20 @@ import {
   PenTool, 
   Search, 
   Check, 
-  ChevronDown 
+  ChevronDown,
+  Trash2,
+  Eye,
+  Loader2,
 } from 'lucide-react';
 import { hasPermission } from '@/lib/rbac';
+import { validateUploadFile, ACCEPT_MAP } from '@/lib/file-validation';
+import { getOptimizedCoverUrl, getOptimizedAvatarUrl } from '@/lib/image-optimization';
+import { ImageCropperModal } from '@/components/ui/ImageCropperModal';
 
 interface Publication {
   id: string;
   title: string;
+  slug: string;
   coverImage?: string | null;
   category: string;
   language: string;
@@ -96,9 +103,10 @@ export default function WorkspaceEditorPage() {
 
   const latestContentRef = useRef<any>(null);
 
-  const isEditable = pub?.status === 'DRAFT' || pub?.status === 'REJECTED';
   const userRole = session?.user?.role;
-  const canCustomizeByline = hasPermission(userRole, 'MODERATE_PUBLICATIONS');
+  const canModerate = hasPermission(userRole, 'MODERATE_PUBLICATIONS');
+  const canCustomizeByline = canModerate;
+  const isEditable = pub?.status === 'DRAFT' || pub?.status === 'REJECTED' || (pub?.status === 'PUBLISHED' && canModerate);
 
   useEffect(() => {
     const savedStyle = localStorage.getItem('excelsior_editor_style') as 'broadsheet' | 'minimal' | 'scholar';
@@ -133,6 +141,8 @@ export default function WorkspaceEditorPage() {
   // Cover Image Upload States
   const [coverUploading, setCoverUploading] = useState<boolean>(false);
   const [dragActive, setDragActive] = useState<boolean>(false);
+  const [coverCropperOpen, setCoverCropperOpen] = useState<boolean>(false);
+  const [coverCropSrc, setCoverCropSrc] = useState<string>('');
   const coverFileInputRef = useRef<HTMLInputElement>(null);
 
   // Images state for auto-cleanup
@@ -140,6 +150,34 @@ export default function WorkspaceEditorPage() {
 
   // Premium Toast System
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+
+  const [showDeleteModal, setShowDeleteModal] = useState<boolean>(false);
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
+
+  const handleDelete = async () => {
+    if (isDeleting) return;
+    setIsDeleting(true);
+    try {
+      const res = await fetch(`/api/workspace/editor/${id}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast('Publication deleted successfully.', 'success');
+        setShowDeleteModal(false);
+        setTimeout(() => {
+          router.push('/workspace');
+        }, 600);
+      } else {
+        showToast(data.error || 'Failed to delete publication.', 'error');
+        setIsDeleting(false);
+      }
+    } catch (err) {
+      console.error('Delete publication error:', err);
+      showToast('An error occurred while deleting.', 'error');
+      setIsDeleting(false);
+    }
+  };
 
   const showToast = (message: string, type: 'error' | 'success' | 'info' = 'info') => {
     const id = crypto.randomUUID();
@@ -269,8 +307,9 @@ export default function WorkspaceEditorPage() {
 
     const tags = tagsInput
       .split(',')
-      .map((t) => t.trim())
-      .filter((t) => t.length > 0);
+      .map((t) => t.trim().replace(/^#/, ''))
+      .filter((t) => t.length > 0)
+      .slice(0, 3);
 
     const activeContent = updatedContent !== undefined ? updatedContent : (pub?.content || null);
     
@@ -354,30 +393,40 @@ export default function WorkspaceEditorPage() {
     
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       const file = e.dataTransfer.files[0];
-      await uploadCoverFile(file);
+      handleCoverFileSelect(file);
     }
   };
 
   const handleFileInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-      await uploadCoverFile(file);
+      handleCoverFileSelect(file);
     }
   };
 
-  const uploadCoverFile = async (file: File) => {
-    if (file.size > 2 * 1024 * 1024) {
-      showToast('Cover image size must be under 2MB.', 'error');
+  const handleCoverFileSelect = (file: File) => {
+    const validation = validateUploadFile(file, 'COVER');
+    if (!validation.valid) {
+      showToast(validation.error || 'Invalid cover image format or size.', 'error');
       return;
     }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setCoverCropSrc(reader.result as string);
+      setCoverCropperOpen(true);
+    };
+    reader.readAsDataURL(file);
+  };
 
+  const handleCoverCropComplete = async (croppedBlob: Blob) => {
+    setCoverCropperOpen(false);
     setCoverUploading(true);
     try {
       const dataUrl = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result as string);
-        reader.onerror = () => reject(new Error('Failed to read file'));
-        reader.readAsDataURL(file);
+        reader.onerror = () => reject(new Error('Failed to read cropped image'));
+        reader.readAsDataURL(croppedBlob);
       });
 
       const response = await fetch('/api/uploads/image', {
@@ -410,12 +459,14 @@ export default function WorkspaceEditorPage() {
       setCoverImage(result.url);
       setPrevCoverImage(result.url);
       await handleAutoSaveWithParams({ newCover: result.url });
-      showToast('Cover image uploaded successfully.', 'success');
+      showToast('Cover image cropped and uploaded successfully.', 'success');
     } catch (err: any) {
       console.error(err);
       showToast(err.message || 'Failed to upload cover image.', 'error');
     } finally {
       setCoverUploading(false);
+      setCoverCropSrc('');
+      if (coverFileInputRef.current) coverFileInputRef.current.value = '';
     }
   };
 
@@ -643,6 +694,43 @@ export default function WorkspaceEditorPage() {
               <span className="relative z-10">Resubmit</span>
             </motion.button>
           )}
+
+          {pub.status === 'PUBLISHED' && (
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <Link
+                href={`/publications/${pub.slug}`}
+                target="_blank"
+                className="py-1.5 sm:py-2 px-3 sm:px-4 bg-white/60 dark:bg-black/60 hover:bg-white dark:hover:bg-black text-gray-800 dark:text-gray-200 hover:text-black dark:hover:text-white text-xs font-bold rounded-full border border-gray-200/80 dark:border-white/10 backdrop-blur-md shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
+                title="View live publication"
+              >
+                <Eye className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">View Live</span>
+              </Link>
+              <motion.button
+                onClick={() => handleAutoSaveWithParams({})}
+                disabled={saving}
+                whileHover={{ scale: 1.03, y: -1.5 }}
+                whileTap={{ scale: 0.96 }}
+                transition={{ type: "spring", stiffness: 400, damping: 25, mass: 0.5 }}
+                className="py-1.5 sm:py-2 px-3.5 sm:px-5 bg-black dark:bg-white text-white dark:text-black text-xs font-bold rounded-full flex items-center gap-1.5 cursor-pointer shadow-sm hover:shadow-md transition-all duration-300 disabled:opacity-50"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>Save Live Changes</span>
+              </motion.button>
+              <motion.button
+                onClick={() => setShowDeleteModal(true)}
+                disabled={saving}
+                whileHover={{ scale: 1.03, y: -1.5 }}
+                whileTap={{ scale: 0.96 }}
+                transition={{ type: "spring", stiffness: 400, damping: 25, mass: 0.5 }}
+                className="p-1.5 sm:py-2 sm:px-3 bg-red-50 hover:bg-red-100 dark:bg-red-950/40 dark:hover:bg-red-900/60 text-red-600 dark:text-red-400 text-xs font-bold rounded-full border border-red-200 dark:border-red-900/40 transition-colors flex items-center gap-1 cursor-pointer"
+                title="Delete publication"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span className="hidden md:inline">Delete</span>
+              </motion.button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -844,7 +932,7 @@ export default function WorkspaceEditorPage() {
                                 <img
                                   src={
                                     selectedAlumnus.photo && selectedAlumnus.photo.trim() !== ''
-                                      ? selectedAlumnus.photo
+                                      ? getOptimizedAvatarUrl(selectedAlumnus.photo, 72)
                                       : `https://api.dicebear.com/7.x/initials/svg?seed=${selectedAlumnus.name}`
                                   }
                                   alt={selectedAlumnus.name}
@@ -931,7 +1019,7 @@ export default function WorkspaceEditorPage() {
                                         <img
                                           src={
                                             alum.photo && alum.photo.trim() !== ''
-                                              ? alum.photo
+                                              ? getOptimizedAvatarUrl(alum.photo, 48)
                                               : `https://api.dicebear.com/7.x/initials/svg?seed=${alum.name}`
                                           }
                                           alt={alum.name}
@@ -1049,14 +1137,30 @@ export default function WorkspaceEditorPage() {
                   </div>
 
                   <div className="flex flex-col">
-                    <label className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold mb-1.5">Tags (comma separated)</label>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold">
+                        Tags (comma separated)
+                      </label>
+                      <span className="text-[10px] text-gray-400 font-mono">
+                        Max 3 tags
+                      </span>
+                    </div>
                     <input
                       type="text"
                       value={tagsInput}
                       onChange={(e) => setTagsInput(e.target.value)}
-                      onBlur={() => handleAutoSaveWithParams({})}
+                      onBlur={() => {
+                        const cleaned = tagsInput
+                          .split(',')
+                          .map((t) => t.trim().replace(/^#/, ''))
+                          .filter((t) => t.length > 0)
+                          .slice(0, 3)
+                          .join(', ');
+                        setTagsInput(cleaned);
+                        handleAutoSaveWithParams({});
+                      }}
                       disabled={!isEditable}
-                      placeholder="e.g. Memory, Noir, Calvino"
+                      placeholder="e.g. Memory, Noir, Calvino (max 3)"
                       className="bg-white dark:bg-slate-950/40 border border-gray-200 dark:border-white/10 text-black dark:text-white rounded-lg p-2 sm:p-2.5 outline-none focus:border-gray-400 transition text-xs sm:text-sm"
                     />
                   </div>
@@ -1068,7 +1172,7 @@ export default function WorkspaceEditorPage() {
                   {coverImage.trim() ? (
                     <div className="relative group w-full h-44 sm:h-56 rounded-2xl overflow-hidden border border-gray-200 dark:border-white/10 shadow-sm bg-gray-50 dark:bg-slate-950/40">
                       <img
-                        src={coverImage.trim()}
+                        src={getOptimizedCoverUrl(coverImage.trim(), 600)}
                         alt="Cover Preview"
                         className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-102"
                       />
@@ -1156,16 +1260,22 @@ export default function WorkspaceEditorPage() {
                     type="file"
                     ref={coverFileInputRef}
                     className="hidden"
-                    accept="image/*"
+                    accept={ACCEPT_MAP.COVER}
                     onChange={handleFileInputChange}
                     disabled={!isEditable || coverUploading}
                   />
                 </div>
                 
-                {!isEditable && pub.status !== 'PENDING' && (
+                {!isEditable && pub?.status === 'PUBLISHED' && (
                   <p className="text-xs text-gray-500 italic mt-4 sm:mt-6">
                     🔒 Settings are locked for published documents.
                   </p>
+                )}
+                {isEditable && pub?.status === 'PUBLISHED' && (
+                  <div className="mt-4 sm:mt-6 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs font-semibold flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 shrink-0" />
+                    <span>Live Edit Mode · Changes save directly to the live publication.</span>
+                  </div>
                 )}
               </div>
             </motion.div>
@@ -1200,11 +1310,11 @@ export default function WorkspaceEditorPage() {
                   src={
                     authorMode === 'ALUMNI' && selectedAlumnus
                       ? (selectedAlumnus.photo && selectedAlumnus.photo.trim() !== ''
-                          ? selectedAlumnus.photo
+                          ? getOptimizedAvatarUrl(selectedAlumnus.photo, 80)
                           : `https://api.dicebear.com/7.x/initials/svg?seed=${authorName || selectedAlumnus.name}`)
                       : authorMode === 'CUSTOM' && authorName
                       ? `https://api.dicebear.com/7.x/initials/svg?seed=${authorName}`
-                      : session?.user?.image || `https://api.dicebear.com/7.x/initials/svg?seed=${session?.user?.name || 'User'}`
+                      : session?.user?.image ? getOptimizedAvatarUrl(session.user.image, 80) : `https://api.dicebear.com/7.x/initials/svg?seed=${session?.user?.name || 'User'}`
                   }
                   alt={authorMode === 'CUSTOM' ? (authorName || 'Author') : (session?.user?.name || 'User')}
                   className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover border border-gray-200 dark:border-neutral-700 shrink-0"
@@ -1239,7 +1349,7 @@ export default function WorkspaceEditorPage() {
             {/* Cover Image Rendering */}
             {coverImage.trim() && (
               <img
-                src={coverImage.trim()}
+                src={getOptimizedCoverUrl(coverImage.trim(), 1200)}
                 alt="Cover"
                 className="w-full h-48 xs:h-60 sm:h-80 object-cover rounded-xl sm:rounded-2xl border border-gray-200/60 dark:border-white/10 shadow-sm"
                 onError={(e) => (e.currentTarget.style.display = 'none')}
@@ -1261,6 +1371,67 @@ export default function WorkspaceEditorPage() {
         </article>
 
       </div>
+
+      {/* Delete Confirmation Modal */}
+      <AnimatePresence>
+        {showDeleteModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => !isDeleting && setShowDeleteModal(false)}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="relative bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl max-w-md w-full p-6 shadow-2xl z-10"
+            >
+              <div className="flex items-center gap-3 text-red-600 dark:text-red-400 mb-3">
+                <div className="p-2.5 rounded-full bg-red-100 dark:bg-red-950/60 border border-red-200 dark:border-red-800/60">
+                  <Trash2 className="w-5 h-5" />
+                </div>
+                <h3 className="font-serif text-lg font-bold text-neutral-950 dark:text-neutral-50">
+                  Delete Publication?
+                </h3>
+              </div>
+              <p className="text-sm text-neutral-600 dark:text-neutral-400 leading-relaxed mb-6">
+                Are you sure you want to delete <strong className="text-neutral-900 dark:text-neutral-100">"{pub.title || 'Untitled Draft'}"</strong>? This will permanently remove the publication, all reader comments, and interactions. This action cannot be undone.
+              </p>
+              <div className="flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteModal(false)}
+                  disabled={isDeleting}
+                  className="px-4 py-2 text-xs font-semibold rounded-full border border-neutral-200 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors disabled:opacity-50 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  disabled={isDeleting}
+                  className="px-5 py-2 text-xs font-semibold rounded-full bg-red-600 hover:bg-red-700 text-white shadow-sm flex items-center gap-1.5 transition-colors disabled:opacity-50 cursor-pointer"
+                >
+                  {isDeleting ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Deleting…</span>
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Permanently Delete</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Floating Toast Notification System */}
       <div className="fixed bottom-4 right-4 left-4 sm:left-auto sm:bottom-6 sm:right-6 z-50 flex flex-col gap-2.5 sm:gap-3 sm:max-w-sm pointer-events-none">
@@ -1297,6 +1468,20 @@ export default function WorkspaceEditorPage() {
           ))}
         </AnimatePresence>
       </div>
+      {/* Cover Image Cropper Modal (Landscape 16:9) */}
+      <ImageCropperModal
+        isOpen={coverCropperOpen}
+        imageSrc={coverCropSrc}
+        aspectRatio={16 / 9}
+        aspectPresetLabel="Landscape Cover (16:9)"
+        allowRatioSelection={false}
+        onCropComplete={handleCoverCropComplete}
+        onCancel={() => {
+          setCoverCropperOpen(false);
+          setCoverCropSrc('');
+          if (coverFileInputRef.current) coverFileInputRef.current.value = '';
+        }}
+      />
     </div>
   );
 }

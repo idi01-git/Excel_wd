@@ -12,6 +12,8 @@ import {
 } from 'motion/react';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { Eyebrow, FadeUp, RevealWords, EASE } from '@/components/home/primitives';
+import { RevealButton } from '@/components/ui/RevealButton';
+import { getOptimizedGalleryUrl, getOptimizedThumbnailUrl } from '@/lib/image-optimization';
 
 export interface GalleryItem {
   id: string;
@@ -39,7 +41,7 @@ function wallColumns(n: number) {
 export default function GalleryShowcase() {
   const [items, setItems] = useState<GalleryItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [displayLimit, setDisplayLimit] = useState(8);
+  const [displayLimit, setDisplayLimit] = useState(10);
   const [loadingMore, setLoadingMore] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
   const reduce = useReducedMotion();
@@ -67,7 +69,7 @@ export default function GalleryShowcase() {
   const handleLoadMore = () => {
     setLoadingMore(true);
     setTimeout(() => {
-      setDisplayLimit((prev) => Math.min(prev + 4, items.length));
+      setDisplayLimit((prev) => Math.min(prev + 10, items.length));
       setLoadingMore(false);
     }, 350);
   };
@@ -180,44 +182,13 @@ export default function GalleryShowcase() {
                 ))}
               </div>
 
-              {/* ── HIGH-CONTRAST LOAD MORE BUTTON & ARCHIVE END INDICATOR ── */}
+              {/* ── LOAD MORE BUTTON & ARCHIVE END INDICATOR ── */}
               {hasMore ? (
                 <div className="mt-14 md:mt-20 flex flex-col items-center justify-center">
-                  <motion.button
-                    onClick={handleLoadMore}
-                    disabled={loadingMore}
-                    whileHover={{ scale: 1.04, y: -2 }}
-                    whileTap={{ scale: 0.96 }}
-                    transition={{ type: 'spring', stiffness: 360, damping: 24, mass: 0.7 }}
-                    className="group relative inline-flex items-center gap-3 px-9 py-3.5 rounded-full bg-neutral-950 text-white hover:bg-neutral-800 dark:bg-white dark:text-neutral-950 dark:hover:bg-neutral-100 text-[11px] font-mono uppercase tracking-[0.24em] font-medium transition-all duration-300 shadow-md hover:shadow-xl dark:shadow-[0_4px_25px_rgba(255,255,255,0.15)] cursor-pointer disabled:opacity-60"
-                  >
-                    <AnimatePresence mode="wait">
-                      {loadingMore ? (
-                        <motion.span
-                          key="loading"
-                          initial={{ opacity: 0, y: 4 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: -4 }}
-                          transition={{ duration: 0.2 }}
-                          className="inline-flex items-center gap-2.5"
-                        >
-                          <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                          <span>Unfolding...</span>
-                        </motion.span>
-                      ) : (
-                        <motion.span
-                          key="idle"
-                          initial={{ opacity: 0, y: 4 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: -4 }}
-                          transition={{ duration: 0.2 }}
-                          className="inline-flex items-center gap-2"
-                        >
-                          <span>Unfold</span>
-                        </motion.span>
-                      )}
-                    </AnimatePresence>
-                  </motion.button>
+                  <RevealButton label="Unfold" onClick={handleLoadMore} loading={loadingMore} />
+                  <span className="mt-3 font-mono text-[10px] tabular-nums text-muted-foreground/60">
+                    {visible.length} / {items.length}
+                  </span>
                 </div>
               ) : (
                 <div className="mt-14 md:mt-20 flex items-center justify-center gap-3 text-muted-foreground/60 font-mono text-[10px] uppercase tracking-[0.24em]">
@@ -337,7 +308,7 @@ function GalleryTile({
             />
           ) : (
             <motion.img
-              src={item.url}
+              src={getOptimizedGalleryUrl(item.url, 800)}
               alt={item.caption || 'Gallery archive photo'}
               loading="lazy"
               animate={{
@@ -360,9 +331,9 @@ function GalleryTile({
             style={{ background: spotlightBg }}
           />
 
-          {/* Subtle Dark Velvet Vignette on Hover */}
+          {/* Subtle Dark Velvet Vignette on Hover (20% more transparent) */}
           <motion.div
-            animate={{ opacity: isHovered ? 0.35 : 0 }}
+            animate={{ opacity: isHovered ? 0.28 : 0 }}
             transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
             className="pointer-events-none absolute inset-0 z-10 bg-gradient-to-t from-black/60 via-transparent to-black/20"
           />
@@ -483,7 +454,7 @@ function Lightbox({
                     />
                   ) : (
                     <img
-                      src={item.url}
+                      src={getOptimizedGalleryUrl(item.url, 1600)}
                       alt={item.caption || 'Gallery archive photo'}
                       className="max-h-[58vh] sm:max-h-[66vh] md:max-h-[70vh] max-w-full rounded-lg object-contain shadow-2xl border border-white/10"
                     />
@@ -551,7 +522,7 @@ function Lightbox({
                       <video src={s.url} muted preload="metadata" className="h-full w-full object-cover" />
                     ) : (
                       <img
-                        src={s.url}
+                        src={getOptimizedThumbnailUrl(s.url, 120)}
                         alt=""
                         loading="lazy"
                         className="h-full w-full object-cover transition-opacity duration-300"

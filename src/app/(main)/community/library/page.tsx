@@ -6,6 +6,8 @@ import Link from 'next/link';
 import { Search, BookOpen, X, SlidersHorizontal, Check } from 'lucide-react';
 import { motion, AnimatePresence, useMotionValue, useSpring, useTransform, LayoutGroup } from 'motion/react';
 import SortDropdown from '@/components/SortDropdown';
+import { getOptimizedCoverUrl } from '@/lib/image-optimization';
+import { RevealButton } from '@/components/ui/RevealButton';
 
 const smoothSpring = {
   type: 'spring' as const,
@@ -122,7 +124,7 @@ const BookCard = forwardRef<HTMLDivElement, { book: BookItem }>(
             {/* 1. Edge-to-Edge Cover Artwork (Silhouette stays visible on hover through 90% opaque overlay) */}
             <motion.img
               style={{ scale: coverZoom, opacity: coverOpacity }}
-              src={book.coverImage || 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?w=400&h=600&fit=crop'}
+              src={book.coverImage ? getOptimizedCoverUrl(book.coverImage, 450) : 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?w=400&h=600&fit=crop'}
               alt={book.title}
               className={`absolute inset-0 w-full h-full object-cover object-center will-change-transform ${
                 isUnavailable ? 'brightness-[0.55] grayscale-[35%]' : ''
@@ -134,10 +136,10 @@ const BookCard = forwardRef<HTMLDivElement, { book: BookItem }>(
               <div className="absolute inset-0 bg-black/40 pointer-events-none" />
             )}
 
-            {/* 2. Hovered Canvas Overlay (Light in light mode, Dark in dark mode with 10% silhouette transparency) */}
+            {/* 2. Hovered Canvas Overlay (Light in light mode, Dark in dark mode — 20% more transparent so the cover silhouette reads through) */}
             <motion.div
               style={{ opacity: overlayOpacity }}
-              className="absolute inset-0 bg-white/90 dark:bg-neutral-950/90 backdrop-blur-sm pointer-events-none"
+              className="absolute inset-0 bg-white/70 dark:bg-neutral-950/70 backdrop-blur-sm pointer-events-none"
             />
 
             {/* 3. Hovered: Details Overlay */}
@@ -208,6 +210,9 @@ BookCard.displayName = 'BookCard';
 export default function LibraryCatalogPage() {
   const [allBooks, setAllBooks] = useState<BookItem[]>([]);
   const [initialLoading, setInitialLoading] = useState(true);
+  // Progressive grid reveal: 24 covers initially, 24 more per "Show more" (multiples of 2, 3, and 4 so grid is always complete).
+  // The live count always reflects the FULL filtered catalog.
+  const [displayLimit, setDisplayLimit] = useState(24);
 
   // Filter and Sort states
   const [search, setSearch] = useState('');
@@ -335,6 +340,9 @@ export default function LibraryCatalogPage() {
 
     return result;
   }, [allBooks, selectedLanguage, onlyAvailable, selectedGenre, search, sort]);
+
+  const visibleBooks = displayedBooks.slice(0, displayLimit);
+  const hasMore = displayLimit < displayedBooks.length;
 
   const handleGenreClick = (genreName: string) => {
     if (selectedGenre === genreName) {
@@ -588,8 +596,8 @@ export default function LibraryCatalogPage() {
       {/* ── 3. Main Body: Left Genre Sidebar + Grid ── */}
       <div className="flex gap-8 items-start">
 
-        {/* Desktop Genre Sidebar */}
-        <aside className="hidden md:flex flex-col w-48 shrink-0 sticky top-6">
+        {/* Desktop Genre Sidebar — pins just below the sticky Navbar (py-2 + h-16 + border ≈ 81px) */}
+        <aside className="hidden md:flex flex-col w-48 shrink-0 sticky top-[96px] self-start">
           <div className="pb-2.5 mb-2.5 border-b-2 border-black/15 dark:border-white/15 px-1">
             <span className="font-sans text-[11px] font-extrabold uppercase tracking-[0.18em] text-neutral-700 dark:text-neutral-300 block">
               GENRES
@@ -728,13 +736,34 @@ export default function LibraryCatalogPage() {
               ))}
             </div>
           ) : displayedBooks.length > 0 ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5 sm:gap-6">
-              <AnimatePresence mode="popLayout">
-                {displayedBooks.map((book) => (
-                  <BookCard key={book.id} book={book} />
-                ))}
-              </AnimatePresence>
-            </div>
+            <>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5 sm:gap-6">
+                <AnimatePresence mode="popLayout">
+                  {visibleBooks.map((book) => (
+                    <BookCard key={book.id} book={book} />
+                  ))}
+                </AnimatePresence>
+              </div>
+
+              {/* ── SHOW MORE ── */}
+              {hasMore ? (
+                <div className="mt-12 flex flex-col items-center justify-center">
+                  <RevealButton
+                    label="Show more"
+                    onClick={() => setDisplayLimit((prev) => Math.min(prev + 24, displayedBooks.length))}
+                  />
+                  <span className="mt-3 font-mono text-[10px] tabular-nums text-neutral-400 dark:text-neutral-500">
+                    {visibleBooks.length} / {displayedBooks.length}
+                  </span>
+                </div>
+              ) : (
+                <div className="mt-10 flex items-center justify-center gap-3 text-neutral-400 dark:text-neutral-600 font-mono text-[10px] uppercase tracking-[0.24em]">
+                  <span className="h-px w-10 bg-neutral-300 dark:bg-neutral-700" />
+                  <span>End of catalog</span>
+                  <span className="h-px w-10 bg-neutral-300 dark:bg-neutral-700" />
+                </div>
+              )}
+            </>
           ) : (
             <div className="py-24 text-center space-y-3 bg-neutral-50/40 dark:bg-neutral-900/20 rounded-3xl border border-neutral-200/50 dark:border-neutral-850">
               <BookOpen className="w-10 h-10 mx-auto text-neutral-300 dark:text-neutral-700" />

@@ -9,6 +9,7 @@ import { motion, AnimatePresence } from 'motion/react';
 
 import { ImageCropperModal } from '@/components/ui/ImageCropperModal';
 import { uploadImageBlob } from '@/lib/upload';
+import { validateUploadFile, ACCEPT_MAP } from '@/lib/file-validation';
 
 export default function AdminNewBookPage() {
   const router = useRouter();
@@ -41,6 +42,13 @@ export default function AdminNewBookPage() {
   const handleCoverUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
+      const validation = validateUploadFile(file, 'COVER');
+      if (!validation.valid) {
+        setErrorMsg(validation.error || 'Invalid cover format or size.');
+        e.target.value = '';
+        return;
+      }
+
       const reader = new FileReader();
       reader.onload = () => {
         setCropperRawSrc(reader.result as string);
@@ -60,7 +68,7 @@ export default function AdminNewBookPage() {
       setCoverImage(url);
     } catch (err: any) {
       console.error(err);
-      setCoverImage(previewUrl);
+      setErrorMsg(err.message || 'Failed to upload cover to Cloudinary. Please try again.');
     } finally {
       setCoverUploading(false);
     }
@@ -273,7 +281,7 @@ export default function AdminNewBookPage() {
                   >
                     <input
                       type="file"
-                      accept="image/*"
+                      accept={ACCEPT_MAP.COVER}
                       onChange={handleCoverUpload}
                       disabled={coverUploading}
                       className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed z-10"

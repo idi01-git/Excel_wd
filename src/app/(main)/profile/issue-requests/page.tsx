@@ -7,6 +7,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, AlertCircle, Calendar } from 'lucide-react';
 import { motion } from 'motion/react';
+import { getOptimizedCoverUrl } from '@/lib/image-optimization';
 
 interface RequestItem {
   id: string;
@@ -110,7 +111,7 @@ export default function ProfileLoansPage() {
               {/* Cover Mini */}
               <div className="shrink-0 w-20 sm:w-24 aspect-[2/3] rounded-md overflow-hidden border border-gray-100 dark:border-neutral-800">
                 <img
-                  src={req.book.coverImage || 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?w=100&h=150&fit=crop'}
+                  src={getOptimizedCoverUrl(req.book.coverImage || 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?w=100&h=150&fit=crop', 200)}
                   alt={req.book.title}
                   className="w-full h-full object-cover"
                 />

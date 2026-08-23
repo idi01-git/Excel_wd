@@ -46,38 +46,33 @@ export async function GET(
       return NextResponse.json({ error: 'Publication not found' }, { status: 404 });
     }
 
-    // Query interactions count
-    const likesCount = await db.interaction.count({
-      where: { publicationId: publication.id, type: InteractionType.LIKE }
-    });
-    
-    const dislikesCount = await db.interaction.count({
-      where: { publicationId: publication.id, type: InteractionType.DISLIKE }
-    });
+    // Run interaction counts and user status in parallel
+    const [grouped, userInteractions] = await Promise.all([
+      db.interaction.groupBy({
+        by: ['type'],
+        where: { publicationId: publication.id },
+        _count: { _all: true }
+      }),
+      session?.user?.id
+        ? db.interaction.findMany({
+            where: {
+              publicationId: publication.id,
+              userId: session.user.id
+            },
+            select: { type: true }
+          })
+        : Promise.resolve([])
+    ]);
 
-    const bookmarksCount = await db.interaction.count({
-      where: { publicationId: publication.id, type: InteractionType.BOOKMARK }
-    });
+    const likesCount = grouped.find((g) => g.type === InteractionType.LIKE)?._count._all ?? 0;
+    const dislikesCount = grouped.find((g) => g.type === InteractionType.DISLIKE)?._count._all ?? 0;
+    const bookmarksCount = grouped.find((g) => g.type === InteractionType.BOOKMARK)?._count._all ?? 0;
 
-    // Check current user state
-    let userLikes = false;
-    let userDislikes = false;
-    let userBookmarked = false;
+    const userLikes = userInteractions.some((i: any) => i.type === InteractionType.LIKE);
+    const userDislikes = userInteractions.some((i: any) => i.type === InteractionType.DISLIKE);
+    const userBookmarked = userInteractions.some((i: any) => i.type === InteractionType.BOOKMARK);
 
-    if (session?.user) {
-      const userInteractions = await db.interaction.findMany({
-        where: {
-          publicationId: publication.id,
-          userId: session.user.id
-        }
-      });
-
-      userLikes = userInteractions.some((i: any) => i.type === InteractionType.LIKE);
-      userDislikes = userInteractions.some((i: any) => i.type === InteractionType.DISLIKE);
-      userBookmarked = userInteractions.some((i: any) => i.type === InteractionType.BOOKMARK);
-    }
-
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       publication,
       stats: {
@@ -91,6 +86,10 @@ export async function GET(
         bookmarked: userBookmarked
       }
     });
+
+    response.headers.set('Cache-Control', 'public, s-maxage=10, stale-while-revalidate=60');
+
+    return response;
   } catch (error: any) {
     console.error('Fetch publication detail error:', error);
     return NextResponse.json({ error: 'Failed to retrieve publication' }, { status: 500 });
