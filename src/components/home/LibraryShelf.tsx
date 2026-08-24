@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo, createRef } from 'react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { motion, useScroll, useSpring, useTransform } from 'framer-motion';
@@ -8,18 +8,10 @@ import { ArrowRight } from 'lucide-react';
 import { BOOKS, BookData } from '@/components/sections/hardback/hardback-data';
 import { onCardwallSettled } from '@/lib/cardwall-events';
 
-// Dynamically load the 3D Book Card with client-only canvas.
-// The chunk is warmed by the HomePreloader before the hero runs, so this
-// boundary almost never shows; footprint is held either way (no layout shift).
-const Book3DCard = dynamic(
-  () => import('./Book3DCard').then((mod) => mod.Book3DCard),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="h-[470px] w-[300px] md:h-[520px] md:w-[330px] shrink-0" aria-hidden />
-    ),
-  }
-);
+// One shared WebGL context renders every mounted book through DOM-tracked
+// views (see ShelfBooksCanvas). The chunk is warmed by the HomePreloader
+// before the hero runs; footprint is held either way (no layout shift).
+const ShelfBooksCanvas = dynamic(() => import('./ShelfBooksCanvas'), { ssr: false });
 
 const DEFAULT_SHELF_SCROLL = 1450;
 
@@ -45,6 +37,17 @@ export default function LibraryShelf({
   const [mountedBooks, setMountedBooks] = useState(0);
   // WebGL render loops are parked whenever the shelf is off-screen.
   const [shelfActive, setShelfActive] = useState(false);
+  // Which book slot is hovered (drives the 3D pose + contact shadow).
+  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
+
+  // Stable per-slot ref objects shared by the DOM slots and the 3D views,
+  // rebuilt only when the featured list itself changes.
+  const slotRefs = useMemo(() => {
+    const map = new Map<string, React.RefObject<HTMLDivElement | null>>();
+    featuredBooks.forEach((book, i) => map.set(book.id || `feat-${i}`, createRef<HTMLDivElement>()));
+    return map;
+  }, [featuredBooks]);
+  const getSlotRef = (key: string) => slotRefs.get(key);
 
   // Progressive mounting: one book every ~150ms until all 5 are up.
   useEffect(() => {
@@ -196,7 +199,7 @@ export default function LibraryShelf({
         <motion.div
           ref={trackRef}
           style={{ x }}
-          className="flex w-max items-center gap-8 pl-6 pr-6 will-change-transform md:gap-12 md:pl-12 md:pr-10"
+          className="relative z-0 flex w-max items-center gap-8 pl-6 pr-6 will-change-transform md:gap-12 md:pl-12 md:pr-10"
         >
           {/* Intro panel */}
           <div className="w-[85vw] shrink-0 sm:w-[65vw] md:w-[44vw] lg:w-[36vw] flex flex-col justify-center pr-4">
@@ -252,11 +255,34 @@ export default function LibraryShelf({
           </div>
 
           {/* 5 Featured Books (Dynamic Top 5 from Editor's Shelf) — plain footprint
-              spacers hold layout; WebGL volumes mount progressively so shader
-              compilation never stutters the scroll */}
+              slots hold layout; WebGL volumes mount progressively into the shared
+              canvas so shader compilation never stutters the scroll */}
           {featuredBooks.map((book, i) =>
             i < mountedBooks ? (
-              <Book3DCard key={book.id || `feat-${i}`} book={book} index={i} paused={!shelfActive} />
+              <div
+                key={book.id || `feat-${i}`}
+                ref={(el) => {
+                  const slot = getSlotRef(book.id || `feat-${i}`);
+                  if (slot) slot.current = el;
+                }}
+                onMouseEnter={() => setHoveredIdx(i)}
+                onMouseLeave={() => setHoveredIdx((prev) => (prev === i ? null : prev))}
+                className="group relative block h-[470px] w-[300px] shrink-0 md:h-[520px] md:w-[330px] select-none"
+              >
+                {/* Soft, rich ambient contact drop shadow */}
+                <div
+                  aria-hidden
+                  className={`absolute -bottom-5 left-1/2 h-8 w-[72%] -translate-x-1/2 rounded-[100%] bg-black/45 blur-xl transition-all duration-700 ease-out ${
+                    hoveredIdx === i ? 'scale-110 opacity-70 blur-2xl' : 'scale-95 opacity-35'
+                  }`}
+                />
+
+                <Link
+                  href="/editors-shelf"
+                  className="absolute inset-0 z-[1] block w-full h-full cursor-pointer"
+                  aria-label={`${book.title} by ${book.author} — view 3D volume`}
+                />
+              </div>
             ) : (
               <div
                 key={book.id || `feat-${i}`}
@@ -298,6 +324,22 @@ export default function LibraryShelf({
             </Link>
           </div>
         </motion.div>
+
+        {/* Shared WebGL layer — one context renders every mounted book, scissored
+            to its slot. Sits above the track so books occlude their contact
+            shadows exactly like the previous per-book canvases did; transparent
+            and pointer-inert everywhere else. */}
+        <ShelfBooksCanvas
+          slots={featuredBooks
+            .slice(0, mountedBooks)
+            .flatMap((book, i) => {
+              const trackRef = getSlotRef(book.id || `feat-${i}`);
+              return trackRef
+                ? [{ book, index: i, trackRef, hovered: hoveredIdx === i }]
+                : [];
+            })}
+          paused={!shelfActive}
+        />
       </div>
     </section>
   );

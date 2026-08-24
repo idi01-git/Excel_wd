@@ -1,9 +1,8 @@
 'use client';
 
-import React, { useRef, useState, useMemo, useEffect, Suspense } from 'react';
+import React, { useRef, useMemo, useEffect } from 'react';
 import * as THREE from 'three';
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import Link from 'next/link';
+import { useFrame, useThree } from '@react-three/fiber';
 import { BookData, SPINE_WRAP_T } from '@/components/sections/hardback/hardback-data';
 import {
   makeSpineTexture,
@@ -54,7 +53,7 @@ interface Book3DMeshProps {
   active: boolean;
 }
 
-function Book3DMesh({ book, index, isHovered, active }: Book3DMeshProps) {
+export function Book3DMesh({ book, index, isHovered, active }: Book3DMeshProps) {
   const groupRef = useRef<THREE.Group>(null);
   const sheenMatRef = useRef<THREE.ShaderMaterial>(null);
   const progressRef = useRef(0);
@@ -272,92 +271,5 @@ function Book3DMesh({ book, index, isHovered, active }: Book3DMeshProps) {
         <planeGeometry args={[W, H]} />
       </mesh>
     </group>
-  );
-}
-
-export interface Book3DCardProps {
-  book: BookData;
-  index: number;
-  /** When true, the WebGL render loop is fully parked (frameloop="never"). */
-  paused?: boolean;
-}
-
-const noopEvents: any = () => ({
-  enabled: false,
-  priority: 0,
-  handlers: {},
-  connect: () => {},
-  disconnect: () => {},
-  update: () => {},
-});
-
-export function Book3DCard({ book, index, paused = false }: Book3DCardProps) {
-  const [isHovered, setIsHovered] = useState(false);
-
-  return (
-    <div
-      className="group relative block h-[470px] w-[300px] shrink-0 md:h-[520px] md:w-[330px] select-none"
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-    >
-      <Link
-        href="/editors-shelf"
-        className="relative block w-full h-full"
-        aria-label={`${book.title} by ${book.author} — view 3D volume`}
-      >
-        {/* Soft, rich ambient contact drop shadow */}
-        <div
-          aria-hidden
-          className={`absolute -bottom-5 left-1/2 h-8 w-[72%] -translate-x-1/2 rounded-[100%] bg-black/45 blur-xl transition-all duration-700 ease-out ${
-            isHovered ? 'scale-110 opacity-70 blur-2xl' : 'scale-95 opacity-35'
-          }`}
-        />
-
-        {/* 3D Canvas with Studio 3-Point Exhibition Lighting & ACES Filmic Tone Mapping.
-            Demand-mode render loop: renders on mount and whenever interaction or
-            the spring motion requires it, then parks itself. */}
-        <div className="relative w-full h-full cursor-pointer overflow-visible">
-          <Canvas
-            events={noopEvents}
-            frameloop={paused ? 'never' : 'demand'}
-            shadows={{ type: THREE.PCFShadowMap }}
-            camera={{ position: [0, -0.04, 6.4], fov: 32 }}
-            gl={{
-              antialias: true,
-              alpha: true,
-              stencil: false,
-              powerPreference: 'high-performance',
-              toneMapping: THREE.ACESFilmicToneMapping,
-              toneMappingExposure: 1.12,
-            }}
-            className="w-full h-full pointer-events-none"
-          >
-            {/* Studio Hemisphere Ambient Fill */}
-            <hemisphereLight args={['#fff8ea', '#6e5848', 1.8]} />
-
-            {/* Warm Key Light (Casts soft directional shadows and specular highlights on foil) */}
-            <directionalLight
-              position={[4.5, 7.0, 5.5]}
-              intensity={3.4}
-              color="#fff6e7"
-              castShadow
-              shadow-mapSize-width={1024}
-              shadow-mapSize-height={1024}
-              shadow-bias={-0.0005}
-            />
-
-            {/* Cool Studio Rim Light (Highlights spine edge and cloth texture) */}
-            <directionalLight position={[-5.0, 3.5, -4.0]} intensity={2.2} color="#c8d5e5" />
-
-            {/* Warm Under-Bounce Fill */}
-            <pointLight position={[-2.0, -1.6, 3.5]} intensity={1.1} color="#d79b72" />
-
-            <Suspense fallback={null}>
-              <Book3DMesh book={book} index={index} isHovered={isHovered} active={!paused} />
-            </Suspense>
-          </Canvas>
-        </div>
-      </Link>
-    </div>
   );
 }
