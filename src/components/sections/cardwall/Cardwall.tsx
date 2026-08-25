@@ -1546,19 +1546,6 @@ export default function Cardwall({
     }))
   );
 
-  // Last-written style strings per card. The loop compares before writing so
-  // unchanged values never touch the DOM (no style recalc / paint churn).
-  const cardWriteCacheRef = useRef<
-    Array<{
-      transform?: string;
-      z?: string;
-      shineO?: string;
-      shineP?: string;
-      shO?: string;
-      shT?: string;
-    }>
-  >([]);
-
   // Live cursor state
   const cursorRef = useRef({
     active: false,
@@ -1768,7 +1755,6 @@ export default function Cardwall({
     let animId = 0;
     let running = false;
     let lastT = performance.now();
-    let frameParity = 0;
 
     const tick = (now: number) => {
       if (!entranceSettledRef.current) {
@@ -1776,19 +1762,7 @@ export default function Cardwall({
         return;
       }
 
-      const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
-
-      // Mobile idle wave runs at ~30fps: the drift is far too slow to
-      // perceive any difference, and it halves every style write below.
-      frameParity++;
-      if (isMobile && frameParity % 2 === 0) {
-        animId = requestAnimationFrame(tick);
-        return;
-      }
-
-      // Upper clamp widened on mobile so the deliberate ~33ms step integrates
-      // correctly; desktop keeps its exact original clamp (and feel).
-      const dt = clamp(0.1, (now - lastT) / 16.667, isMobile ? 2.2 : 1.5);
+      const dt = clamp(0.1, (now - lastT) / 16.667, 1.5);
       lastT = now;
 
       const cursor = cursorRef.current;
@@ -1801,15 +1775,13 @@ export default function Cardwall({
         fracFocus = cursor.hitIdx + clamp(0, tSeg, 1);
       }
 
+      const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
       const waveSpeed = 0.0003;
       const waveSpatialFreq = 0.12;
       const wavePhase = now * waveSpeed;
-      const modalOpen = lockedIdxRef.current !== null;
 
       for (let i = 0; i < visibleCards.length; i++) {
-        // While the detail modal owns the deck, GSAP drives every card —
-        // this loop must not fight it (the deck is behind the backdrop anyway).
-        if (modalOpen) continue;
+        if (lockedIdxRef.current === i) continue;
 
         const s = physicsStates.current[i];
         const center = proj[i] || { x: 0, y: 0 };
@@ -1864,52 +1836,21 @@ export default function Cardwall({
           continue;
         }
 
-        let w = cardWriteCacheRef.current[i];
-        if (!w) {
-          w = {};
-          cardWriteCacheRef.current[i] = w;
-        }
-
         const liftedZ = Math.abs(s.lift) * 0.6;
-        const transformStr = `translate3d(0, ${s.lift.toFixed(2)}px, ${liftedZ.toFixed(2)}px) rotateX(${s.rotX.toFixed(2)}deg) rotateZ(${s.rotZ.toFixed(2)}deg)`;
-        if (w.transform !== transformStr) {
-          cardRef.style.transform = transformStr;
-          w.transform = transformStr;
-        }
-
-        const zStr = `${100 + Math.round(Math.abs(s.lift))}`;
-        if (w.z !== zStr) {
-          cardRef.style.zIndex = zStr;
-          w.z = zStr;
-        }
+        cardRef.style.transform = `translate3d(0, ${s.lift.toFixed(2)}px, ${liftedZ.toFixed(2)}px) rotateX(${s.rotX.toFixed(2)}deg) rotateZ(${s.rotZ.toFixed(2)}deg)`;
+        cardRef.style.zIndex = `${100 + Math.round(Math.abs(s.lift))}`;
 
         if (shine) {
           const u = isMobile
             ? (rawWave + 1) * 0.5
             : clamp(0, (cursor.x - (center.x - CARD_W / 2)) / CARD_W, 1);
-          const shineO = `${(s.glow * 0.85).toFixed(3)}`;
-          if (w.shineO !== shineO) {
-            shine.style.opacity = shineO;
-            w.shineO = shineO;
-          }
-          const shineP = `${(u * 100).toFixed(1)}% 50%`;
-          if (w.shineP !== shineP) {
-            shine.style.backgroundPosition = shineP;
-            w.shineP = shineP;
-          }
+          shine.style.opacity = `${(s.glow * 0.85).toFixed(3)}`;
+          shine.style.backgroundPosition = `${(u * 100).toFixed(1)}% 50%`;
         }
 
         const l = Math.abs(s.lift);
-        const shO = `${(0.32 + s.glow * 0.35).toFixed(3)}`;
-        if (w.shO !== shO) {
-          shadow.style.opacity = shO;
-          w.shO = shO;
-        }
-        const shT = `translateY(${(10 + l * 0.12).toFixed(2)}px) scale(${(1 + l * 0.004).toFixed(3)}, ${(0.7 + l * 0.002).toFixed(3)})`;
-        if (w.shT !== shT) {
-          shadow.style.transform = shT;
-          w.shT = shT;
-        }
+        shadow.style.opacity = `${(0.32 + s.glow * 0.35).toFixed(3)}`;
+        shadow.style.transform = `translateY(${(10 + l * 0.12).toFixed(2)}px) scale(${(1 + l * 0.004).toFixed(3)}, ${(0.7 + l * 0.002).toFixed(3)})`;
       }
 
       animId = requestAnimationFrame(tick);
@@ -2057,9 +1998,6 @@ export default function Cardwall({
     lockedIdxRef.current = null;
     setDetail(null);
     restoreChromeFromModal();
-    // GSAP drove card/shadow styles during the modal flight — drop the write
-    // cache so the physics loop re-asserts its own values from scratch.
-    cardWriteCacheRef.current = [];
     // Reset the opened card's elevated stacking
     cardRefs.current.forEach((el) => {
       if (el) el.style.zIndex = "";

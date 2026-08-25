@@ -39,8 +39,8 @@ export default function HomePreloader({ heroCards = [], onPrepared, onComplete }
     let isMounted = true;
     const minDisplayPromise = new Promise((res) => setTimeout(res, introDuration));
 
-    // 1. Critical for LCP: shared 3D shelf chunk, fonts, and primary hero images
-    const chunkPromise = import("@/components/home/ShelfBooksCanvas").catch(() => {});
+    // 1. Critical for LCP: 3D Card chunk, fonts, and primary hero images
+    const chunkPromise = import("@/components/home/Book3DCard").catch(() => {});
     const fontsPromise =
       typeof document !== "undefined" && document.fonts
         ? document.fonts.ready.catch(() => {})
