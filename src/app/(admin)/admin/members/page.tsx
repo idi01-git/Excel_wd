@@ -59,12 +59,12 @@ export default function AdminMembersPage() {
   const [members, setMembers] = useState<MemberUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [activeTab, setActiveTab] = useState<'ALL' | MemberSection>('ALL');
+  const [activeTab, setActiveTab] = useState<'ALL' | MemberSection | 'MEMBERS'>('ALL');
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Edit Modal State
   const [editingMember, setEditingMember] = useState<MemberUser | null>(null);
-  const [editSection, setEditSection] = useState<MemberSection>(MemberSection.TEAM);
+  const [editSection, setEditSection] = useState<MemberSection | ''>('');
   const [editTitle, setEditTitle] = useState('');
   const [editBranch, setEditBranch] = useState('');
   const [editBatch, setEditBatch] = useState('');
@@ -119,10 +119,14 @@ export default function AdminMembersPage() {
   const filteredMembers = useMemo(() => {
     return members
       .filter((m) => {
-        const matchesTab =
-          activeTab === 'ALL'
-            ? true
-            : m.memberSection === activeTab || (!m.memberSection && activeTab === MemberSection.TEAM);
+        let matchesTab = true;
+        if (activeTab === 'ALL') {
+          matchesTab = true;
+        } else if (activeTab === 'MEMBERS') {
+          matchesTab = !m.memberSection;
+        } else {
+          matchesTab = m.memberSection === activeTab;
+        }
 
         const q = search.toLowerCase().trim();
         const matchesSearch =
@@ -152,20 +156,29 @@ export default function AdminMembersPage() {
   }, [members, activeTab, search]);
 
   const handleMove = async (memberId: string, direction: 'up' | 'down') => {
-    const list = [...filteredMembers];
-    const currentIndex = list.findIndex((m) => m.id === memberId);
+    const targetMember = members.find((m) => m.id === memberId);
+    if (!targetMember) return;
+
+    const sectionKey = targetMember.memberSection || null;
+
+    // Get the sorted list of ONLY members belonging to this EXACT section!
+    const sectionList = members
+      .filter((m) => (m.memberSection || null) === sectionKey)
+      .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
+
+    const currentIndex = sectionList.findIndex((m) => m.id === memberId);
     if (currentIndex === -1) return;
 
     const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
-    if (targetIndex < 0 || targetIndex >= list.length) return;
+    if (targetIndex < 0 || targetIndex >= sectionList.length) return;
 
-    // Swap items in current view
-    const updatedList = [...list];
-    const [movedItem] = updatedList.splice(currentIndex, 1);
-    updatedList.splice(targetIndex, 0, movedItem);
+    // Swap items strictly within this section!
+    const updatedSectionList = [...sectionList];
+    const [movedItem] = updatedSectionList.splice(currentIndex, 1);
+    updatedSectionList.splice(targetIndex, 0, movedItem);
 
-    // Optimistically assign displayOrder indices
-    const updatedIds = updatedList.map((m) => m.id);
+    // Optimistically assign displayOrder within this section (e.g. 0, 10, 20...)
+    const updatedIds = updatedSectionList.map((m) => m.id);
     const idToOrder = new Map(updatedIds.map((id, idx) => [id, idx * 10]));
 
     setMembers((prev) =>
@@ -192,7 +205,7 @@ export default function AdminMembersPage() {
 
   const openEdit = (m: MemberUser) => {
     setEditingMember(m);
-    setEditSection(m.memberSection || MemberSection.TEAM);
+    setEditSection(m.memberSection || '');
     setEditTitle(m.memberTitle || '');
     setEditBranch(m.branch || '');
     setEditBatch(m.batch || '');
@@ -251,7 +264,7 @@ export default function AdminMembersPage() {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          memberSection: editSection,
+          memberSection: editSection ? editSection : null,
           memberTitle: editTitle,
           branch: editBranch,
           batch: editBatch,
@@ -295,11 +308,17 @@ export default function AdminMembersPage() {
             CORE COMMITTEE
           </span>
         );
-      default:
+      case MemberSection.TEAM:
         return (
           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-blue-400/10 text-blue-400 border border-blue-400/20">
             <Users size={11} />
             TEAM MEMBER
+          </span>
+        );
+      default:
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-medium bg-neutral-500/10 text-neutral-400 border border-neutral-500/20">
+            UNASSIGNED
           </span>
         );
     }
@@ -419,8 +438,20 @@ export default function AdminMembersPage() {
                 : 'text-muted-foreground hover:text-foreground'
             }`}
           >
-            TEAM ({members.filter((m) => !m.memberSection || m.memberSection === MemberSection.TEAM).length})
+            TEAM ({members.filter((m) => m.memberSection === MemberSection.TEAM).length})
           </button>
+          {members.some((m) => !m.memberSection) && (
+            <button
+              onClick={() => setActiveTab('MEMBERS')}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-mono transition-colors cursor-pointer ${
+                activeTab === 'MEMBERS'
+                  ? 'bg-neutral-600 text-white font-bold shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              UNASSIGNED ({members.filter((m) => !m.memberSection).length})
+            </button>
+          )}
         </div>
 
         {/* Search */}
@@ -520,51 +551,61 @@ export default function AdminMembersPage() {
               </div>
 
               {/* Right Actions */}
-              <div className="flex items-center gap-2.5 self-end md:self-center shrink-0">
-                {/* Reorder and Rank Control */}
-                <div className="flex items-center gap-0.5 bg-foreground/[0.03] border border-border/80 rounded-xl p-0.5">
-                  <button
-                    type="button"
-                    title="Move Up in Roster"
-                    disabled={index === 0}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleMove(member.id, 'up');
-                    }}
-                    className="p-1.5 rounded-lg hover:bg-foreground/[0.08] text-muted-foreground hover:text-foreground disabled:opacity-20 disabled:hover:bg-transparent cursor-pointer disabled:cursor-not-allowed transition-colors"
-                  >
-                    <ArrowUp size={12} />
-                  </button>
+              {(() => {
+                const sectionKey = member.memberSection || null;
+                const sectionMembers = filteredMembers.filter((m) => (m.memberSection || null) === sectionKey);
+                const sectionIndex = sectionMembers.findIndex((m) => m.id === member.id);
+                const isFirstInSection = sectionIndex <= 0;
+                const isLastInSection = sectionIndex >= sectionMembers.length - 1;
 
-                  <span
-                    className="font-mono text-[10px] font-bold px-1.5 min-w-[28px] text-center text-foreground/80"
-                    title={`Roster position #${index + 1} (Order value: ${member.displayOrder ?? 0})`}
-                  >
-                    #{index + 1}
-                  </span>
+                return (
+                  <div className="flex items-center gap-2.5 self-end md:self-center shrink-0">
+                    {/* Reorder and Rank Control (Strictly within Section) */}
+                    <div className="flex items-center gap-0.5 bg-foreground/[0.03] border border-border/80 rounded-xl p-0.5">
+                      <button
+                        type="button"
+                        title="Move Up in Section"
+                        disabled={isFirstInSection}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleMove(member.id, 'up');
+                        }}
+                        className="p-1.5 rounded-lg hover:bg-foreground/[0.08] text-muted-foreground hover:text-foreground disabled:opacity-20 disabled:hover:bg-transparent cursor-pointer disabled:cursor-not-allowed transition-colors"
+                      >
+                        <ArrowUp size={12} />
+                      </button>
 
-                  <button
-                    type="button"
-                    title="Move Down in Roster"
-                    disabled={index === filteredMembers.length - 1}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleMove(member.id, 'down');
-                    }}
-                    className="p-1.5 rounded-lg hover:bg-foreground/[0.08] text-muted-foreground hover:text-foreground disabled:opacity-20 disabled:hover:bg-transparent cursor-pointer disabled:cursor-not-allowed transition-colors"
-                  >
-                    <ArrowDown size={12} />
-                  </button>
-                </div>
+                      <span
+                        className="font-mono text-[10px] font-bold px-1.5 min-w-[28px] text-center text-foreground/80"
+                        title={`Section order #${sectionIndex + 1} (Order value: ${member.displayOrder ?? 0})`}
+                      >
+                        #{sectionIndex + 1}
+                      </span>
 
-                <button
-                  onClick={() => openEdit(member)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-foreground/[0.04] hover:bg-foreground/[0.08] text-xs font-mono text-foreground transition-colors cursor-pointer"
-                >
-                  <Edit size={13} />
-                  <span>Edit Position &amp; Photo</span>
-                </button>
-              </div>
+                      <button
+                        type="button"
+                        title="Move Down in Section"
+                        disabled={isLastInSection}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleMove(member.id, 'down');
+                        }}
+                        className="p-1.5 rounded-lg hover:bg-foreground/[0.08] text-muted-foreground hover:text-foreground disabled:opacity-20 disabled:hover:bg-transparent cursor-pointer disabled:cursor-not-allowed transition-colors"
+                      >
+                        <ArrowDown size={12} />
+                      </button>
+                    </div>
+
+                    <button
+                      onClick={() => openEdit(member)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-foreground/[0.04] hover:bg-foreground/[0.08] text-xs font-mono text-foreground transition-colors cursor-pointer"
+                    >
+                      <Edit size={13} />
+                      <span>Edit Position &amp; Photo</span>
+                    </button>
+                  </div>
+                );
+              })()}
             </motion.div>
           ))}
         </div>
@@ -691,9 +732,12 @@ export default function AdminMembersPage() {
                   </label>
                   <select
                     value={editSection}
-                    onChange={(e) => setEditSection(e.target.value as MemberSection)}
+                    onChange={(e) => setEditSection(e.target.value as MemberSection | '')}
                     className="w-full rounded-xl border border-border bg-foreground/[0.02] p-2.5 text-xs text-foreground focus:border-amber-400 focus:outline-none"
                   >
+                    <option value="" className="bg-card">
+                      UNASSIGNED (Society Member)
+                    </option>
                     <option value={MemberSection.COORDINATORS} className="bg-card">
                       COORDINATORS (Leadership)
                     </option>

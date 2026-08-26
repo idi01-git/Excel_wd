@@ -814,7 +814,7 @@ export default function AdminEditorsShelfPage() {
                               onChange={(e) => setTitle(e.target.value)}
                               placeholder={language === 'hi' ? 'उदा. निर्मला या गोदान' : 'e.g. The Great Gatsby'}
                               required
-                              className="w-full rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-[#0e0e0e] p-2.5 text-xs text-neutral-900 dark:text-white focus:border-neutral-900 dark:focus:border-white focus:outline-none font-serif text-sm transition-colors"
+                              className="w-full rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-[#0e0e0e] p-2.5 text-sm text-neutral-900 dark:text-white focus:border-neutral-900 dark:focus:border-white focus:outline-none font-serif transition-colors"
                             />
                           </div>
 
@@ -1199,7 +1199,7 @@ export default function AdminEditorsShelfPage() {
                             id="cover-upload"
                             type="file"
                             accept={ACCEPT_MAP.COVER}
-                            onChange={handleCoverFileSelect}
+                            onChange={handleCoverUpload}
                             className="hidden"
                           />
                           <p className="text-[10px] text-neutral-500 font-sans">
