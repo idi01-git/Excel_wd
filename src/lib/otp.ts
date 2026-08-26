@@ -29,7 +29,7 @@ export async function sendOtpEmail(email: string, code: string, recipientName: s
       service: 'gmail',
       auth: {
         user: smtpUser,
-        pass: smtpPass,
+        pass: smtpPass.replace(/\s+/g, ''),
       },
     });
 
@@ -407,7 +407,7 @@ export async function sendPasswordResetEmail(email: string, code: string, recipi
       service: 'gmail',
       auth: {
         user: smtpUser,
-        pass: smtpPass,
+        pass: smtpPass.replace(/\s+/g, ''),
       },
     });
 

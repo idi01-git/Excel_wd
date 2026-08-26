@@ -33,17 +33,6 @@ const ROLE_DEFAULT_TITLES: Record<string, string> = {
   MEMBER: 'Member • Contributor',
 };
 
-const ROLE_DEFAULT_SECTIONS: Record<string, 'COORDINATORS' | 'CORE' | 'TEAM' | 'MEMBERS'> = {
-  COORDINATOR: 'COORDINATORS',
-  TECH_LEAD: 'COORDINATORS',
-  CONTENT_LEAD: 'COORDINATORS',
-  PR_HEAD: 'CORE',
-  OPERATIONS_HEAD: 'CORE',
-  TREASURER: 'CORE',
-  MEMBER: 'MEMBERS',
-  ALUMNI: 'TEAM',
-  VISITOR: 'TEAM',
-};
 
 // ─── Smart Role Title Formatter ───────────────────────────────────────────
 function getMemberRoleTitle(member: Member) {
@@ -57,15 +46,10 @@ function getMemberRoleTitle(member: Member) {
   return ROLE_DEFAULT_TITLES[member.role] || 'Student';
 }
 
-// ─── Classification Helper ────────────────────────────────────────────────
 function categorizeMember(member: Member): 'COORDINATORS' | 'CORE' | 'TEAM' | 'MEMBERS' {
   if (member.memberSection === 'COORDINATORS') return 'COORDINATORS';
   if (member.memberSection === 'CORE') return 'CORE';
   if (member.memberSection === 'TEAM') return 'TEAM';
-
-  if (['COORDINATOR', 'TECH_LEAD', 'CONTENT_LEAD'].includes(member.role)) return 'COORDINATORS';
-  if (['PR_HEAD', 'OPERATIONS_HEAD', 'TREASURER'].includes(member.role)) return 'CORE';
-  if (member.role === 'MEMBER') return 'MEMBERS';
 
   return 'MEMBERS';
 }
@@ -359,7 +343,7 @@ export default function MembersDirectoryPage() {
     let isMounted = true;
     const fetchMembers = async () => {
       try {
-        const res = await fetch(`/api/community/members`);
+        const res = await fetch(`/api/community/members`, { cache: 'no-store' });
         const data = await res.json();
         if (data.success && isMounted) {
           setMembers(data.members || []);

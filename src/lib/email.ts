@@ -294,7 +294,7 @@ export async function sendBookReturnReminder({
       service: 'gmail',
       auth: {
         user: smtpUser,
-        pass: smtpPass,
+        pass: smtpPass.replace(/\s+/g, ''),
       },
     });
 

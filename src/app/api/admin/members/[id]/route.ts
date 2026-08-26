@@ -18,7 +18,7 @@ async function updateMember(req: Request, id: string, actorId: string) {
   const body = await req.json();
   const { memberSection, memberTitle, branch, batch, directoryPhoto, showSocialLinks, displayOrder } = body;
 
-  if (memberSection !== undefined && !Object.values(MemberSection).includes(memberSection as MemberSection)) {
+  if (memberSection !== undefined && memberSection !== null && !Object.values(MemberSection).includes(memberSection as MemberSection)) {
     return NextResponse.json({ error: 'Invalid member section' }, { status: 400 });
   }
 
@@ -45,21 +45,7 @@ async function updateMember(req: Request, id: string, actorId: string) {
     updated = await db.user.update({
       where: { id },
       data: {
-        memberSection: memberSection === undefined ? undefined : memberSection as MemberSection,
-        memberTitle: title === undefined ? undefined : title || null,
-        branch: branch === undefined ? undefined : String(branch).trim() || null,
-        batch: batch === undefined ? undefined : String(batch).trim() || null,
-        directoryPhoto: nextPhoto,
-        showSocialLinks: showSocialLinks === undefined ? undefined : Boolean(showSocialLinks),
-        // @ts-ignore
-        displayOrder: parsedOrder,
-      },
-    });
-  } catch {
-    updated = await db.user.update({
-      where: { id },
-      data: {
-        memberSection: memberSection === undefined ? undefined : memberSection as MemberSection,
+        memberSection: memberSection === undefined ? undefined : (memberSection ? memberSection as MemberSection : null),
         memberTitle: title === undefined ? undefined : title || null,
         branch: branch === undefined ? undefined : String(branch).trim() || null,
         batch: batch === undefined ? undefined : String(batch).trim() || null,
@@ -68,8 +54,13 @@ async function updateMember(req: Request, id: string, actorId: string) {
       },
     });
     if (parsedOrder !== undefined) {
-      await db.$executeRawUnsafe(`UPDATE "User" SET "displayOrder" = $1 WHERE "id" = $2`, parsedOrder, id);
+      await db.$executeRawUnsafe(
+        `UPDATE "User" SET "displayOrder" = ${Number(parsedOrder)} WHERE "id" = '${id.replace(/'/g, "''")}'`
+      );
     }
+  } catch (err: any) {
+    console.error('Update member error:', err);
+    return NextResponse.json({ error: 'Failed to update member' }, { status: 500 });
   }
 
   await recordAuditEvent({

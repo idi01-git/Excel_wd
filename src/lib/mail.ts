@@ -40,7 +40,7 @@ export async function sendRegistrationEmail({
   try {
     const transporter = nodemailer.createTransport({
       service: 'gmail',
-      auth: { user: smtpUser, pass: smtpPass },
+      auth: { user: smtpUser, pass: smtpPass.replace(/\s+/g, '') },
     });
 
     const date = event.date.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
@@ -343,7 +343,7 @@ export async function sendPaymentConfirmedEmail({ to, recipientName, event }: Pa
   try {
     const transporter = nodemailer.createTransport({
       service: 'gmail',
-      auth: { user: smtpUser, pass: smtpPass },
+      auth: { user: smtpUser, pass: smtpPass.replace(/\s+/g, '') },
     });
     const date = event.date.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
     const timePart = event.time ? ` · ${event.time}` : '';
@@ -646,7 +646,7 @@ export async function sendEventUpdateEmail({
   try {
     const transporter = nodemailer.createTransport({
       service: 'gmail',
-      auth: { user: smtpUser, pass: smtpPass },
+      auth: { user: smtpUser, pass: smtpPass.replace(/\s+/g, '') },
     });
     const dateStr = event.date.toLocaleDateString('en-IN', {
       day: 'numeric',
@@ -936,7 +936,7 @@ export async function sendEventReminderEmail({
   try {
     const transporter = nodemailer.createTransport({
       service: 'gmail',
-      auth: { user: smtpUser, pass: smtpPass },
+      auth: { user: smtpUser, pass: smtpPass.replace(/\s+/g, '') },
     });
     const dateStr = event.date.toLocaleDateString('en-IN', {
       day: 'numeric',

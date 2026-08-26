@@ -29,6 +29,8 @@ type AssetPublication = {
   readingTime?: number;
   authorName?: string | null;
   authorNote?: string | null;
+  content?: string | null;
+  excerpt?: string | null;
   alumniProfile?: { name: string; batch: string } | null;
   author: { name: string };
 };

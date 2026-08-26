@@ -14,13 +14,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Expected non-empty memberIds array' }, { status: 400 });
     }
 
-    // Atomically update displayOrder based on index
+    // Atomically update displayOrder directly in PostgreSQL
     await db.$transaction(
       memberIds.map((id, index) =>
         db.$executeRawUnsafe(
-          `UPDATE "User" SET "displayOrder" = $1 WHERE "id" = $2`,
-          index * 10,
-          id
+          `UPDATE "User" SET "displayOrder" = ${Number(index * 10)} WHERE "id" = '${id.replace(/'/g, "''")}'`
         )
       )
     );
