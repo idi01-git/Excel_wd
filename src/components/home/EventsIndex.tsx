@@ -57,9 +57,11 @@ const EVENTS = [
 type HomeEvent = (typeof EVENTS)[number] & { href?: string };
 
 export default function EventsIndex({ initialEvents }: { initialEvents?: HomeEvent[] }) {
-  const [events, setEvents] = useState<HomeEvent[]>(initialEvents && initialEvents.length > 0 ? initialEvents : EVENTS);
+  const [events, setEvents] = useState<HomeEvent[]>(initialEvents || []);
+  const [hasLoaded, setHasLoaded] = useState(initialEvents !== undefined);
+
   useEffect(() => {
-    if (initialEvents && initialEvents.length > 0) return;
+    if (initialEvents !== undefined) return;
     void fetch('/api/site-settings')
       .then((response) => response.json())
       .then((data) => {
@@ -76,10 +78,18 @@ export default function EventsIndex({ initialEvents }: { initialEvents?: HomeEve
               href: item.href || '/events',
             }))
           );
+        } else {
+          setEvents([]);
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        setEvents([]);
+      })
+      .finally(() => {
+        setHasLoaded(true);
+      });
   }, [initialEvents]);
+
   const listRef = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState<number | null>(null);
 
@@ -100,6 +110,11 @@ export default function EventsIndex({ initialEvents }: { initialEvents?: HomeEve
     my.set(e.clientY - rect.top);
   };
 
+  // If there are no events to display, do not render the section on the homepage
+  if (events.length === 0) {
+    return null;
+  }
+
   return (
     <section className="relative w-full bg-background px-6 pt-10 pb-20 md:px-10 md:pt-14 md:pb-24">
       <div className="mx-auto max-w-7xl">
@@ -107,7 +122,7 @@ export default function EventsIndex({ initialEvents }: { initialEvents?: HomeEve
         <div className="mb-14 grid grid-cols-1 gap-8 md:mb-20 md:grid-cols-12 md:items-end">
           <div className="md:col-span-8">
             <FadeUp>
-              <Eyebrow>Occasions · 2015 — present</Eyebrow>
+              <Eyebrow>Occasions · 2014 — present</Eyebrow>
             </FadeUp>
             <h2 className="mt-5 font-display text-[clamp(2.8rem,7.5vw,6.5rem)] font-medium leading-[0.95] tracking-[-0.03em] text-foreground">
               <RevealWords text="Nights we" />

@@ -158,6 +158,8 @@ export default function AdminEditorsShelfPage() {
   const [height, setHeight] = useState('3.10');
   const [spineThickness, setSpineThickness] = useState('0.42');
   const [coverImage, setCoverImage] = useState<string>('');
+  const [modalError, setModalError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   // Image Cropper State
   const [cropperRawSrc, setCropperRawSrc] = useState<string | null>(null);
@@ -269,6 +271,7 @@ export default function AdminEditorsShelfPage() {
     setHeight('3.10');
     setSpineThickness('0.42');
     setCoverImage('');
+    setModalError(null);
     setIsModalOpen(true);
   };
 
@@ -322,16 +325,21 @@ export default function AdminEditorsShelfPage() {
     setHeight(item.height?.toString() || '3.10');
     setSpineThickness(item.spineThickness?.toString() || '0.42');
     setCoverImage(item.coverImage || '');
+    setModalError(null);
     setIsModalOpen(true);
   };
 
-  const handleCoverFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCoverUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    setModalError(null);
+
     const validation = validateUploadFile(file, 'COVER');
     if (!validation.valid) {
-      setFeedback({ type: 'error', text: validation.error || 'Invalid cover format or size.' });
+      const errorMsg = validation.error || 'Please upload an image with size less than 10MB.';
+      setModalError(errorMsg);
+      setFeedback({ type: 'error', text: errorMsg });
       e.target.value = '';
       return;
     }
@@ -348,13 +356,16 @@ export default function AdminEditorsShelfPage() {
   const handleCropComplete = async (blob: Blob, previewUrl: string) => {
     setIsCropperOpen(false);
     setUploadingCover(true);
+    setModalError(null);
     try {
       const url = await uploadImageBlob(blob, 'shelf-covers', `${slug || 'book'}_cover.jpg`);
       setCoverImage(url);
       setFeedback({ type: 'success', text: 'Book cover uploaded to Cloudinary.' });
     } catch (err: any) {
       console.error(err);
-      setFeedback({ type: 'error', text: err.message || 'Failed to upload cover to Cloudinary.' });
+      const errorMsg = err.message || 'Failed to upload cover. Please upload an image with size less than 10MB.';
+      setModalError(errorMsg);
+      setFeedback({ type: 'error', text: errorMsg });
     } finally {
       setUploadingCover(false);
     }
@@ -733,6 +744,20 @@ export default function AdminEditorsShelfPage() {
                     scrollbarColor: '#777777 transparent',
                   }}
                 >
+                  {/* Modal In-Form Error Alert Prompt */}
+                  {modalError && (
+                    <div className="p-3.5 rounded-xl border border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-400 text-xs flex items-center justify-between gap-3 shadow-xs">
+                      <span className="font-semibold">{modalError}</span>
+                      <button
+                        type="button"
+                        onClick={() => setModalError(null)}
+                        className="p-1 text-red-500 hover:text-red-700 dark:hover:text-red-200 cursor-pointer"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  )}
+
                   {/* Language Template Selector */}
                   <div className="p-4 rounded-2xl bg-neutral-50 dark:bg-neutral-900/50 border border-neutral-200 dark:border-neutral-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                     <div className="flex items-center gap-2 text-xs">

@@ -656,16 +656,16 @@ body {
 
 /* --- Marquee --- */
 @keyframes marquee-x {
-  from {
-    transform: translateX(0);
+  0% {
+    transform: translate3d(0, 0, 0);
   }
-  to {
-    transform: translateX(-50%);
+  100% {
+    transform: translate3d(-50%, 0, 0);
   }
 }
 
 .animate-marquee {
-  animation: marquee-x 36s linear infinite;
+  animation: marquee-x 45s linear infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {

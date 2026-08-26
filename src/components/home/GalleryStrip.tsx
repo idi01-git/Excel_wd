@@ -129,7 +129,9 @@ function ArchiveActionButton() {
 }
 
 export default function GalleryStrip() {
-  const [items, setItems] = useState<GalleryItem[]>(HOME_CURATED_GALLERY.slice(0, 5));
+  const [items, setItems] = useState<GalleryItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [displayLimit, setDisplayLimit] = useState(6);
   const [activeId, setActiveId] = useState<string | null>(null);
   const reduce = useReducedMotion();
 
@@ -140,10 +142,12 @@ export default function GalleryStrip() {
         const res = await fetch('/api/community/gallery?featured=true');
         const data = await res.json();
         if (data.success && Array.isArray(data.items) && isMounted) {
-          setItems(data.items.slice(0, 5));
+          setItems(data.items);
         }
       } catch (error) {
-        console.error('Failed to load gallery for landing page:', error);
+        console.error('Failed to load featured gallery for landing page:', error);
+      } finally {
+        if (isMounted) setLoading(false);
       }
     };
     fetchGallery();
@@ -151,6 +155,9 @@ export default function GalleryStrip() {
       isMounted = false;
     };
   }, []);
+
+  const visible = items.slice(0, displayLimit);
+  const hasMore = displayLimit < items.length;
 
   const activeIndex = items.findIndex((i) => i.id === activeId);
   const active = activeIndex >= 0 ? items[activeIndex] : null;
@@ -163,6 +170,11 @@ export default function GalleryStrip() {
     },
     [activeIndex, items]
   );
+
+  // If loading has completed and there are no featured gallery items, omit the section
+  if (!loading && items.length === 0) {
+    return null;
+  }
 
   return (
     <section className="relative w-full bg-background px-6 pt-12 pb-24 md:px-10 md:pt-16 md:pb-32 font-sans overflow-hidden">
@@ -184,9 +196,9 @@ export default function GalleryStrip() {
           </FadeUp>
         </div>
 
-        {/* ── PHOTO WALL MASONRY (UP TO 5 FEATURED ITEMS) ── */}
+        {/* ── PHOTO WALL MASONRY (ACCOMMODATES ALL RESOLUTIONS SEAMLESSLY) ── */}
         <div className="columns-1 sm:columns-2 lg:columns-3 gap-5 sm:gap-6 md:gap-8 [&>*]:mb-5 sm:[&>*]:mb-6 md:[&>*]:mb-8">
-          {items.map((item, i) => (
+          {visible.map((item, i) => (
             <GalleryTile
               key={item.id}
               item={item}
@@ -196,13 +208,55 @@ export default function GalleryStrip() {
             />
           ))}
         </div>
+
+        {/* ── SHOW MORE / EXPAND ACTION ── */}
+        {items.length > 6 && (
+          <FadeUp delay={0.2} className="mt-12 flex flex-col sm:flex-row items-center justify-center gap-4">
+            {hasMore ? (
+              <button
+                type="button"
+                onClick={() => setDisplayLimit((prev) => Math.min(prev + 6, items.length))}
+                className="group relative inline-flex items-center gap-3 rounded-full border border-neutral-300 dark:border-neutral-700 bg-neutral-900 text-white dark:bg-white dark:text-neutral-950 px-8 py-3.5 text-xs font-mono font-bold uppercase tracking-[0.2em] shadow-md hover:bg-neutral-800 dark:hover:bg-neutral-100 active:scale-[0.98] transition-all cursor-pointer"
+              >
+                <span>Show More Moments</span>
+                <span className="text-[10px] opacity-70 font-mono">
+                  ({items.length - displayLimit} remaining)
+                </span>
+                <motion.span
+                  animate={{ y: [0, 2, 0] }}
+                  transition={{ repeat: Infinity, duration: 1.5, ease: 'easeInOut' }}
+                >
+                  ↓
+                </motion.span>
+              </button>
+            ) : (
+              <div className="flex flex-wrap items-center justify-center gap-4">
+                <button
+                  type="button"
+                  onClick={() => setDisplayLimit(6)}
+                  className="inline-flex items-center gap-2 rounded-full border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-800 dark:text-neutral-200 px-6 py-3 text-xs font-mono font-bold uppercase tracking-[0.2em] hover:bg-neutral-100 dark:hover:bg-neutral-850 active:scale-[0.98] transition-all cursor-pointer"
+                >
+                  <span>Show Less</span>
+                  <span>↑</span>
+                </button>
+                <Link
+                  href="/community/gallery"
+                  className="inline-flex items-center gap-2 text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground hover:text-foreground transition underline underline-offset-4"
+                >
+                  <span>Enter Full Visual Archive</span>
+                  <ArrowUpRight size={14} />
+                </Link>
+              </div>
+            )}
+          </FadeUp>
+        )}
       </div>
 
       {/* ── LIGHTBOX OVERLAY (MATCHING GALLERY PAGE FULL CINEMATIC LIGHTBOX) ── */}
       <Lightbox
         item={active}
         index={activeIndex}
-        siblings={items}
+        siblings={visible}
         onClose={() => setActiveId(null)}
         onStep={step}
         onSelect={(id) => setActiveId(id)}
@@ -228,8 +282,10 @@ function GalleryTile({
   onOpen: () => void;
 }) {
   const ref = useRef<HTMLElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const inView = useInView(ref, { once: true, margin: '-40px' });
   const [isHovered, setIsHovered] = useState(false);
+  const isVideo = item.type === 'VIDEO';
 
   /* ── Interactive Radial Specular Spotlight ── */
   const mouseX = useMotionValue(0);
@@ -266,28 +322,49 @@ function GalleryTile({
         onPointerEnter={(e) => {
           setIsHovered(true);
           handlePointerMove(e);
+          const v = videoRef.current;
+          if (v) void v.play().catch(() => {});
         }}
         onPointerMove={handlePointerMove}
-        onPointerLeave={() => setIsHovered(false)}
+        onPointerLeave={() => {
+          setIsHovered(false);
+          const v = videoRef.current;
+          if (v) {
+            v.pause();
+            v.currentTime = 0;
+          }
+        }}
         className="relative block w-full cursor-pointer overflow-hidden rounded-xl sm:rounded-2xl border border-neutral-200/80 dark:border-neutral-800/90 bg-neutral-100 dark:bg-neutral-900 text-left shadow-[0_4px_20px_rgba(0,0,0,0.04)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.4)] transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:shadow-[0_28px_65px_-10px_rgba(0,0,0,0.22)] dark:group-hover:shadow-[0_28px_65px_-10px_rgba(0,0,0,0.75)] group-hover:border-foreground/35"
       >
-        <div className={`relative w-full overflow-hidden [will-change:transform] [transform:translateZ(0)] ${item.type === 'PHOTO' || item.type === 'MEMORY' ? 'aspect-[3/4] sm:aspect-[4/5]' : 'aspect-[4/3] sm:aspect-[16/10]'}`}>
-          {/* Smooth Hardware-Accelerated Kinetic Zoom */}
-          <motion.img
-            src={getOptimizedGalleryUrl(item.url, 800)}
-            alt={item.caption || TYPE_LABEL[item.type]}
-            loading="lazy"
-            decoding="async"
-            animate={{
-              scale: isHovered && !reduce ? 1.075 : 1.0,
-              filter: isHovered ? 'contrast(104%) brightness(102%)' : 'contrast(100%) brightness(100%)',
-            }}
-            transition={{
-              scale: { duration: 1.2, ease: [0.16, 1, 0.3, 1] },
-              filter: { duration: 0.8, ease: [0.16, 1, 0.3, 1] },
-            }}
-            className="block h-full w-full object-cover transform-gpu backface-hidden [transform-style:preserve-3d]"
-          />
+        <div className="relative w-full overflow-hidden [will-change:transform] [transform:translateZ(0)]">
+          {/* Media — natural intrinsic proportions, no unwanted aspect cropping */}
+          {isVideo ? (
+            <video
+              ref={videoRef}
+              src={item.url}
+              muted
+              loop
+              playsInline
+              preload="metadata"
+              className="block w-full h-auto object-cover transform-gpu backface-hidden [transform-style:preserve-3d]"
+            />
+          ) : (
+            <motion.img
+              src={getOptimizedGalleryUrl(item.url, 800)}
+              alt={item.caption || TYPE_LABEL[item.type] || 'Gallery archive photo'}
+              loading="lazy"
+              decoding="async"
+              animate={{
+                scale: isHovered && !reduce ? 1.075 : 1.0,
+                filter: isHovered ? 'contrast(104%) brightness(102%)' : 'contrast(100%) brightness(100%)',
+              }}
+              transition={{
+                scale: { duration: 1.2, ease: [0.16, 1, 0.3, 1] },
+                filter: { duration: 0.8, ease: [0.16, 1, 0.3, 1] },
+              }}
+              className="block w-full h-auto object-cover transform-gpu backface-hidden [transform-style:preserve-3d]"
+            />
+          )}
 
           {/* Ambient Radial Specular Sheen tracking pointer */}
           <motion.div
@@ -303,6 +380,13 @@ function GalleryTile({
             transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
             className="pointer-events-none absolute inset-0 z-10 bg-gradient-to-t from-black/60 via-transparent to-black/20"
           />
+
+          {/* Video indicator badge */}
+          {isVideo && (
+            <span className="pointer-events-none absolute left-3.5 top-3.5 z-20 flex h-8 w-8 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-md transition-opacity duration-500 group-hover:opacity-0">
+              <span className="ml-0.5 block h-0 w-0 border-y-[5px] border-l-[8px] border-y-transparent border-l-white" />
+            </span>
+          )}
         </div>
       </button>
     </motion.figure>

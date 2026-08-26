@@ -123,7 +123,7 @@ export default function HomepageCmsPage() {
 
     const validation = validateUploadFile(file, 'MEDIA');
     if (!validation.valid) {
-      setNotice(validation.error || 'Invalid card image format or size.');
+      setNotice(validation.error || 'Please upload an image with size less than 10MB.');
       return;
     }
 
@@ -134,9 +134,22 @@ export default function HomepageCmsPage() {
       }
       const url = await uploadImageBlob(file, 'homepage-cards', file.name);
       setCards((all) => all.map((card, i) => (i === index ? { ...card, image: url } : card)));
-    } catch {
-      setNotice('Image upload failed.');
+      setNotice('Image attached successfully.');
+    } catch (err: any) {
+      setNotice(err.message || 'Image upload failed. Please upload an image with size less than 10MB.');
     }
+  };
+
+  const cleanSnippet = (text?: string | null, maxLen = 175): string => {
+    if (!text) return '';
+    const clean = text
+      .replace(/<[^>]*>/g, ' ')
+      .replace(/[#*`_~>[\]()]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (!clean) return '';
+    if (clean.length <= maxLen) return clean;
+    return clean.slice(0, maxLen).trim().replace(/[.,;:!\s]+$/, '') + '...';
   };
 
   const chooseCardSource = (index: number, source: string) => {
@@ -146,6 +159,10 @@ export default function HomepageCmsPage() {
     if (kind === 'publication') {
       const item = assets.publications.find((x) => x.id === id);
       if (!item) return;
+      const snippet =
+        cleanSnippet(item.excerpt || item.content || item.authorNote) ||
+        'An original literary piece published by the Excelsior Literary Society.';
+
       setCards((all) =>
         all.map((card, i) =>
           i === index
@@ -156,6 +173,7 @@ export default function HomepageCmsPage() {
                 category: item.category || 'ARTICLE',
                 readTime: `${item.readingTime || 4} min read`,
                 words: `${(item.readingTime || 4) * 250}`,
+                description: snippet,
                 image: item.coverImage || '',
                 href: `/publications/${item.slug}`,
               }
@@ -165,6 +183,10 @@ export default function HomepageCmsPage() {
     } else if (kind === 'book') {
       const item = assets.books.find((x) => x.id === id);
       if (!item) return;
+      const snippet =
+        cleanSnippet(item.synopsis || item.excerpt) ||
+        `Curated hardback edition featured in the Excelsior Editor's Shelf.`;
+
       setCards((all) =>
         all.map((card, i) =>
           i === index
@@ -175,7 +197,7 @@ export default function HomepageCmsPage() {
                 category: item.genre?.[0]?.toUpperCase() || "EDITOR'S PICK",
                 readTime: 'Hardback Volume',
                 words: 'Curated Edition',
-                description: item.excerpt || item.synopsis || card.description,
+                description: snippet,
                 image: item.coverImage || '',
                 href: `/editors-shelf/${item.slug}`,
               }
@@ -185,6 +207,10 @@ export default function HomepageCmsPage() {
     } else if (kind === 'library') {
       const item = assets.libraryBooks.find((x) => x.id === id);
       if (!item) return;
+      const snippet =
+        cleanSnippet(item.description) ||
+        `Available in the Excelsior Club Library for borrowing. Category: ${item.genre?.join(', ') || 'Literature'}.`;
+
       setCards((all) =>
         all.map((card, i) =>
           i === index
@@ -195,7 +221,7 @@ export default function HomepageCmsPage() {
                 category: item.genre?.[0]?.toUpperCase() || 'LIBRARY BOOK',
                 readTime: item.pageCount ? `${item.pageCount} pages` : 'Club Library',
                 words: item.pageCount ? `${item.pageCount} pages` : (item.publishedYear ? `Pub. ${item.publishedYear}` : 'Society Volume'),
-                description: item.description || `Available in the Excelsior Club Library for borrowing. Category: ${item.genre?.join(', ') || 'Literature'}.`,
+                description: snippet,
                 image: item.coverImage || '',
                 href: `/community/library/${item.id}`,
                 accent: '#d4af37',

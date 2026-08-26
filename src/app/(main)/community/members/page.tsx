@@ -18,6 +18,7 @@ interface Member {
   memberTitle?: string | null;
   branch?: string | null;
   batch?: string | null;
+  displayOrder?: number | null;
   socialLinks?: any;
 }
 
@@ -375,10 +376,18 @@ export default function MembersDirectoryPage() {
     };
   }, []);
 
-  const coordinators = members.filter((m) => categorizeMember(m) === 'COORDINATORS');
-  const coreCommittee = members.filter((m) => categorizeMember(m) === 'CORE');
-  const teamMembers = members.filter((m) => categorizeMember(m) === 'TEAM');
-  const societyMembers = members.filter((m) => categorizeMember(m) === 'MEMBERS');
+  const coordinators = members
+    .filter((m) => categorizeMember(m) === 'COORDINATORS')
+    .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
+  const coreCommittee = members
+    .filter((m) => categorizeMember(m) === 'CORE')
+    .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
+  const teamMembers = members
+    .filter((m) => categorizeMember(m) === 'TEAM')
+    .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
+  const societyMembers = members
+    .filter((m) => categorizeMember(m) === 'MEMBERS')
+    .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
 
   return (
     <div className="w-full bg-background min-h-screen px-6 md:px-10 pt-4 md:pt-6 pb-20 text-foreground font-sans">

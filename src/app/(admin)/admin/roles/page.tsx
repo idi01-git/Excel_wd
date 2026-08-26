@@ -541,8 +541,8 @@ export default function AdminRolesPage() {
           </div>
         )}
 
-        {/* TAB 2: All Users Table */}
-        {activeTab === 'all' && (
+        {/* TAB 2: Users Registry Table (Club Members, Alumni, All) */}
+        {activeTab !== 'pending' && (
           <div className="rounded-3xl border border-neutral-200/90 dark:border-neutral-800 bg-white dark:bg-[#0e0e0e] overflow-hidden shadow-xs">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs border-collapse">
@@ -565,8 +565,12 @@ export default function AdminRolesPage() {
                     </tr>
                   ) : displayedUsers.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="py-20 text-center text-neutral-500 font-mono">
-                        No users found in this section.
+                      <td colSpan={6} className="py-20 text-center text-neutral-500 font-mono text-xs">
+                        {activeTab === 'members'
+                          ? 'No active club members found.'
+                          : activeTab === 'alumni'
+                          ? 'No registered alumni found.'
+                          : 'No users found in this section.'}
                       </td>
                     </tr>
                   ) : (

@@ -17,7 +17,6 @@ export async function GET(req: Request) {
     const items = await db.galleryItem.findMany({
       where: whereClause,
       orderBy: { createdAt: 'desc' },
-      ...(featuredOnly ? { take: 5 } : {}),
     });
 
     return NextResponse.json({ success: true, items });

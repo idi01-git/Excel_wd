@@ -27,8 +27,8 @@ export async function POST(req: Request) {
 
     const base64Length = dataUrl.length - (dataUrl.indexOf(',') + 1);
     const sizeInBytes = (base64Length * 3) / 4;
-    if (sizeInBytes > 5 * 1024 * 1024) {
-      return NextResponse.json({ error: 'Image must be under 5MB' }, { status: 400 });
+    if (sizeInBytes > 10 * 1024 * 1024) {
+      return NextResponse.json({ error: 'Image must be under 10MB' }, { status: 400 });
     }
 
     const uploadResponse = await cloudinary.uploader.upload(dataUrl, {

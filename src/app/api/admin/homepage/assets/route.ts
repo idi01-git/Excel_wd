@@ -22,6 +22,7 @@ export async function GET() {
         readingTime: true,
         authorName: true,
         authorNote: true,
+        content: true,
         alumniProfile: { select: { name: true, batch: true } },
         author: { select: { name: true } },
       },

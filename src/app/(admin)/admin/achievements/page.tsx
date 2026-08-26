@@ -52,6 +52,7 @@ export default function AdminAchievementsPage() {
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [image, setImage] = useState('');
   const [saving, setSaving] = useState(false);
+  const [modalError, setModalError] = useState<string | null>(null);
 
   // Image Cropper
   const [cropperRawSrc, setCropperRawSrc] = useState<string | null>(null);
@@ -107,6 +108,7 @@ export default function AdminAchievementsPage() {
     setCategory(AchievementCategory.AWARD);
     setDate(new Date().toISOString().split('T')[0]);
     setImage('');
+    setModalError(null);
     setIsModalOpen(true);
   };
 
@@ -117,6 +119,7 @@ export default function AdminAchievementsPage() {
     setCategory(item.category);
     setDate(item.date ? new Date(item.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]);
     setImage(item.image || '');
+    setModalError(null);
     setIsModalOpen(true);
   };
 
@@ -124,9 +127,13 @@ export default function AdminAchievementsPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    setModalError(null);
+
     const validation = validateUploadFile(file, 'MEDIA');
     if (!validation.valid) {
-      setFeedback({ type: 'error', text: validation.error || 'Invalid image format or size.' });
+      const errorMsg = validation.error || 'Please upload an image with size less than 10MB.';
+      setModalError(errorMsg);
+      setFeedback({ type: 'error', text: errorMsg });
       e.target.value = '';
       return;
     }
@@ -143,13 +150,16 @@ export default function AdminAchievementsPage() {
   const handleCropComplete = async (blob: Blob, previewUrl: string) => {
     setIsCropperOpen(false);
     setUploadingImage(true);
+    setModalError(null);
     try {
       const uploadedUrl = await uploadImageBlob(blob, 'achievements', `achievement_${Date.now()}.jpg`);
       setImage(uploadedUrl);
       setFeedback({ type: 'success', text: 'Achievement image uploaded to Cloudinary.' });
     } catch (err: any) {
       console.error(err);
-      setFeedback({ type: 'error', text: err.message || 'Failed to upload achievement image to Cloudinary.' });
+      const errorMsg = err.message || 'Failed to upload achievement image. Please upload an image with size less than 10MB.';
+      setModalError(errorMsg);
+      setFeedback({ type: 'error', text: errorMsg });
     } finally {
       setUploadingImage(false);
     }
@@ -484,6 +494,19 @@ export default function AdminAchievementsPage() {
                   scrollbarColor: '#777777 transparent',
                 }}
               >
+                {/* Modal In-Form Error Alert Prompt */}
+                {modalError && (
+                  <div className="p-3.5 rounded-xl border border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-400 text-xs flex items-center justify-between gap-3 shadow-xs">
+                    <span className="font-semibold">{modalError}</span>
+                    <button
+                      type="button"
+                      onClick={() => setModalError(null)}
+                      className="p-1 text-red-500 hover:text-red-700 dark:hover:text-red-200 cursor-pointer"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                )}
                 <div className="space-y-1.5">
                   <label className="text-[11px] font-medium text-neutral-600 dark:text-neutral-400">
                     Achievement / Trophy Title *

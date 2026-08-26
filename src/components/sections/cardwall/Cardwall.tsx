@@ -281,7 +281,6 @@ const REPEATS = 3;
 const DEFAULT_CARDS: CardDesign[] = Array.from({ length: REPEATS }, (_, r) =>
   PALETTE.map((c, ci) => ({ ...c, id: r * PALETTE.length + ci }))
 ).flat();
-let visibleCards: CardDesign[] = DEFAULT_CARDS;
 
 const COLORFLOW_EMBED_URLS = [
   "https://colorflow-embed.b-cdn.net/embed.html#e=bRYky8cX",
@@ -710,6 +709,7 @@ function CardBack({ card }: { card: CardDesign }) {
    ========================================================================== */
 
 function CardDetail({
+  card,
   detail,
   onClose,
   deckPerspectiveEl,
@@ -718,6 +718,7 @@ function CardDetail({
   shadowEls,
   cardEls,
 }: {
+  card: CardDesign;
   detail: DetailState;
   onClose: () => void;
   deckPerspectiveEl: HTMLDivElement | null;
@@ -734,7 +735,6 @@ function CardDetail({
   const closingRef = useRef(false);
   const entrancePlayedRef = useRef(false);
 
-  const card = visibleCards[detail.idx];
   const paletteId = detail.idx % PALETTE.length;
 
   const isMobile = typeof window !== "undefined" && window.innerWidth <= MOBILE_BREAKPOINT;
@@ -1390,7 +1390,7 @@ function CardDetail({
             </div>
           </div>
 
-          {/* 6. Read publication CTA button */}
+          {/* 6. Dynamic Destination CTA button */}
           <Link
             href={card.slug || "/publications"}
             data-detail-reveal
@@ -1400,7 +1400,13 @@ function CardDetail({
                        transition-transform hover:scale-[1.02] active:scale-[0.98]"
           >
             <span className="text-[12px] uppercase tracking-[0.24em] font-medium">
-              Read publication
+              {card.slug?.includes("/editors-shelf")
+                ? "Open Editor's Shelf"
+                : card.slug?.includes("/library")
+                ? "View in Library"
+                : card.slug?.includes("/events")
+                ? "View Event"
+                : "Read publication"}
             </span>
             <span className="transition-transform group-hover:translate-x-1">→</span>
           </Link>
@@ -2307,8 +2313,9 @@ export default function Cardwall({
       </div>
 
       {/* Flight Detail Modal */}
-      {detail !== null && (
+      {detail !== null && visibleCards[detail.idx] && (
         <CardDetail
+          card={visibleCards[detail.idx]}
           detail={detail}
           onClose={handleCloseDetail}
           deckPerspectiveEl={deckPerspectiveRef.current}
