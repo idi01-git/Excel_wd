@@ -11,21 +11,21 @@ export interface UploadCategoryConfig {
 
 export const UPLOAD_CONFIGS: Record<UploadCategory, UploadCategoryConfig> = {
   AVATAR: {
-    maxBytes: 2 * 1024 * 1024,
-    maxMb: 2,
+    maxBytes: 10 * 1024 * 1024,
+    maxMb: 10,
     allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp'],
     label: 'Profile / Member Portrait',
   },
   COVER: {
-    maxBytes: 3 * 1024 * 1024,
-    maxMb: 3,
+    maxBytes: 10 * 1024 * 1024,
+    maxMb: 10,
     allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp'],
     label: 'Cover Artwork',
   },
   MEDIA: {
-    maxBytes: 5 * 1024 * 1024,
-    maxMb: 5,
-    allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp'],
+    maxBytes: 10 * 1024 * 1024,
+    maxMb: 10,
+    allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
     label: 'Event Poster / Media / Achievement / Card',
   },
   GALLERY: {
@@ -35,8 +35,8 @@ export const UPLOAD_CONFIGS: Record<UploadCategory, UploadCategoryConfig> = {
     label: 'Community Gallery Image',
   },
   PAYMENT_PROOF: {
-    maxBytes: 10 * 1024 * 1024,
-    maxMb: 10,
+    maxBytes: 5 * 1024 * 1024,
+    maxMb: 5,
     allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf'],
     label: 'Payment Proof (Image or PDF)',
   },
@@ -45,7 +45,7 @@ export const UPLOAD_CONFIGS: Record<UploadCategory, UploadCategoryConfig> = {
 export const ACCEPT_MAP: Record<UploadCategory, string> = {
   AVATAR: 'image/jpeg,image/png,image/webp',
   COVER: 'image/jpeg,image/png,image/webp',
-  MEDIA: 'image/jpeg,image/png,image/webp',
+  MEDIA: 'image/jpeg,image/png,image/webp,image/gif',
   GALLERY: 'image/jpeg,image/png,image/webp,image/gif',
   PAYMENT_PROOF: 'image/jpeg,image/png,image/webp,image/gif,application/pdf',
 };
@@ -84,10 +84,9 @@ export function validateUploadFile(
   }
 
   if (file.size > config.maxBytes) {
-    const fileSizeMb = (file.size / (1024 * 1024)).toFixed(1);
     return {
       valid: false,
-      error: `File size is ${fileSizeMb}MB. Maximum allowed is ${config.maxMb}MB.`,
+      error: `Please upload an image with size less than ${config.maxMb}MB.`,
     };
   }
 

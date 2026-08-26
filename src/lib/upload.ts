@@ -5,6 +5,15 @@ export async function uploadImageBlob(
   folder = 'avatars',
   filename = 'upload.jpg'
 ): Promise<string> {
+  const isProof = folder === 'event-payment-proofs';
+  const maxMb = isProof ? 5 : 10;
+  const maxBytes = maxMb * 1024 * 1024;
+
+  if (blob.size > maxBytes) {
+    const sizeMb = (blob.size / (1024 * 1024)).toFixed(1);
+    throw new Error(`File is ${sizeMb}MB. Please upload an image with size less than ${maxMb}MB.`);
+  }
+
   const formData = new FormData();
   formData.append('file', blob, filename);
   formData.append('folder', folder);
@@ -16,7 +25,11 @@ export async function uploadImageBlob(
 
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.error || 'Failed to upload image');
+    let msg = errorData.error || 'Failed to upload image';
+    if (msg.includes('between 1 byte and') || msg.includes('size')) {
+      msg = `Please upload an image with size less than ${maxMb}MB.`;
+    }
+    throw new Error(msg);
   }
 
   const data = await res.json();

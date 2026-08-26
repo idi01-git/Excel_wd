@@ -588,7 +588,7 @@ export default function EditProfileModal({ isOpen, onClose, currentUser }: EditP
                       type="text"
                       value={githubInput}
                       onChange={(e) => setGithubInput(e.target.value)}
-                      placeholder="GitHub username (e.g. mayalin)"
+                      placeholder="GitHub username (e.g. shaurya)"
                       className={`w-full h-10 px-3 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-[#101010] text-xs text-neutral-900 dark:text-white focus:outline-none ${
                         !showGithub ? 'opacity-50' : ''
                       }`}
@@ -636,7 +636,7 @@ export default function EditProfileModal({ isOpen, onClose, currentUser }: EditP
                       type="text"
                       value={linkedinInput}
                       onChange={(e) => setLinkedinInput(e.target.value)}
-                      placeholder="LinkedIn handle (e.g. mayalin)"
+                      placeholder="LinkedIn handle (e.g. shaurya)"
                       className={`w-full h-10 px-3 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-[#101010] text-xs text-neutral-900 dark:text-white focus:outline-none ${
                         !showLinkedin ? 'opacity-50' : ''
                       }`}

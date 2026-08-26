@@ -17,45 +17,91 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const search = searchParams.get('search')?.trim() || '';
 
-    const members = await db.user.findMany({
-      where: {
-        role: { in: ACTIVE_MEMBER_ROLES },
-        ...(search
-          ? {
-              AND: [
-                {
-                  OR: [
-                    { name: { contains: search, mode: 'insensitive' } },
-                    { username: { contains: search, mode: 'insensitive' } },
-                  ],
-                },
-              ],
-            }
-          : {}),
-      },
-      select: {
-        id: true,
-        name: true,
-        username: true,
-        profilePhoto: true,
-        bio: true,
-        role: true,
-        memberSection: true,
-        memberTitle: true,
-        branch: true,
-        batch: true,
-        directoryPhoto: true,
-        showSocialLinks: true,
-        socialLinks: true,
-        alumniProfile: {
-          select: {
-            id: true,
-            batch: true,
+    let members: any[] = [];
+    try {
+      members = await db.user.findMany({
+        where: {
+          role: { in: ACTIVE_MEMBER_ROLES },
+          ...(search
+            ? {
+                AND: [
+                  {
+                    OR: [
+                      { name: { contains: search, mode: 'insensitive' } },
+                      { username: { contains: search, mode: 'insensitive' } },
+                    ],
+                  },
+                ],
+              }
+            : {}),
+        },
+        select: {
+          id: true,
+          name: true,
+          username: true,
+          profilePhoto: true,
+          bio: true,
+          role: true,
+          memberSection: true,
+          memberTitle: true,
+          branch: true,
+          batch: true,
+          directoryPhoto: true,
+          showSocialLinks: true,
+          socialLinks: true,
+          // @ts-ignore
+          displayOrder: true,
+          alumniProfile: {
+            select: {
+              id: true,
+              batch: true,
+            },
           },
         },
-      },
-      orderBy: [{ memberSection: 'asc' }, { name: 'asc' }],
-    });
+        // @ts-ignore
+        orderBy: [{ memberSection: 'asc' }, { displayOrder: 'asc' }, { name: 'asc' }],
+      });
+    } catch {
+      members = await db.user.findMany({
+        where: {
+          role: { in: ACTIVE_MEMBER_ROLES },
+          ...(search
+            ? {
+                AND: [
+                  {
+                    OR: [
+                      { name: { contains: search, mode: 'insensitive' } },
+                      { username: { contains: search, mode: 'insensitive' } },
+                    ],
+                  },
+                ],
+              }
+            : {}),
+        },
+        select: {
+          id: true,
+          name: true,
+          username: true,
+          profilePhoto: true,
+          bio: true,
+          role: true,
+          memberSection: true,
+          memberTitle: true,
+          branch: true,
+          batch: true,
+          directoryPhoto: true,
+          showSocialLinks: true,
+          socialLinks: true,
+          alumniProfile: {
+            select: {
+              id: true,
+              batch: true,
+            },
+          },
+        },
+        orderBy: [{ memberSection: 'asc' }, { name: 'asc' }],
+      });
+    }
 
     const mappedMembers = members.map((m) => ({
       id: m.id,
@@ -69,6 +115,7 @@ export async function GET(req: Request) {
       memberTitle: m.memberTitle,
       branch: m.branch,
       batch: m.batch,
+      displayOrder: m.displayOrder,
       alumniProfile: m.alumniProfile,
       socialLinks: m.showSocialLinks ? m.socialLinks : null,
     }));

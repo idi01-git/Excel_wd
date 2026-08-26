@@ -70,11 +70,11 @@ export async function PUT(req: Request) {
 
     // Handle Cloudinary upload if a base64 string is sent
     if (profilePhoto && profilePhoto.startsWith('data:image/')) {
-      // Validate file size (under 5MB)
+      // Validate file size (under 10MB)
       const base64Length = profilePhoto.length - (profilePhoto.indexOf(',') + 1);
       const sizeInBytes = (base64Length * 3) / 4;
-      if (sizeInBytes > 5 * 1024 * 1024) {
-        return NextResponse.json({ error: 'Profile photo must be under 5MB' }, { status: 400 });
+      if (sizeInBytes > 10 * 1024 * 1024) {
+        return NextResponse.json({ error: 'Profile photo must be under 10MB' }, { status: 400 });
       }
 
       if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {

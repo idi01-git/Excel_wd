@@ -68,6 +68,7 @@ export default function AdminAlumniPage() {
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingAlum, setEditingAlum] = useState<AlumniItem | null>(null);
+  const [modalError, setModalError] = useState<string | null>(null);
 
   // Form Fields
   const [name, setName] = useState('');
@@ -230,9 +231,13 @@ export default function AdminAlumniPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    setModalError(null);
+
     const validation = validateUploadFile(file, 'AVATAR');
     if (!validation.valid) {
-      setFeedback({ type: 'error', text: validation.error || 'Invalid photo format or size.' });
+      const errorMsg = validation.error || 'Please upload an image with size less than 10MB.';
+      setModalError(errorMsg);
+      setFeedback({ type: 'error', text: errorMsg });
       e.target.value = '';
       return;
     }
@@ -249,13 +254,16 @@ export default function AdminAlumniPage() {
   const handleCropComplete = async (blob: Blob, previewUrl: string) => {
     setIsCropperOpen(false);
     setUploadingPhoto(true);
+    setModalError(null);
     try {
       const url = await uploadImageBlob(blob, 'alumni-photos', `${name || 'alumni'}_photo.jpg`);
       setPhoto(url);
       setFeedback({ type: 'success', text: 'Alumni portrait uploaded to Cloudinary.' });
     } catch (err: any) {
       console.error(err);
-      setFeedback({ type: 'error', text: err.message || 'Failed to upload photo to Cloudinary. Please try again.' });
+      const errorMsg = err.message || 'Failed to upload photo. Please upload an image with size less than 10MB.';
+      setModalError(errorMsg);
+      setFeedback({ type: 'error', text: errorMsg });
     } finally {
       setUploadingPhoto(false);
     }
@@ -699,6 +707,19 @@ export default function AdminAlumniPage() {
                   scrollbarColor: '#777777 transparent',
                 }}
               >
+                {/* Modal Error Alert Prompt */}
+                {modalError && (
+                  <div className="p-3.5 rounded-xl border border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-400 text-xs flex items-center justify-between gap-3 shadow-xs">
+                    <span className="font-semibold">{modalError}</span>
+                    <button
+                      type="button"
+                      onClick={() => setModalError(null)}
+                      className="p-1 text-red-500 hover:text-red-700 dark:hover:text-red-200 cursor-pointer"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                )}
                 {/* Photo Upload with 4:4.3 Portrait Cropper */}
                 <div className="flex items-center gap-4 p-3.5 rounded-2xl bg-neutral-50 dark:bg-[#0e0e0e] border border-neutral-200 dark:border-neutral-800">
                   <div className="h-14 w-14 rounded-2xl bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 overflow-hidden flex items-center justify-center font-bold text-neutral-400 font-serif text-xl shrink-0 shadow-xs">

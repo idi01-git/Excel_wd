@@ -16,7 +16,7 @@ const STAFF_ROLES = [
 
 async function updateMember(req: Request, id: string, actorId: string) {
   const body = await req.json();
-  const { memberSection, memberTitle, branch, batch, directoryPhoto, showSocialLinks } = body;
+  const { memberSection, memberTitle, branch, batch, directoryPhoto, showSocialLinks, displayOrder } = body;
 
   if (memberSection !== undefined && !Object.values(MemberSection).includes(memberSection as MemberSection)) {
     return NextResponse.json({ error: 'Invalid member section' }, { status: 400 });
@@ -38,24 +38,46 @@ async function updateMember(req: Request, id: string, actorId: string) {
     await deleteImageByUrl(existing.directoryPhoto);
   }
 
-  const updated = await db.user.update({
-    where: { id },
-    data: {
-      memberSection: memberSection === undefined ? undefined : memberSection as MemberSection,
-      memberTitle: title === undefined ? undefined : title || null,
-      branch: branch === undefined ? undefined : String(branch).trim() || null,
-      batch: batch === undefined ? undefined : String(batch).trim() || null,
-      directoryPhoto: nextPhoto,
-      showSocialLinks: showSocialLinks === undefined ? undefined : Boolean(showSocialLinks),
-    },
-  });
+  const parsedOrder = displayOrder !== undefined ? (Number.isFinite(Number(displayOrder)) ? Number(displayOrder) : 0) : undefined;
+
+  let updated: any;
+  try {
+    updated = await db.user.update({
+      where: { id },
+      data: {
+        memberSection: memberSection === undefined ? undefined : memberSection as MemberSection,
+        memberTitle: title === undefined ? undefined : title || null,
+        branch: branch === undefined ? undefined : String(branch).trim() || null,
+        batch: batch === undefined ? undefined : String(batch).trim() || null,
+        directoryPhoto: nextPhoto,
+        showSocialLinks: showSocialLinks === undefined ? undefined : Boolean(showSocialLinks),
+        // @ts-ignore
+        displayOrder: parsedOrder,
+      },
+    });
+  } catch {
+    updated = await db.user.update({
+      where: { id },
+      data: {
+        memberSection: memberSection === undefined ? undefined : memberSection as MemberSection,
+        memberTitle: title === undefined ? undefined : title || null,
+        branch: branch === undefined ? undefined : String(branch).trim() || null,
+        batch: batch === undefined ? undefined : String(batch).trim() || null,
+        directoryPhoto: nextPhoto,
+        showSocialLinks: showSocialLinks === undefined ? undefined : Boolean(showSocialLinks),
+      },
+    });
+    if (parsedOrder !== undefined) {
+      await db.$executeRawUnsafe(`UPDATE "User" SET "displayOrder" = $1 WHERE "id" = $2`, parsedOrder, id);
+    }
+  }
 
   await recordAuditEvent({
     actorId,
     action: 'MEMBER_UPDATE',
     entityType: 'USER',
     entityId: id,
-    metadata: { memberSection, memberTitle: title, branch, batch, directoryPhoto: nextPhoto, showSocialLinks },
+    metadata: { memberSection, memberTitle: title, branch, batch, directoryPhoto: nextPhoto, showSocialLinks, displayOrder: parsedOrder },
     request: req,
   });
 

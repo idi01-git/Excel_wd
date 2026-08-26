@@ -36,7 +36,28 @@ export default async function RootPage() {
       heroCards = cards;
     }
 
-    const events = (settings['home.eventsStrip'] as any)?.items;
+    let events = (settings['home.eventsStrip'] as any)?.items;
+    if (!Array.isArray(events) || events.length === 0) {
+      const dbEvents = await db.event
+        .findMany({
+          where: { status: { not: 'CANCELLED' } },
+          orderBy: { date: 'desc' },
+          take: 8,
+        })
+        .catch(() => []);
+
+      if (dbEvents.length > 0) {
+        events = dbEvents.map((e) => ({
+          title: e.title,
+          kind: e.isCompetition ? 'Competition' : 'Event',
+          date: new Date(e.date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
+          venue: e.venue,
+          image: e.coverImage || e.posterImage || '',
+          href: `/events/${e.slug}`,
+        }));
+      }
+    }
+
     if (Array.isArray(events) && events.length > 0) {
       eventsItems = events.slice(0, 8).map((item: any, index: number) => ({
         index: String(index + 1).padStart(2, '0'),
@@ -47,6 +68,8 @@ export default async function RootPage() {
         image: item.image,
         href: item.href || '/events',
       }));
+    } else {
+      eventsItems = [];
     }
 
     const testimonial = settings['home.testimonials'] as { mode?: string; pinnedIds?: string[]; items?: any[] } | undefined;

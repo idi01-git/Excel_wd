@@ -170,7 +170,7 @@ export default function LoginPage() {
               required
               value={username}
               onChange={(e: any) => setUsername(e.target.value)}
-              placeholder="e.g. mayalin or user@email.com"
+              placeholder="e.g. shaurya or Abhinav123@ietlucknow.ac.in"
             />
             <FormInput
               label="Password"

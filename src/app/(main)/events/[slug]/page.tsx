@@ -1217,7 +1217,7 @@ export default function EventDetailPage() {
                       ) : (
                         <label className="flex flex-col items-center justify-center cursor-pointer border-2 border-dashed border-black dark:border-[#eee] px-4 py-5 gap-1.5 hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
                           <span className="text-[10px] font-bold uppercase tracking-widest text-black dark:text-[#eee]">Upload Payment Proof *</span>
-                          <span className="text-[9px] font-mono text-neutral-500 dark:text-neutral-400">Image or PDF · max 10 MB</span>
+                          <span className="text-[9px] font-mono text-neutral-500 dark:text-neutral-400">Image or PDF · max 5 MB</span>
                           <input
                             hidden
                             required

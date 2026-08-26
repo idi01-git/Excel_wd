@@ -54,16 +54,16 @@ export default function Footer() {
   return (
     <footer className="relative mt-auto bg-foreground text-background">
       {/* Marquee */}
-      <div className="overflow-hidden border-b border-background/15 py-4">
+      <div className="overflow-hidden border-b border-background/15 py-4 select-none">
         <div className="animate-marquee flex w-max items-center whitespace-nowrap will-change-transform">
           {[0, 1].map((copy) => (
             <div
               key={copy}
               aria-hidden={copy === 1}
-              className="flex items-center font-mono text-[11px] uppercase tracking-[0.32em] text-background/50"
+              className="flex shrink-0 items-center font-mono text-[11px] uppercase tracking-[0.32em] text-background/50"
             >
-              {MARQUEE_ITEMS.map((item) => (
-                <span key={`${copy}-${item}`} className="flex items-center">
+              {[...MARQUEE_ITEMS, ...MARQUEE_ITEMS, ...MARQUEE_ITEMS, ...MARQUEE_ITEMS].map((item, idx) => (
+                <span key={`${copy}-${idx}-${item}`} className="flex items-center">
                   <span className="px-6">{item}</span>
                   <span className="text-background/30">✦</span>
                 </span>
@@ -87,7 +87,7 @@ export default function Footer() {
           <div className="md:col-span-5 flex flex-col items-start">
             <p className="max-w-sm text-sm leading-relaxed text-background/60">
               Constructing stories, preserving poetry, and building community —
-              a sanctuary for campus writers and journalists since 2015.
+              a sanctuary for campus writers and journalists since 2014.
             </p>
             {!session && (
               <motion.div
@@ -198,7 +198,7 @@ export default function Footer() {
             </a>{' '}
             ❤️
           </span>
-          <span>Est. 2015 · Still in print</span>
+          <span>Est. 2014 · Still in print</span>
         </div>
       </div>
     </footer>

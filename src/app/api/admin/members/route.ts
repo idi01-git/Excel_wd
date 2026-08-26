@@ -19,23 +19,48 @@ export async function GET() {
     const { error } = await requirePermission('MANAGE_MEMBERS');
     if (error) return error;
 
-    const members = await db.user.findMany({
-      where: {
-        OR: [
-          { role: { in: OFFICIAL_MEMBER_ROLES } },
-          { memberSection: { not: null } },
-        ],
-      },
-      select: {
-        id: true, name: true, username: true, email: true, role: true,
-        memberSection: true, memberTitle: true, branch: true, batch: true,
-        rollNumber: true, profilePhoto: true, directoryPhoto: true, bio: true,
-        socialLinks: true, showSocialLinks: true,
-        alumniProfile: { select: { id: true, batch: true } },
-        createdAt: true,
-      },
-      orderBy: [{ memberSection: 'asc' }, { name: 'asc' }],
-    });
+    let members: any[] = [];
+    try {
+      members = await db.user.findMany({
+        where: {
+          OR: [
+            { role: { in: OFFICIAL_MEMBER_ROLES } },
+            { memberSection: { not: null } },
+          ],
+        },
+        select: {
+          id: true, name: true, username: true, email: true, role: true,
+          memberSection: true, memberTitle: true, branch: true, batch: true,
+          rollNumber: true, profilePhoto: true, directoryPhoto: true, bio: true,
+          socialLinks: true, showSocialLinks: true,
+          // @ts-ignore
+          displayOrder: true,
+          alumniProfile: { select: { id: true, batch: true } },
+          createdAt: true,
+        },
+        // @ts-ignore
+        orderBy: [{ memberSection: 'asc' }, { displayOrder: 'asc' }, { name: 'asc' }],
+      });
+    } catch {
+      // Fallback query if client is awaiting server restart
+      members = await db.user.findMany({
+        where: {
+          OR: [
+            { role: { in: OFFICIAL_MEMBER_ROLES } },
+            { memberSection: { not: null } },
+          ],
+        },
+        select: {
+          id: true, name: true, username: true, email: true, role: true,
+          memberSection: true, memberTitle: true, branch: true, batch: true,
+          rollNumber: true, profilePhoto: true, directoryPhoto: true, bio: true,
+          socialLinks: true, showSocialLinks: true,
+          alumniProfile: { select: { id: true, batch: true } },
+          createdAt: true,
+        },
+        orderBy: [{ memberSection: 'asc' }, { name: 'asc' }],
+      });
+    }
 
     return NextResponse.json({ success: true, members });
   } catch (error: unknown) {

@@ -23,6 +23,9 @@ import {
   Eye,
   EyeOff,
   Image as ImageIcon,
+  ArrowUp,
+  ArrowDown,
+  ListOrdered,
 } from 'lucide-react';
 import { MemberSection, Role } from '@prisma/client';
 import { formatRole } from '@/lib/rbac';
@@ -47,6 +50,7 @@ interface MemberUser {
   bio?: string | null;
   socialLinks?: any;
   showSocialLinks?: boolean;
+  displayOrder?: number | null;
   createdAt: string;
 }
 
@@ -66,6 +70,8 @@ export default function AdminMembersPage() {
   const [editBatch, setEditBatch] = useState('');
   const [editDirectoryPhoto, setEditDirectoryPhoto] = useState<string | null>(null);
   const [editShowSocialLinks, setEditShowSocialLinks] = useState(true);
+  const [editDisplayOrder, setEditDisplayOrder] = useState<number>(0);
+  const [modalError, setModalError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   // Cropper State
@@ -111,25 +117,78 @@ export default function AdminMembersPage() {
   }, []);
 
   const filteredMembers = useMemo(() => {
-    return members.filter((m) => {
-      const matchesTab =
-        activeTab === 'ALL'
-          ? true
-          : m.memberSection === activeTab || (!m.memberSection && activeTab === MemberSection.TEAM);
+    return members
+      .filter((m) => {
+        const matchesTab =
+          activeTab === 'ALL'
+            ? true
+            : m.memberSection === activeTab || (!m.memberSection && activeTab === MemberSection.TEAM);
 
-      const q = search.toLowerCase().trim();
-      const matchesSearch =
-        !q ||
-        m.name.toLowerCase().includes(q) ||
-        m.username.toLowerCase().includes(q) ||
-        m.email.toLowerCase().includes(q) ||
-        (m.rollNumber && m.rollNumber.toLowerCase().includes(q)) ||
-        (m.memberTitle && m.memberTitle.toLowerCase().includes(q)) ||
-        (m.branch && m.branch.toLowerCase().includes(q));
+        const q = search.toLowerCase().trim();
+        const matchesSearch =
+          !q ||
+          m.name.toLowerCase().includes(q) ||
+          m.username.toLowerCase().includes(q) ||
+          m.email.toLowerCase().includes(q) ||
+          (m.rollNumber && m.rollNumber.toLowerCase().includes(q)) ||
+          (m.memberTitle && m.memberTitle.toLowerCase().includes(q)) ||
+          (m.branch && m.branch.toLowerCase().includes(q));
 
-      return matchesTab && matchesSearch;
-    });
+        return matchesTab && matchesSearch;
+      })
+      .sort((a, b) => {
+        if (activeTab === 'ALL') {
+          const secOrder: Record<string, number> = {
+            [MemberSection.COORDINATORS]: 1,
+            [MemberSection.CORE]: 2,
+            [MemberSection.TEAM]: 3,
+          };
+          const secA = a.memberSection ? secOrder[a.memberSection] || 4 : 4;
+          const secB = b.memberSection ? secOrder[b.memberSection] || 4 : 4;
+          if (secA !== secB) return secA - secB;
+        }
+        return (a.displayOrder ?? 0) - (b.displayOrder ?? 0);
+      });
   }, [members, activeTab, search]);
+
+  const handleMove = async (memberId: string, direction: 'up' | 'down') => {
+    const list = [...filteredMembers];
+    const currentIndex = list.findIndex((m) => m.id === memberId);
+    if (currentIndex === -1) return;
+
+    const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+    if (targetIndex < 0 || targetIndex >= list.length) return;
+
+    // Swap items in current view
+    const updatedList = [...list];
+    const [movedItem] = updatedList.splice(currentIndex, 1);
+    updatedList.splice(targetIndex, 0, movedItem);
+
+    // Optimistically assign displayOrder indices
+    const updatedIds = updatedList.map((m) => m.id);
+    const idToOrder = new Map(updatedIds.map((id, idx) => [id, idx * 10]));
+
+    setMembers((prev) =>
+      [...prev].map((m) => (idToOrder.has(m.id) ? { ...m, displayOrder: idToOrder.get(m.id)! } : m))
+    );
+
+    try {
+      const res = await fetch('/api/admin/members/reorder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ memberIds: updatedIds }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setFeedback({ type: 'error', text: data.error || 'Failed to save reordered position' });
+        fetchMembers();
+      }
+    } catch (err) {
+      console.error(err);
+      setFeedback({ type: 'error', text: 'Network error saving order' });
+      fetchMembers();
+    }
+  };
 
   const openEdit = (m: MemberUser) => {
     setEditingMember(m);
@@ -139,14 +198,19 @@ export default function AdminMembersPage() {
     setEditBatch(m.batch || '');
     setEditDirectoryPhoto(m.directoryPhoto || null);
     setEditShowSocialLinks(m.showSocialLinks !== false);
+    setEditDisplayOrder(m.displayOrder ?? 0);
+    setModalError(null);
   };
 
   const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
+      setModalError(null);
       const validation = validateUploadFile(file, 'AVATAR');
       if (!validation.valid) {
-        setFeedback({ type: 'error', text: validation.error || 'Invalid photo format or size.' });
+        const errorMsg = validation.error || 'Please upload an image with size less than 10MB.';
+        setModalError(errorMsg);
+        setFeedback({ type: 'error', text: errorMsg });
         e.target.value = '';
         return;
       }
@@ -163,13 +227,16 @@ export default function AdminMembersPage() {
 
   const handleCropComplete = async (croppedBlob: Blob) => {
     setUploadingPhoto(true);
+    setModalError(null);
     try {
       const uploadedUrl = await uploadImageBlob(croppedBlob, 'members-directory');
       setEditDirectoryPhoto(uploadedUrl);
       setCropModalOpen(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to upload directory photo:', error);
-      setFeedback({ type: 'error', text: 'Failed to upload photo. Please try again.' });
+      const errorMsg = error.message || 'Failed to upload photo. Please upload an image with size less than 10MB.';
+      setModalError(errorMsg);
+      setFeedback({ type: 'error', text: errorMsg });
     } finally {
       setUploadingPhoto(false);
     }
@@ -190,6 +257,7 @@ export default function AdminMembersPage() {
           batch: editBatch,
           directoryPhoto: editDirectoryPhoto,
           showSocialLinks: editShowSocialLinks,
+          displayOrder: editDisplayOrder,
         }),
       });
       const data = await res.json();
@@ -388,7 +456,7 @@ export default function AdminMembersPage() {
         </div>
       ) : (
         <div className="space-y-3">
-          {filteredMembers.map((member) => (
+          {filteredMembers.map((member, index) => (
             <motion.div
               key={member.id}
               layout
@@ -452,7 +520,43 @@ export default function AdminMembersPage() {
               </div>
 
               {/* Right Actions */}
-              <div className="flex items-center gap-2 self-end md:self-center shrink-0">
+              <div className="flex items-center gap-2.5 self-end md:self-center shrink-0">
+                {/* Reorder and Rank Control */}
+                <div className="flex items-center gap-0.5 bg-foreground/[0.03] border border-border/80 rounded-xl p-0.5">
+                  <button
+                    type="button"
+                    title="Move Up in Roster"
+                    disabled={index === 0}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleMove(member.id, 'up');
+                    }}
+                    className="p-1.5 rounded-lg hover:bg-foreground/[0.08] text-muted-foreground hover:text-foreground disabled:opacity-20 disabled:hover:bg-transparent cursor-pointer disabled:cursor-not-allowed transition-colors"
+                  >
+                    <ArrowUp size={12} />
+                  </button>
+
+                  <span
+                    className="font-mono text-[10px] font-bold px-1.5 min-w-[28px] text-center text-foreground/80"
+                    title={`Roster position #${index + 1} (Order value: ${member.displayOrder ?? 0})`}
+                  >
+                    #{index + 1}
+                  </span>
+
+                  <button
+                    type="button"
+                    title="Move Down in Roster"
+                    disabled={index === filteredMembers.length - 1}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleMove(member.id, 'down');
+                    }}
+                    className="p-1.5 rounded-lg hover:bg-foreground/[0.08] text-muted-foreground hover:text-foreground disabled:opacity-20 disabled:hover:bg-transparent cursor-pointer disabled:cursor-not-allowed transition-colors"
+                  >
+                    <ArrowDown size={12} />
+                  </button>
+                </div>
+
                 <button
                   onClick={() => openEdit(member)}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-foreground/[0.04] hover:bg-foreground/[0.08] text-xs font-mono text-foreground transition-colors cursor-pointer"
@@ -512,6 +616,19 @@ export default function AdminMembersPage() {
                 className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-6 space-y-5"
                 data-lenis-prevent
               >
+                {/* Modal Error Alert Prompt */}
+                {modalError && (
+                  <div className="p-3.5 rounded-xl border border-red-500/30 bg-red-500/10 text-red-500 text-xs flex items-center justify-between gap-3 shadow-xs">
+                    <span className="font-semibold">{modalError}</span>
+                    <button
+                      type="button"
+                      onClick={() => setModalError(null)}
+                      className="p-1 text-red-400 hover:text-red-600 dark:hover:text-red-200 cursor-pointer"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
                 {/* Official Directory Photo Uploader */}
                 <div className="rounded-2xl border border-border bg-foreground/[0.02] p-4 space-y-3">
                   <div className="flex items-center justify-between">
@@ -601,6 +718,25 @@ export default function AdminMembersPage() {
                     maxLength={60}
                     placeholder="e.g. Lead Designer, Editorial Head, Webmaster"
                     className="w-full rounded-xl border border-border bg-foreground/[0.02] p-2.5 text-xs text-foreground focus:border-amber-400 focus:outline-none"
+                  />
+                </div>
+
+                {/* Display Position / Order */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <label className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+                      Display Position / Order (Priority)
+                    </label>
+                    <span className="text-[10px] text-amber-500 font-mono">
+                      Lower numbers appear first (e.g. 0, 1, 2...)
+                    </span>
+                  </div>
+                  <input
+                    type="number"
+                    value={editDisplayOrder}
+                    onChange={(e) => setEditDisplayOrder(parseInt(e.target.value, 10) || 0)}
+                    min={0}
+                    className="w-full rounded-xl border border-border bg-foreground/[0.02] p-2.5 text-xs text-foreground focus:border-amber-400 focus:outline-none font-mono"
                   />
                 </div>
 

@@ -4,14 +4,21 @@ import { requirePermission } from '@/lib/api-auth';
 import type { Permission } from '@/lib/rbac';
 
 // Per-folder size limits (bytes)
-const DEFAULT_MAX_BYTES = 5 * 1024 * 1024;   // 5 MB for general images
-const PROOF_MAX_BYTES   = 10 * 1024 * 1024;  // 10 MB for payment proofs
+const GENERAL_MAX_BYTES = 10 * 1024 * 1024; // 10 MB for general images & media
+const PROOF_MAX_BYTES   = 5 * 1024 * 1024;  // 5 MB for payment proofs
+
+const FOLDER_MAX_BYTES: Record<string, number> = {
+  'event-payment-proofs': PROOF_MAX_BYTES,
+};
+
+const DEFAULT_MAX_BYTES = GENERAL_MAX_BYTES;
 
 // Allowed MIME types for general image folders
 const ALLOWED_IMAGE_TYPES = new Set([
   'image/jpeg',
   'image/png',
   'image/webp',
+  'image/gif',
 ]);
 
 // Allowed MIME types for payment proof folder (images + PDF)
@@ -67,19 +74,19 @@ export async function POST(req: Request) {
 
     const isProofFolder = folder === 'event-payment-proofs';
     const allowedTypes = isProofFolder ? ALLOWED_PROOF_TYPES : ALLOWED_IMAGE_TYPES;
-    const maxBytes     = isProofFolder ? PROOF_MAX_BYTES : DEFAULT_MAX_BYTES;
+    const maxBytes     = FOLDER_MAX_BYTES[folder] || DEFAULT_MAX_BYTES;
 
     if (!allowedTypes.has(file.type)) {
       const allowed = isProofFolder
         ? 'JPEG, PNG, WebP, GIF images or PDF'
-        : 'JPEG, PNG, or WebP images';
+        : 'JPEG, PNG, WebP, or GIF images';
       return NextResponse.json(
         { error: `Only ${allowed} are allowed` },
         { status: 400 }
       );
     }
     if (file.size === 0 || file.size > maxBytes) {
-      const limitMb = maxBytes / (1024 * 1024);
+      const limitMb = Math.round(maxBytes / (1024 * 1024));
       return NextResponse.json(
         { error: `File must be between 1 byte and ${limitMb}MB` },
         { status: 400 }

@@ -1076,7 +1076,7 @@ export default function RegisterPage() {
                     required
                     value={name}
                     onChange={(e: any) => setName(e.target.value)}
-                    placeholder="e.g. Maya Lin"
+                    placeholder="e.g. Shaurya Chaturvedi"
                   />
                   <div className="space-y-1">
                     <FormInput
@@ -1087,7 +1087,7 @@ export default function RegisterPage() {
                       maxLength={20}
                       value={username}
                       onChange={(e: any) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
-                      placeholder="e.g. mayalin"
+                      placeholder="e.g. shaurya"
                       tooltip="3–20 characters (lowercase letters, numbers & underscores)"
                     />
                     {username.length > 0 && (
@@ -1123,7 +1123,7 @@ export default function RegisterPage() {
                     setEmail(e.target.value);
                     setIsEmailVerified(false);
                   }}
-                  placeholder="maya@college.edu or personal email"
+                  placeholder="e.g. Abhinav123@ietlucknow.ac.in"
                 />
 
                 <div className="space-y-1.5">
@@ -1544,7 +1544,7 @@ export default function RegisterPage() {
                           type="text"
                           value={githubInput}
                           onChange={(e) => setGithubInput(e.target.value)}
-                          placeholder="GitHub username (e.g. mayalin)"
+                          placeholder="GitHub username (e.g. shaurya)"
                           className={`w-full h-10 pl-3 pr-8 rounded-xl border border-neutral-200/90 dark:border-neutral-800 bg-white dark:bg-[#101010] text-xs text-neutral-900 dark:text-white focus:outline-none ${
                             !showGithub ? 'opacity-50' : ''
                           }`}
@@ -1590,7 +1590,7 @@ export default function RegisterPage() {
                           type="text"
                           value={linkedinInput}
                           onChange={(e) => setLinkedinInput(e.target.value)}
-                          placeholder="LinkedIn handle (e.g. mayalin)"
+                          placeholder="LinkedIn handle (e.g. shaurya)"
                           className={`w-full h-10 pl-3 pr-8 rounded-xl border border-neutral-200/90 dark:border-neutral-800 bg-white dark:bg-[#101010] text-xs text-neutral-900 dark:text-white focus:outline-none ${
                             !showLinkedin ? 'opacity-50' : ''
                           }`}

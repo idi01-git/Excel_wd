@@ -102,6 +102,10 @@ model User {
   approvedRequests   IssueRequest[]     @relation("IssueRequestApprover")
   returnedRequests   IssueRequest[]     @relation("IssueRequestReturner")
   auditLogs          AuditLog[]
+
+  displayOrder       Int                @default(0)
+
+  @@index([memberSection, displayOrder])
 }
 
 model Publication {
