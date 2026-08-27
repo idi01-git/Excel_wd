@@ -87,7 +87,11 @@ export async function GET(
       }
     });
 
-    response.headers.set('Cache-Control', 'public, s-maxage=10, stale-while-revalidate=60');
+    if (session?.user?.id) {
+      response.headers.set('Cache-Control', 'private, no-cache, no-store, must-revalidate');
+    } else {
+      response.headers.set('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=120');
+    }
 
     return response;
   } catch (error: any) {

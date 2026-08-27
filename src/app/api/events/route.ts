@@ -37,7 +37,12 @@ export async function GET(req: Request) {
       orderBy
     });
 
-    return NextResponse.json({ success: true, events });
+    const response = NextResponse.json({ success: true, events });
+    response.headers.set(
+      'Cache-Control',
+      'public, s-maxage=60, stale-while-revalidate=300'
+    );
+    return response;
   } catch (error: any) {
     console.error('Fetch public events error:', error);
     return NextResponse.json({ error: 'Failed to retrieve events' }, { status: 500 });

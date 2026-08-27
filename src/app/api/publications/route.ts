@@ -164,7 +164,11 @@ export async function GET(req: Request) {
       limit
     });
 
-    response.headers.set('Cache-Control', 'public, s-maxage=5, stale-while-revalidate=30');
+    if (userId) {
+      response.headers.set('Cache-Control', 'private, no-cache, no-store, must-revalidate');
+    } else {
+      response.headers.set('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=120');
+    }
 
     return response;
   } catch (error: any) {

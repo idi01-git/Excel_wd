@@ -5,6 +5,18 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: path.resolve(__dirname),
   },
+  experimental: {
+    optimizePackageImports: [
+      'lucide-react',
+      '@hugeicons/react',
+      '@hugeicons/core-free-icons',
+      'framer-motion',
+      'lodash.throttle',
+      '@radix-ui/react-dropdown-menu',
+      '@radix-ui/react-popover',
+      '@radix-ui/react-toggle',
+    ],
+  },
   images: {
     formats: ['image/avif', 'image/webp'],
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048],

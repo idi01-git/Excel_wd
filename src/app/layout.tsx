@@ -12,10 +12,12 @@ import {
   Cormorant_Garamond,
 } from 'next/font/google';
 import './globals.css';
+import { Suspense } from 'react';
 import SessionProvider from '@/components/providers/SessionProvider';
 import { ThemeProvider } from '@/components/providers/ThemeProvider';
 import { cn } from "@/lib/utils";
 import { SmoothScrollProvider } from "@/components/providers/SmoothScrollProvider";
+import TopProgressBar from "@/components/ui/TopProgressBar";
 
 const geistSans = Geist({
   subsets: ['latin'],
@@ -111,6 +113,9 @@ export default function RootLayout({
       )}
     >
       <body className="min-h-full flex flex-col font-sans">
+        <Suspense fallback={null}>
+          <TopProgressBar />
+        </Suspense>
         <ThemeProvider
           attribute="class"
           defaultTheme="light"

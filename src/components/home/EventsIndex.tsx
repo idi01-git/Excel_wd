@@ -198,12 +198,19 @@ export default function EventsIndex({ initialEvents }: { initialEvents?: HomeEve
           <div className="relative border-t border-border">
             {events.map((event, i) => {
               const isHovered = active === i;
+              const targetHref = event.href || '/events';
 
               return (
                 <FadeUp key={event.index} delay={i * 0.04} y={15}>
                   <Link
-                    href="/events"
-                    onMouseEnter={() => setActive(i)}
+                    href={targetHref}
+                    onMouseEnter={() => {
+                      setActive(i);
+                      if (event.href && event.href.startsWith('/events/')) {
+                        const slug = event.href.replace('/events/', '');
+                        fetch(`/api/events/${slug}`).catch(() => {});
+                      }
+                    }}
                     onMouseLeave={() => {
                       if (active === i) setActive(null);
                     }}

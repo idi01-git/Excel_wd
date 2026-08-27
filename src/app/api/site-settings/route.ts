@@ -14,7 +14,12 @@ export async function GET() {
       if (testimonial.mode === 'RANDOM') { for (let index = alumni.length - 1; index > 0; index -= 1) { const swapIndex = Math.floor(Math.random() * (index + 1)); [alumni[index], alumni[swapIndex]] = [alumni[swapIndex], alumni[index]]; } }
       settings['home.testimonials'] = { ...testimonial, items: alumni.slice(0, 4).map((item) => ({ quote: item.message, name: item.name, role: [item.batch, item.currentPosition].filter(Boolean).join(' · ') })) };
     }
-    return NextResponse.json({ success: true, settings });
+    const response = NextResponse.json({ success: true, settings });
+    response.headers.set(
+      'Cache-Control',
+      'public, s-maxage=60, stale-while-revalidate=300'
+    );
+    return response;
   } catch (error: unknown) {
     console.error('Public site settings error:', error);
     return NextResponse.json({ error: 'Failed to retrieve site settings' }, { status: 500 });

@@ -22,7 +22,15 @@ import {
   BG_IMAGE_DARK,
   BG_IMAGE_LIGHT,
 } from './hardback-data';
-import { HardbackScene } from './HardbackScene';
+import dynamic from 'next/dynamic';
+
+const HardbackScene = dynamic(
+  () => import('./HardbackScene').then((mod) => mod.HardbackScene),
+  {
+    ssr: false,
+    loading: () => <div className="absolute inset-0 z-10 animate-pulse bg-neutral-900/10 pointer-events-none" />,
+  }
+);
 
 type Mode = 'entering' | 'browsing' | 'opening' | 'open' | 'closing';
 
