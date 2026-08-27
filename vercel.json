@@ -1,8 +1,18 @@
 {
+  "regions": ["bom1"],
   "crons": [
     {
       "path": "/api/cron/book-reminders",
       "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/event-reminders",
+      "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/cron/cleanup-payment-proofs",
+      "schedule": "0 2 * * *"
     }
   ]
 }
+
