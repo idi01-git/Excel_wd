@@ -13,7 +13,12 @@ export async function GET() {
 
     const books = items.map(itemToBookData);
 
-    return NextResponse.json({ success: true, items: books, rawItems: items });
+    const response = NextResponse.json({ success: true, items: books, rawItems: items });
+    response.headers.set(
+      'Cache-Control',
+      'public, s-maxage=120, stale-while-revalidate=600'
+    );
+    return response;
   } catch (error: any) {
     console.error('Fetch editors shelf error:', error);
     return NextResponse.json(

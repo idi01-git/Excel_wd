@@ -689,4 +689,11 @@ body {
   --color-d-border: hsl(var(--d-border));
   --color-d-sheet: hsl(var(--d-sheet));
   --color-d-muted: hsl(var(--d-muted));
-}
+}
+
+/* --- High-Performance Layout Containment for Off-Screen Sections --- */
+.section-deferred {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 600px;
+}
+

@@ -46,7 +46,9 @@ export default function HomeClientWrapper({
           <ManifestoStrip />
 
           {/* ── 03 · EVENTS WE HOSTED ── */}
-          <EventsIndex initialEvents={initialEvents} />
+          <div className="section-deferred">
+            <EventsIndex initialEvents={initialEvents} />
+          </div>
 
           {/* ── 04 · THE SOCIETY LIBRARY (PINNED HORIZONTAL SHELF) ── */}
           <LibraryShelf
@@ -55,10 +57,14 @@ export default function HomeClientWrapper({
           />
 
           {/* ── 05 · ALUMNI VOICES ── */}
-          <AlumniVoices initialVoices={initialTestimonials} />
+          <div className="section-deferred">
+            <AlumniVoices initialVoices={initialTestimonials} />
+          </div>
 
           {/* ── 06 · GALLERY FRAGMENTS ── */}
-          <GalleryStrip />
+          <div className="section-deferred">
+            <GalleryStrip />
+          </div>
         </div>
       </div>
     </>

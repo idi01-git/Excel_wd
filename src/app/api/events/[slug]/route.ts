@@ -63,12 +63,20 @@ export async function GET(
       }
     }
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       event,
       userRegistered,
       registrationDetails
     });
+
+    if (session?.user) {
+      response.headers.set('Cache-Control', 'private, no-cache, no-store, must-revalidate');
+    } else {
+      response.headers.set('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=120');
+    }
+
+    return response;
   } catch (error: any) {
     console.error('Fetch event detail error:', error);
     return NextResponse.json({ error: 'Failed to retrieve event details' }, { status: 500 });

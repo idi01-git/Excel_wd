@@ -103,7 +103,7 @@ export async function GET(req: Request) {
       });
     }
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       books: booksWithAvgRating,
       pagination: {
@@ -113,6 +113,13 @@ export async function GET(req: Request) {
         pages: Math.ceil(total / limit)
       }
     });
+
+    response.headers.set(
+      'Cache-Control',
+      'public, s-maxage=30, stale-while-revalidate=180'
+    );
+
+    return response;
   } catch (error: any) {
     console.error('Fetch library books error:', error);
     return NextResponse.json({ error: 'Failed to retrieve books list' }, { status: 500 });
