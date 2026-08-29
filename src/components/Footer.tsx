@@ -186,7 +186,7 @@ export default function Footer() {
         {/* Bottom bar */}
         <div className="mt-14 flex flex-col items-center text-center gap-4 border-t border-background/15 pt-6 font-mono text-[10px] uppercase tracking-[0.22em] text-background/40 sm:flex-row sm:items-center sm:justify-between sm:text-left">
           <span>© {new Date().getFullYear()} Excelsior Literary Society</span>
-          <span>
+          {/* <span>
             Brought into Existence by{' '}
             <a
               href="https://www.linkedin.com/in/shivang-idi01/"
@@ -197,7 +197,7 @@ export default function Footer() {
               Shivang
             </a>{' '}
             ❤️
-          </span>
+          </span> */}
           <span>Est. 2014 · Still in print</span>
         </div>
       </div>
