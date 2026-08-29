@@ -573,7 +573,7 @@ function ConfigPanel({
     return (
       <button
         onClick={() => setOpen(true)}
-        className="fixed top-4 left-4 z-[1000] h-11 w-11 rounded-xl border border-foreground/10
+        className="fixed top-4 left-4 z-1000 h-11 w-11 rounded-xl border border-foreground/10
                    bg-background/80 backdrop-blur-md flex items-center justify-center
                    text-xs font-mono font-medium shadow-md hover:bg-background cursor-pointer"
       >
@@ -584,7 +584,7 @@ function ConfigPanel({
 
   return (
     <div
-      className="fixed top-4 left-4 z-[1000] w-[280px] max-h-[85vh] overflow-y-auto
+      className="fixed top-4 left-4 z-1000 w-70 max-h-[85vh] overflow-y-auto
                  rounded-xl border border-foreground/15 p-4 text-xs font-sans
                  shadow-2xl backdrop-blur-xl"
       style={{
@@ -1215,7 +1215,7 @@ function CardDetail({
       {/* Chrome Root: Backdrop + Box (z-[400]) */}
       <div
         ref={chromeRootRef}
-        className="fixed inset-0 z-[400] cursor-grab active:cursor-grabbing"
+        className="fixed inset-0 z-400 cursor-grab active:cursor-grabbing"
         onClick={() => {
           if (!hasMovedRef.current) close();
         }}
@@ -1236,7 +1236,7 @@ function CardDetail({
           ref={boxRef}
           className="absolute overflow-hidden rounded-[32px] cursor-default
                      inset-x-4 top-4 h-[calc(45vh-24px)]
-                     md:inset-x-auto md:left-[30px] md:top-[30px] md:bottom-[30px]
+                     md:inset-x-auto md:left-7.5 md:top-7.5 md:bottom-7.5
                      md:h-auto md:w-[calc(50vw-60px)]"
           style={{
             background:
@@ -1270,7 +1270,7 @@ function CardDetail({
       </div>
 
       {/* Controls Root: Close Button + Info Panel (z-[99999]) */}
-      <div className="fixed inset-0 z-[99999] pointer-events-none">
+      <div className="fixed inset-0 z-99999 pointer-events-none">
         <button
           data-detail-close-btn
           onClick={close}
@@ -1299,7 +1299,7 @@ function CardDetail({
           className="pointer-events-auto absolute flex flex-col gap-3 overflow-y-auto
                      inset-x-4 top-[calc(45vh+8px)] bottom-4 px-4 pb-6
                      md:justify-center md:overflow-visible md:gap-6
-                     md:inset-x-auto md:right-[30px] md:top-[30px] md:bottom-[30px]
+                     md:inset-x-auto md:right-7.5 md:top-7.5 md:bottom-7.5
                      md:px-0 md:pb-0 md:w-[calc(50vw-60px)]
                      md:pl-[4vw] md:pr-[2vw]"
           onClick={(e) => e.stopPropagation()}
@@ -2101,7 +2101,7 @@ export default function Cardwall({
       <div
         ref={deckPerspectiveRef}
         suppressHydrationWarning
-        className={`pointer-events-none absolute inset-0 ${detail !== null ? "z-[500]" : "z-[200]"}`}
+        className={`pointer-events-none absolute inset-0 ${detail !== null ? "z-500" : "z-200"}`}
         style={{
           perspective: cfg.perspective,
           perspectiveOrigin: `${cfg.originX}% ${cfg.originY}%`,

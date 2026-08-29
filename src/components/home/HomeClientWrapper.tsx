@@ -41,7 +41,7 @@ export default function HomeClientWrapper({
         />
 
         {/* ── SUBSEQUENT PAGE SECTIONS (Opaque Z-300 backdrop cleanly isolating 3D ribbon tail) ── */}
-        <div className="relative z-[300] bg-background">
+        <div className="relative z-300 bg-background">
           {/* ── 02 · MANIFESTO / SENIOR LEGACY ── */}
           <ManifestoStrip />
 

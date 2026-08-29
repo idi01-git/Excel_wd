@@ -16,7 +16,7 @@ const Book3DCard = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="h-[470px] w-[300px] md:h-[520px] md:w-[330px] shrink-0" aria-hidden />
+      <div className="h-117.5 w-75 md:h-130 md:w-82.5 shrink-0" aria-hidden />
     ),
   }
 );
@@ -220,7 +220,7 @@ export default function LibraryShelf({
                   href="/editors-shelf"
                   className="group relative inline-flex items-center gap-2 rounded-full bg-foreground px-6 py-3 font-mono text-[11px] uppercase tracking-[0.2em] text-background overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-300"
                 >
-                  <span className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out bg-gradient-to-r from-transparent via-white/20 dark:via-black/20 to-transparent pointer-events-none" />
+                  <span className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out bg-linear-to-r from-transparent via-white/20 dark:via-black/20 to-transparent pointer-events-none" />
                   <span className="relative z-10">Editor’s Shelf</span>
                   <ArrowRight
                     size={13}
@@ -236,7 +236,7 @@ export default function LibraryShelf({
               >
                 <Link
                   href="/community/library"
-                  className="group relative inline-flex items-center gap-2 rounded-full border border-border/80 bg-background/50 backdrop-blur-xs px-6 py-3 font-mono text-[11px] uppercase tracking-[0.2em] text-foreground transition-colors duration-200 hover:border-foreground/60 hover:bg-foreground/[0.04]"
+                  className="group relative inline-flex items-center gap-2 rounded-full border border-border/80 bg-background/50 backdrop-blur-xs px-6 py-3 font-mono text-[11px] uppercase tracking-[0.2em] text-foreground transition-colors duration-200 hover:border-foreground/60 hover:bg-foreground/4"
                 >
                   <span>Explore Library</span>
                   <ArrowRight
@@ -261,13 +261,13 @@ export default function LibraryShelf({
               <div
                 key={book.id || `feat-${i}`}
                 aria-hidden
-                className="h-[470px] w-[300px] md:h-[520px] md:w-[330px] shrink-0"
+                className="h-117.5 w-75 md:h-130 md:w-82.5 shrink-0"
               />
             )
           )}
 
           {/* Outro (Circular Arrow Button connecting to Library) */}
-          <div className="flex w-[14vw] min-w-[100px] max-w-[160px] shrink-0 items-center justify-center pl-2 pr-4">
+          <div className="flex w-[14vw] min-w-25 max-w-40 shrink-0 items-center justify-center pl-2 pr-4">
             <Link
               href="/community/library"
               className="relative block outline-none"

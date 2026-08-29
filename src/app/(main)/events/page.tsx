@@ -93,7 +93,7 @@ export default function EventsHubPage() {
                 {activeTab === tab && (
                   <motion.div
                     layoutId="activeMuseumTab"
-                    className="absolute h-[2px] left-0 right-0 z-10 bg-background -bottom-[14px] md:-bottom-[18px] lg:bottom-0 lg:bg-slate-900 lg:dark:bg-white lg:z-0"
+                    className="absolute h-0.5 left-0 right-0 z-10 bg-background -bottom-3.5 md:-bottom-4.5 lg:bottom-0 lg:bg-slate-900 lg:dark:bg-white lg:z-0"
                   />
                 )}
               </button>
@@ -103,7 +103,7 @@ export default function EventsHubPage() {
       </section>
 
       {/* ── Cinematic List Architecture ── */}
-      <section className="w-full max-w-7xl mx-auto px-6 md:px-12 pb-32 min-h-[500px]">
+      <section className="w-full max-w-7xl mx-auto px-6 md:px-12 pb-32 min-h-125">
         {loading ? (
           <div className="w-full animate-pulse flex flex-col gap-12">
             {[1, 2, 3].map(n => (
@@ -142,7 +142,7 @@ export default function EventsHubPage() {
                       className="flex flex-col md:flex-row gap-8 lg:gap-16 items-stretch"
                     >
                       {/* Cinematic Image Crop (Left) */}
-                      <div className="w-full md:w-[35%] lg:w-[30%] h-[300px] md:h-auto min-h-[240px] overflow-hidden bg-slate-100 dark:bg-slate-900 relative">
+                      <div className="w-full md:w-[35%] lg:w-[30%] h-75 md:h-auto min-h-60 overflow-hidden bg-slate-100 dark:bg-slate-900 relative">
                         <img 
                           src={getOptimizedCardUrl(event.posterImage || 'https://images.unsplash.com/photo-1511578314322-379afb476865?w=1200&fit=crop', 800)} 
                           alt={event.title}
