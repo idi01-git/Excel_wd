@@ -36,25 +36,36 @@ export async function GET() {
           },
         },
       },
-      orderBy: {
-        batch: 'desc',
-      },
+      orderBy: [
+        { batch: 'desc' },
+        { name: 'asc' },
+      ],
     });
+
+    const cleanStr = (val: string | null | undefined): string | null => {
+      if (!val) return null;
+      const trimmed = String(val).trim();
+      return trimmed === '' || trimmed === 'null' || trimmed === 'undefined' ? null : trimmed;
+    };
 
     const sanitizedAlumni = alumni.map((alum) => {
       const { email, phone, instagram, linkedin, showSocialsToTeam, ...publicData } = alum;
 
       // 1. Email & Phone: strictly Coordinator and Core Committee only
-      const safeEmail = isCoreCommittee ? email : null;
-      const safePhone = isCoreCommittee ? phone : null;
+      const safeEmail = isCoreCommittee ? cleanStr(email) : null;
+      const safePhone = isCoreCommittee ? cleanStr(phone) : null;
 
       // 2. Instagram & LinkedIn: visible to Core Committee, or Club Team IF showSocialsToTeam is true
       const canSeeSocials = isCoreCommittee || (isClubTeam && showSocialsToTeam);
-      const safeInstagram = canSeeSocials ? instagram : null;
-      const safeLinkedin = canSeeSocials ? linkedin : null;
+      const safeInstagram = canSeeSocials ? cleanStr(instagram) : null;
+      const safeLinkedin = canSeeSocials ? cleanStr(linkedin) : null;
 
       return {
         ...publicData,
+        photo: cleanStr(publicData.photo),
+        currentPosition: cleanStr(publicData.currentPosition),
+        excelsiorPosition: cleanStr(publicData.excelsiorPosition),
+        message: cleanStr(publicData.message),
         email: safeEmail,
         phone: safePhone,
         instagram: safeInstagram,

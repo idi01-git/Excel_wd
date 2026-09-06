@@ -18,7 +18,7 @@ import {
   ArrowUpRight,
   Globe,
 } from 'lucide-react';
-import { getOptimizedAvatarUrl } from '@/lib/image-optimization';
+import { getOptimizedAvatarUrl, getAlumniAvatarUrl } from '@/lib/image-optimization';
 
 // ─── Universal Social Media Icon Renderer ──────────────────────────────────
 export function SocialIcon({
@@ -289,10 +289,7 @@ function AlumnusCard({
     ]
   );
 
-  const photoUrl =
-    alum.photo && alum.photo.trim() !== ''
-      ? getOptimizedAvatarUrl(alum.photo, 400)
-      : `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(alum.name)}`;
+  const photoUrl = getAlumniAvatarUrl(alum.photo, alum.name, 400);
 
   return (
     <motion.div
@@ -320,6 +317,12 @@ function AlumnusCard({
           style={{ scale: imgZoom }}
           src={photoUrl}
           alt={alum.name}
+          onError={(e) => {
+            const fallback = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(alum.name || 'Alumnus')}`;
+            if (e.currentTarget.src !== fallback) {
+              e.currentTarget.src = fallback;
+            }
+          }}
           className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-[filter] duration-500 will-change-transform origin-center"
         />
       </div>

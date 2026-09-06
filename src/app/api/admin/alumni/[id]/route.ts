@@ -19,6 +19,12 @@ async function validateUserLink(userId: string | null, profileId: string) {
   return null;
 }
 
+function cleanString(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+  const str = String(value).trim();
+  return str === '' || str === 'null' || str === 'undefined' ? null : str;
+}
+
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { session, error } = await requirePermission('MANAGE_ALUMNI');
@@ -38,7 +44,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       select: { photo: true },
     });
 
-    const newPhoto = photo !== undefined ? (String(photo).trim() || null) : undefined;
+    const newPhoto = photo !== undefined ? cleanString(photo) : undefined;
 
     if (newPhoto !== undefined && newPhoto !== existing?.photo && existing?.photo) {
       await deleteImageByUrl(existing.photo);
@@ -47,17 +53,17 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     const updated = await db.alumniProfile.update({
       where: { id },
       data: {
-        name: name !== undefined ? String(name).trim() : undefined,
+        name: name !== undefined ? (cleanString(name) || undefined) : undefined,
         photo: newPhoto,
-        batch: batch !== undefined ? String(batch).trim() : undefined,
-        branch: branch !== undefined ? String(branch).trim() : undefined,
-        currentPosition: currentPosition !== undefined ? String(currentPosition).trim() || null : undefined,
-        excelsiorPosition: excelsiorPosition !== undefined ? String(excelsiorPosition).trim() || null : undefined,
-        message: message !== undefined ? String(message).trim() || null : undefined,
-        instagram: instagram !== undefined ? String(instagram).trim() || null : undefined,
-        linkedin: linkedin !== undefined ? String(linkedin).trim() || null : undefined,
-        email: email !== undefined ? String(email).trim() || null : undefined,
-        phone: phone !== undefined ? String(phone).trim() || null : undefined,
+        batch: batch !== undefined ? (cleanString(batch) || undefined) : undefined,
+        branch: branch !== undefined ? (cleanString(branch) || undefined) : undefined,
+        currentPosition: currentPosition !== undefined ? cleanString(currentPosition) : undefined,
+        excelsiorPosition: excelsiorPosition !== undefined ? cleanString(excelsiorPosition) : undefined,
+        message: message !== undefined ? cleanString(message) : undefined,
+        instagram: instagram !== undefined ? cleanString(instagram) : undefined,
+        linkedin: linkedin !== undefined ? cleanString(linkedin) : undefined,
+        email: email !== undefined ? cleanString(email) : undefined,
+        phone: phone !== undefined ? cleanString(phone) : undefined,
         showSocialsToTeam: body.showSocialsToTeam !== undefined ? Boolean(body.showSocialsToTeam) : undefined,
         userId,
       },

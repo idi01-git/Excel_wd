@@ -16,6 +16,41 @@ html, body {
   background: transparent !important;
 }
 
+/* --- Dedicated Visible Scrollbar Utility for Dropdowns, Modals & Menus --- */
+.visible-scrollbar {
+  scrollbar-width: thin !important;
+  scrollbar-color: rgba(156, 163, 175, 0.5) transparent !important;
+}
+.visible-scrollbar::-webkit-scrollbar {
+  display: block !important;
+  width: 6px !important;
+  height: 6px !important;
+}
+.visible-scrollbar::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.04) !important;
+  border-radius: 9999px !important;
+}
+.visible-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgba(156, 163, 175, 0.5) !important;
+  border-radius: 9999px !important;
+}
+.visible-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(156, 163, 175, 0.8) !important;
+}
+
+.dark .visible-scrollbar {
+  scrollbar-color: rgba(163, 163, 163, 0.4) transparent !important;
+}
+.dark .visible-scrollbar::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.04) !important;
+}
+.dark .visible-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgba(163, 163, 163, 0.4) !important;
+}
+.dark .visible-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(163, 163, 163, 0.7) !important;
+}
+
 /* --- Variables --- */
 :root {
   /****************** 
