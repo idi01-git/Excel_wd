@@ -258,7 +258,7 @@ export default function AdminConsoleDashboard() {
     <div className="min-h-screen bg-[#060608] text-neutral-100 font-sans selection:bg-white selection:text-black">
       {/* Ambient Lighting Backdrop */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
-        <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[900px] h-[500px] bg-gradient-to-b from-purple-900/15 via-blue-900/10 to-transparent blur-[160px] opacity-60" />
+        <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-225 h-125 bg-linear-to-b from-purple-900/15 via-blue-900/10 to-transparent blur-[160px] opacity-60" />
       </div>
 
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-8 sm:py-12 space-y-8">
@@ -385,7 +385,7 @@ export default function AdminConsoleDashboard() {
                   >
                     {/* Top Glow Accent */}
                     <div
-                      className={`absolute top-0 right-0 left-0 h-1 bg-gradient-to-r ${mod.gradient} opacity-80`}
+                      className={`absolute top-0 right-0 left-0 h-1 bg-linear-to-r ${mod.gradient} opacity-80`}
                       style={{ borderTopLeftRadius: '1.5rem', borderTopRightRadius: '1.5rem' }}
                     />
 

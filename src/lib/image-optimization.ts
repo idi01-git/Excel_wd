@@ -55,19 +55,24 @@ export function getOptimizedImageUrl(
     return '';
   }
 
+  const trimmed = url.trim();
+  if (!trimmed || trimmed === 'null' || trimmed === 'undefined') {
+    return '';
+  }
+
   // Never alter SVGs or PDFs with raster transformations
-  if (url.endsWith('.svg') || url.endsWith('.pdf')) {
-    return url;
+  if (trimmed.endsWith('.svg') || trimmed.endsWith('.pdf')) {
+    return trimmed;
   }
 
   // Handle Unsplash image optimization
-  if (url.includes('images.unsplash.com')) {
-    return getOptimizedUnsplashUrl(url, options);
+  if (trimmed.includes('images.unsplash.com')) {
+    return getOptimizedUnsplashUrl(trimmed, options);
   }
 
   // If not a Cloudinary image or not an /upload/ delivery URL, return as-is
-  if (!url.includes('cloudinary.com') || !url.includes('/upload/')) {
-    return url;
+  if (!trimmed.includes('cloudinary.com') || !trimmed.includes('/upload/')) {
+    return trimmed;
   }
 
   const {
@@ -170,6 +175,22 @@ export function getOptimizedAvatarUrl(url: string | null | undefined, size = 160
     format: 'auto',
     dpr: 'auto',
   });
+}
+
+/** Pre-configured helper for alumni profile avatars with automatic initials fallback */
+export function getAlumniAvatarUrl(
+  photo: string | null | undefined,
+  name: string = 'Alumnus',
+  size = 160
+): string {
+  if (photo && typeof photo === 'string') {
+    const trimmed = photo.trim();
+    if (trimmed && trimmed !== 'null' && trimmed !== 'undefined') {
+      const optimized = getOptimizedAvatarUrl(trimmed, size);
+      if (optimized) return optimized;
+    }
+  }
+  return `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(name || 'Alumnus')}`;
 }
 
 /** Pre-configured helper for book and publication covers */

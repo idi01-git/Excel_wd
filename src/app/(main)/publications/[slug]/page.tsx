@@ -15,7 +15,7 @@ import { Toast } from '@/components/ui/Toast';
 import { useOptimisticInteract } from '@/hooks/useOptimisticInteract';
 import { hasPermission } from '@/lib/rbac';
 import { motion, AnimatePresence } from 'motion/react';
-import { getOptimizedCoverUrl, getOptimizedAvatarUrl, getOptimizedImageUrl } from '@/lib/image-optimization';
+import { getOptimizedCoverUrl, getOptimizedAvatarUrl, getOptimizedImageUrl, getAlumniAvatarUrl } from '@/lib/image-optimization';
 
 interface Publication {
   id: string;
@@ -453,12 +453,14 @@ export default function PublicationDetailPage() {
               <>
                 <Link href={`/community/alumni?id=${pub.alumniProfile.id}`} className="shrink-0 group">
                   <img
-                    src={
-                      pub.alumniProfile.photo && pub.alumniProfile.photo.trim() !== ''
-                        ? getOptimizedAvatarUrl(pub.alumniProfile.photo, 96)
-                        : `https://api.dicebear.com/7.x/initials/svg?seed=${pub.authorName || pub.alumniProfile.name}`
-                    }
+                    src={getAlumniAvatarUrl(pub.alumniProfile.photo, pub.authorName || pub.alumniProfile.name, 96)}
                     alt={pub.authorName || pub.alumniProfile.name}
+                    onError={(e) => {
+                      const fallback = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(pub.authorName || pub.alumniProfile?.name || 'Alumnus')}`;
+                      if (e.currentTarget.src !== fallback) {
+                        e.currentTarget.src = fallback;
+                      }
+                    }}
                     className="w-10 h-10 rounded-full object-cover border border-neutral-200 dark:border-neutral-700 group-hover:border-neutral-950 dark:group-hover:border-neutral-100 transition-colors"
                   />
                 </Link>

@@ -25,10 +25,11 @@ import {
   Trash2,
   Eye,
   Loader2,
+  X,
 } from 'lucide-react';
 import { hasPermission } from '@/lib/rbac';
 import { validateUploadFile, ACCEPT_MAP } from '@/lib/file-validation';
-import { getOptimizedCoverUrl, getOptimizedAvatarUrl } from '@/lib/image-optimization';
+import { getOptimizedCoverUrl, getOptimizedAvatarUrl, getAlumniAvatarUrl } from '@/lib/image-optimization';
 import { ImageCropperModal } from '@/components/ui/ImageCropperModal';
 
 interface Publication {
@@ -51,6 +52,8 @@ interface Publication {
     batch: string;
     branch?: string | null;
     photo?: string | null;
+    currentPosition?: string | null;
+    excelsiorPosition?: string | null;
   } | null;
 }
 
@@ -60,6 +63,8 @@ interface AlumniItem {
   batch: string;
   branch: string;
   photo?: string | null;
+  currentPosition?: string | null;
+  excelsiorPosition?: string | null;
   designation?: string | null;
   company?: string | null;
 }
@@ -137,6 +142,28 @@ export default function WorkspaceEditorPage() {
   const [alumniLoading, setAlumniLoading] = useState<boolean>(false);
   const [alumniSearch, setAlumniSearch] = useState<string>('');
   const [alumniDropdownOpen, setAlumniDropdownOpen] = useState<boolean>(false);
+  const alumniPickerRef = useRef<HTMLDivElement>(null);
+
+  // Close alumni dropdown on outside click or Escape key
+  useEffect(() => {
+    if (!alumniDropdownOpen) return;
+    const handleClickOutside = (event: MouseEvent) => {
+      if (alumniPickerRef.current && !alumniPickerRef.current.contains(event.target as Node)) {
+        setAlumniDropdownOpen(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setAlumniDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [alumniDropdownOpen]);
   
   // Cover Image Upload States
   const [coverUploading, setCoverUploading] = useState<boolean>(false);
@@ -269,13 +296,15 @@ export default function WorkspaceEditorPage() {
   }, [title]);
 
   const filteredAlumni = useMemo(() => {
-    if (!alumniSearch.trim()) return alumniList;
     const q = alumniSearch.toLowerCase().trim();
+    if (!q) return alumniList;
     return alumniList.filter(
       (a) =>
-        a.name.toLowerCase().includes(q) ||
-        a.batch.toLowerCase().includes(q) ||
-        (a.branch && a.branch.toLowerCase().includes(q))
+        (a.name && a.name.toLowerCase().includes(q)) ||
+        (a.batch && a.batch.toLowerCase().includes(q)) ||
+        (a.branch && a.branch.toLowerCase().includes(q)) ||
+        ((a as any).currentPosition && String((a as any).currentPosition).toLowerCase().includes(q)) ||
+        ((a as any).excelsiorPosition && String((a as any).excelsiorPosition).toLowerCase().includes(q))
     );
   }, [alumniList, alumniSearch]);
 
@@ -646,10 +675,10 @@ export default function WorkspaceEditorPage() {
                   }}
                   whileTap={{ scale: 0.96, y: 0 }}
                   transition={{ type: "spring", stiffness: 400, damping: 25, mass: 0.5 }}
-                  className="relative group overflow-hidden py-1.5 sm:py-2 px-3.5 sm:px-5 bg-gradient-to-b from-emerald-500 to-emerald-600 text-white text-xs font-bold rounded-full flex items-center gap-1.5 cursor-pointer shadow-[0_4px_14px_0_rgba(16,185,129,0.39)] hover:shadow-[0_6px_20px_rgba(16,185,129,0.23)] hover:bg-[rgba(16,185,129,0.9)] disabled:opacity-50 border border-emerald-400/30 transition-all duration-300"
+                  className="relative group overflow-hidden py-1.5 sm:py-2 px-3.5 sm:px-5 bg-linear-to-b from-emerald-500 to-emerald-600 text-white text-xs font-bold rounded-full flex items-center gap-1.5 cursor-pointer shadow-[0_4px_14px_0_rgba(16,185,129,0.39)] hover:shadow-[0_6px_20px_rgba(16,185,129,0.23)] hover:bg-[rgba(16,185,129,0.9)] disabled:opacity-50 border border-emerald-400/30 transition-all duration-300"
                   title="Publish directly to website without queue"
                 >
-                  <div className="absolute inset-0 bg-white/20 translate-y-[-100%] group-hover:translate-y-[100%] transition-transform duration-500 ease-in-out" />
+                  <div className="absolute inset-0 bg-white/20 -translate-y-full group-hover:translate-y-full transition-transform duration-500 ease-in-out" />
                   <Sparkles className="w-3.5 h-3.5 drop-shadow-sm" />
                   <span className="drop-shadow-sm">Publish</span>
                 </motion.button>
@@ -665,12 +694,12 @@ export default function WorkspaceEditorPage() {
                 transition={{ type: "spring", stiffness: 400, damping: 25, mass: 0.5 }}
                 className={`relative group overflow-hidden py-1.5 sm:py-2 px-4 sm:px-6 text-xs font-bold rounded-full flex items-center gap-1.5 cursor-pointer disabled:opacity-50 transition-all duration-300 ${
                   canCustomizeByline
-                    ? 'bg-gradient-to-b from-white to-gray-50 dark:from-neutral-800 dark:to-neutral-900 text-neutral-900 dark:text-neutral-100 border border-neutral-200 dark:border-neutral-700 shadow-sm hover:shadow-md'
-                    : 'bg-gradient-to-b from-neutral-800 to-black dark:from-neutral-200 dark:to-white text-white dark:text-black shadow-[0_4px_14px_0_rgba(0,0,0,0.39)] dark:shadow-[0_4px_14px_0_rgba(255,255,255,0.39)] border border-white/10 dark:border-black/10 hover:shadow-[0_6px_20px_rgba(0,0,0,0.23)] dark:hover:shadow-[0_6px_20px_rgba(255,255,255,0.23)]'
+                    ? 'bg-linear-to-b from-white to-gray-50 dark:from-neutral-800 dark:to-neutral-900 text-neutral-900 dark:text-neutral-100 border border-neutral-200 dark:border-neutral-700 shadow-sm hover:shadow-md'
+                    : 'bg-linear-to-b from-neutral-800 to-black dark:from-neutral-200 dark:to-white text-white dark:text-black shadow-[0_4px_14px_0_rgba(0,0,0,0.39)] dark:shadow-[0_4px_14px_0_rgba(255,255,255,0.39)] border border-white/10 dark:border-black/10 hover:shadow-[0_6px_20px_rgba(0,0,0,0.23)] dark:hover:shadow-[0_6px_20px_rgba(255,255,255,0.23)]'
                 }`}
               >
                 {/* Subtle shine effect */}
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-[100%] group-hover:translate-x-[100%] transition-transform duration-700 ease-in-out" />
+                <div className="absolute inset-0 bg-linear-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out" />
                 <Send className="w-3.5 h-3.5 relative z-10" />
                 <span className="relative z-10">{canCustomizeByline ? 'Submit to Queue' : 'Submit'}</span>
               </motion.button>
@@ -687,9 +716,9 @@ export default function WorkspaceEditorPage() {
               }}
               whileTap={{ scale: 0.96, y: 0 }}
               transition={{ type: "spring", stiffness: 400, damping: 25, mass: 0.5 }}
-              className="relative group overflow-hidden py-1.5 sm:py-2 px-4 sm:px-6 bg-gradient-to-b from-neutral-800 to-black dark:from-neutral-200 dark:to-white text-white dark:text-black text-xs font-bold rounded-full flex items-center gap-1.5 cursor-pointer shadow-[0_4px_14px_0_rgba(0,0,0,0.39)] dark:shadow-[0_4px_14px_0_rgba(255,255,255,0.39)] border border-white/10 dark:border-black/10 hover:shadow-[0_6px_20px_rgba(0,0,0,0.23)] dark:hover:shadow-[0_6px_20px_rgba(255,255,255,0.23)] disabled:opacity-50 transition-all duration-300"
+              className="relative group overflow-hidden py-1.5 sm:py-2 px-4 sm:px-6 bg-linear-to-b from-neutral-800 to-black dark:from-neutral-200 dark:to-white text-white dark:text-black text-xs font-bold rounded-full flex items-center gap-1.5 cursor-pointer shadow-[0_4px_14px_0_rgba(0,0,0,0.39)] dark:shadow-[0_4px_14px_0_rgba(255,255,255,0.39)] border border-white/10 dark:border-black/10 hover:shadow-[0_6px_20px_rgba(0,0,0,0.23)] dark:hover:shadow-[0_6px_20px_rgba(255,255,255,0.23)] disabled:opacity-50 transition-all duration-300"
             >
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-[100%] group-hover:translate-x-[100%] transition-transform duration-700 ease-in-out" />
+              <div className="absolute inset-0 bg-linear-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out" />
               <Send className="w-3.5 h-3.5 relative z-10" />
               <span className="relative z-10">Resubmit</span>
             </motion.button>
@@ -758,82 +787,131 @@ export default function WorkspaceEditorPage() {
               transition={{ type: "spring", bounce: 0, duration: 0.4 }}
               className="overflow-hidden"
             >
-              <div className="mb-8 sm:mb-12 p-4 sm:p-6 bg-gray-50 dark:bg-slate-900/40 border border-gray-200 dark:border-white/10 rounded-2xl shadow-sm">
-                <h3 className="text-xs sm:text-sm font-bold text-black dark:text-white mb-4 sm:mb-6 uppercase tracking-wider">Publication Settings</h3>
+              <div className="mb-8 sm:mb-12 p-4 sm:p-6 bg-neutral-50 dark:bg-neutral-900/50 border border-neutral-200 dark:border-neutral-800 rounded-2xl shadow-sm">
+                <h3 className="text-xs sm:text-sm font-bold text-neutral-950 dark:text-neutral-50 mb-4 sm:mb-6 uppercase tracking-wider">Publication Settings</h3>
                 
                 {/* Style Selector */}
-                <div className="mb-5 sm:mb-6 border-b border-gray-200 dark:border-white/10 pb-5 sm:pb-6">
-                  <label className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold mb-2.5 block">Writing Style Theme</label>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3">
+                <div className="mb-5 sm:mb-6 border-b border-neutral-200 dark:border-neutral-800 pb-5 sm:pb-6">
+                  <div className="flex items-center justify-between gap-2 mb-3">
+                    <label className="text-[10px] text-neutral-500 dark:text-neutral-400 uppercase tracking-wider font-semibold block">
+                      Writing Style Theme
+                    </label>
+                    <span className="text-[9px] font-mono text-neutral-400 dark:text-neutral-500">
+                      Editor Canvas Appearance
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     {/* Option 1: Broadsheet */}
                     <motion.button
+                      type="button"
                       onClick={() => changeEditorStyle('broadsheet')}
                       whileHover={{ y: -2, scale: 1.015 }}
                       whileTap={{ scale: 0.985 }}
                       transition={{ type: "spring", stiffness: 400, damping: 25, mass: 0.5 }}
-                      className={`p-3.5 sm:p-4 rounded-xl border text-left flex flex-col justify-between h-auto sm:h-28 gap-1.5 cursor-pointer transition-colors duration-200 ${
+                      className={`p-3.5 sm:p-4 rounded-xl border text-left flex flex-col justify-between h-auto sm:h-28 gap-2 cursor-pointer transition-all duration-200 ${
                         editorStyle === 'broadsheet'
-                          ? 'border-black dark:border-white bg-black/5 dark:bg-white/5 text-black dark:text-white ring-1 ring-black dark:ring-white shadow-xs'
-                          : 'border-gray-200 dark:border-white/10 text-gray-500 hover:border-gray-400 dark:hover:border-white/30 hover:bg-black/[0.02] dark:hover:bg-white/[0.02]'
+                          ? 'border-neutral-950 dark:border-white bg-white dark:bg-neutral-900 text-neutral-950 dark:text-white ring-1.5 ring-neutral-950 dark:ring-white shadow-sm'
+                          : 'border-neutral-200 dark:border-neutral-800 bg-white/60 dark:bg-neutral-950/40 text-neutral-700 dark:text-neutral-300 hover:border-neutral-400 dark:hover:border-neutral-600 hover:bg-white dark:hover:bg-neutral-900/60'
                       }`}
                     >
-                      <span className="text-xs font-bold font-serif">Broadsheet</span>
-                      <span className="text-[10px] opacity-80 leading-snug">High contrast, sharp borders, structured newsroom aesthetic.</span>
+                      <div className="flex items-center justify-between w-full">
+                        <span className="text-xs font-bold font-sans">Broadsheet</span>
+                        {editorStyle === 'broadsheet' ? (
+                          <Check className="w-3.5 h-3.5 text-neutral-950 dark:text-white shrink-0" />
+                        ) : (
+                          <span className="w-2.5 h-2.5 rounded-full border border-neutral-300 dark:border-neutral-700 shrink-0" />
+                        )}
+                      </div>
+                      <span className={`text-[11px] leading-snug ${
+                        editorStyle === 'broadsheet'
+                          ? 'text-neutral-600 dark:text-neutral-300 font-medium'
+                          : 'text-neutral-500 dark:text-neutral-400'
+                      }`}>
+                        High contrast, sharp borders, structured newsroom aesthetic.
+                      </span>
                     </motion.button>
 
                     {/* Option 2: Minimal */}
                     <motion.button
+                      type="button"
                       onClick={() => changeEditorStyle('minimal')}
                       whileHover={{ y: -2, scale: 1.015 }}
                       whileTap={{ scale: 0.985 }}
                       transition={{ type: "spring", stiffness: 400, damping: 25, mass: 0.5 }}
-                      className={`p-3.5 sm:p-4 rounded-xl border text-left flex flex-col justify-between h-auto sm:h-28 gap-1.5 cursor-pointer transition-colors duration-200 ${
+                      className={`p-3.5 sm:p-4 rounded-xl border text-left flex flex-col justify-between h-auto sm:h-28 gap-2 cursor-pointer transition-all duration-200 ${
                         editorStyle === 'minimal'
-                          ? 'border-black dark:border-white bg-black/5 dark:bg-white/5 text-black dark:text-white ring-1 ring-black dark:ring-white shadow-xs'
-                          : 'border-gray-200 dark:border-white/10 text-gray-500 hover:border-gray-400 dark:hover:border-white/30 hover:bg-black/[0.02] dark:hover:bg-white/[0.02]'
+                          ? 'border-neutral-950 dark:border-white bg-white dark:bg-neutral-900 text-neutral-950 dark:text-white ring-1.5 ring-neutral-950 dark:ring-white shadow-sm'
+                          : 'border-neutral-200 dark:border-neutral-800 bg-white/60 dark:bg-neutral-950/40 text-neutral-700 dark:text-neutral-300 hover:border-neutral-400 dark:hover:border-neutral-600 hover:bg-white dark:hover:bg-neutral-900/60'
                       }`}
                     >
-                      <span className="text-xs font-bold font-sans">Minimal Canvas</span>
-                      <span className="text-[10px] opacity-80 leading-snug">Borderless, transparent background, pure focus layout.</span>
+                      <div className="flex items-center justify-between w-full">
+                        <span className="text-xs font-bold font-sans">Minimal Canvas</span>
+                        {editorStyle === 'minimal' ? (
+                          <Check className="w-3.5 h-3.5 text-neutral-950 dark:text-white shrink-0" />
+                        ) : (
+                          <span className="w-2.5 h-2.5 rounded-full border border-neutral-300 dark:border-neutral-700 shrink-0" />
+                        )}
+                      </div>
+                      <span className={`text-[11px] leading-snug ${
+                        editorStyle === 'minimal'
+                          ? 'text-neutral-600 dark:text-neutral-300 font-medium'
+                          : 'text-neutral-500 dark:text-neutral-400'
+                      }`}>
+                        Borderless, transparent background, pure focus layout.
+                      </span>
                     </motion.button>
 
                     {/* Option 3: Scholar */}
                     <motion.button
+                      type="button"
                       onClick={() => changeEditorStyle('scholar')}
                       whileHover={{ y: -2, scale: 1.015 }}
                       whileTap={{ scale: 0.985 }}
                       transition={{ type: "spring", stiffness: 400, damping: 25, mass: 0.5 }}
-                      className={`p-3.5 sm:p-4 rounded-xl border text-left flex flex-col justify-between h-auto sm:h-28 gap-1.5 cursor-pointer transition-colors duration-200 ${
+                      className={`p-3.5 sm:p-4 rounded-xl border text-left flex flex-col justify-between h-auto sm:h-28 gap-2 cursor-pointer transition-all duration-200 ${
                         editorStyle === 'scholar'
-                          ? 'border-black dark:border-white bg-black/5 dark:bg-white/5 text-black dark:text-white ring-1 ring-black dark:ring-white shadow-xs'
-                          : 'border-gray-200 dark:border-white/10 text-gray-500 hover:border-gray-400 dark:hover:border-white/30 hover:bg-black/[0.02] dark:hover:bg-white/[0.02]'
+                          ? 'border-neutral-950 dark:border-white bg-white dark:bg-neutral-900 text-neutral-950 dark:text-white ring-1.5 ring-neutral-950 dark:ring-white shadow-sm'
+                          : 'border-neutral-200 dark:border-neutral-800 bg-white/60 dark:bg-neutral-950/40 text-neutral-700 dark:text-neutral-300 hover:border-neutral-400 dark:hover:border-neutral-600 hover:bg-white dark:hover:bg-neutral-900/60'
                       }`}
                     >
-                      <span className="text-xs font-bold font-serif text-[#2c221a] dark:text-[#e3ded5]">Cozy Scholar</span>
-                      <span className="text-[10px] opacity-80 leading-snug text-[#2c221a] dark:text-[#e3ded5]">Warm sepia & slate backgrounds, reading-optimized.</span>
+                      <div className="flex items-center justify-between w-full">
+                        <span className="text-xs font-bold font-sans">Cozy Scholar</span>
+                        {editorStyle === 'scholar' ? (
+                          <Check className="w-3.5 h-3.5 text-neutral-950 dark:text-white shrink-0" />
+                        ) : (
+                          <span className="w-2.5 h-2.5 rounded-full border border-neutral-300 dark:border-neutral-700 shrink-0" />
+                        )}
+                      </div>
+                      <span className={`text-[11px] leading-snug ${
+                        editorStyle === 'scholar'
+                          ? 'text-neutral-600 dark:text-neutral-300 font-medium'
+                          : 'text-neutral-500 dark:text-neutral-400'
+                      }`}>
+                        Warm sepia & slate backgrounds, reading-optimized.
+                      </span>
                     </motion.button>
                   </div>
                 </div>
 
                 {/* Editorial Attribution & Byline Section (Visible for Content Lead / Coordinator / Tech Lead) */}
                 {canCustomizeByline && (
-                  <div className="mb-5 sm:mb-6 border-b border-gray-200 dark:border-white/10 pb-5 sm:pb-6">
+                  <div className="mb-5 sm:mb-6 border-b border-neutral-200 dark:border-neutral-800 pb-5 sm:pb-6">
                     <div className="flex items-center justify-between gap-2 mb-3">
                       <div>
-                        <label className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold block">
+                        <label className="text-[10px] text-neutral-500 dark:text-neutral-400 uppercase tracking-wider font-semibold block">
                           Editorial Attribution & Byline
                         </label>
-                        <p className="text-[11px] text-gray-400 mt-0.5">
+                        <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5">
                           Publish under your account, link an alumnus from Archivum Alumnorum, or assign a guest byline.
                         </p>
                       </div>
-                      <span className="text-[9px] font-mono font-medium px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 shrink-0">
+                      <span className="text-[9px] font-mono font-medium px-2.5 py-0.5 rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 border border-neutral-200 dark:border-neutral-700 shrink-0">
                         Editorial Staff
                       </span>
                     </div>
 
                     {/* Attribution Mode Switcher */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 mb-4">
                       {/* Self */}
                       <motion.button
                         type="button"
@@ -853,10 +931,10 @@ export default function WorkspaceEditorPage() {
                         whileHover={isEditable ? { y: -2, scale: 1.015 } : undefined}
                         whileTap={isEditable ? { scale: 0.985 } : undefined}
                         transition={{ type: "spring", stiffness: 400, damping: 25, mass: 0.5 }}
-                        className={`p-3 rounded-xl border text-left flex items-center gap-2.5 cursor-pointer transition-colors duration-200 ${
+                        className={`p-3 rounded-xl border text-left flex items-center gap-2.5 cursor-pointer transition-all duration-200 ${
                           authorMode === 'SELF'
-                            ? 'border-black dark:border-white bg-black/5 dark:bg-white/5 text-black dark:text-white font-medium ring-1 ring-black dark:ring-white shadow-xs'
-                            : 'border-gray-200 dark:border-white/10 text-gray-500 hover:border-gray-400 dark:hover:border-white/30 hover:bg-black/[0.02] dark:hover:bg-white/[0.02]'
+                            ? 'border-neutral-950 dark:border-white bg-white dark:bg-neutral-900 text-neutral-950 dark:text-white font-medium ring-1.5 ring-neutral-950 dark:ring-white shadow-sm'
+                            : 'border-neutral-200 dark:border-neutral-800 bg-white/60 dark:bg-neutral-950/40 text-neutral-700 dark:text-neutral-300 hover:border-neutral-400 dark:hover:border-neutral-600 hover:bg-white dark:hover:bg-neutral-900/60'
                         }`}
                       >
                         <User className="w-4 h-4 shrink-0" />
@@ -877,10 +955,10 @@ export default function WorkspaceEditorPage() {
                         whileHover={isEditable ? { y: -2, scale: 1.015 } : undefined}
                         whileTap={isEditable ? { scale: 0.985 } : undefined}
                         transition={{ type: "spring", stiffness: 400, damping: 25, mass: 0.5 }}
-                        className={`p-3 rounded-xl border text-left flex items-center gap-2.5 cursor-pointer transition-colors duration-200 ${
+                        className={`p-3 rounded-xl border text-left flex items-center gap-2.5 cursor-pointer transition-all duration-200 ${
                           authorMode === 'ALUMNI'
-                            ? 'border-purple-500 bg-purple-500/10 text-purple-700 dark:text-purple-300 font-medium ring-1 ring-purple-500 shadow-xs'
-                            : 'border-gray-200 dark:border-white/10 text-gray-500 hover:border-purple-400/60 dark:hover:border-purple-500/40 hover:bg-purple-500/[0.02]'
+                            ? 'border-neutral-950 dark:border-white bg-white dark:bg-neutral-900 text-neutral-950 dark:text-white font-medium ring-1.5 ring-neutral-950 dark:ring-white shadow-sm'
+                            : 'border-neutral-200 dark:border-neutral-800 bg-white/60 dark:bg-neutral-950/40 text-neutral-700 dark:text-neutral-300 hover:border-neutral-400 dark:hover:border-neutral-600 hover:bg-white dark:hover:bg-neutral-900/60'
                         }`}
                       >
                         <GraduationCap className="w-4 h-4 shrink-0" />
@@ -903,10 +981,10 @@ export default function WorkspaceEditorPage() {
                         whileHover={isEditable ? { y: -2, scale: 1.015 } : undefined}
                         whileTap={isEditable ? { scale: 0.985 } : undefined}
                         transition={{ type: "spring", stiffness: 400, damping: 25, mass: 0.5 }}
-                        className={`p-3 rounded-xl border text-left flex items-center gap-2.5 cursor-pointer transition-colors duration-200 ${
+                        className={`p-3 rounded-xl border text-left flex items-center gap-2.5 cursor-pointer transition-all duration-200 ${
                           authorMode === 'CUSTOM'
-                            ? 'border-black dark:border-white bg-black/5 dark:bg-white/5 text-black dark:text-white font-medium ring-1 ring-black dark:ring-white shadow-xs'
-                            : 'border-gray-200 dark:border-white/10 text-gray-500 hover:border-gray-400 dark:hover:border-white/30 hover:bg-black/[0.02] dark:hover:bg-white/[0.02]'
+                            ? 'border-neutral-950 dark:border-white bg-white dark:bg-neutral-900 text-neutral-950 dark:text-white font-medium ring-1.5 ring-neutral-950 dark:ring-white shadow-sm'
+                            : 'border-neutral-200 dark:border-neutral-800 bg-white/60 dark:bg-neutral-950/40 text-neutral-700 dark:text-neutral-300 hover:border-neutral-400 dark:hover:border-neutral-600 hover:bg-white dark:hover:bg-neutral-900/60'
                         }`}
                       >
                         <PenTool className="w-4 h-4 shrink-0" />
@@ -919,42 +997,56 @@ export default function WorkspaceEditorPage() {
 
                     {/* Mode A: Archivum Alumnus Selector */}
                     {authorMode === 'ALUMNI' && (
-                      <div className="p-3.5 sm:p-4 rounded-xl bg-purple-500/5 border border-purple-500/20 space-y-3.5">
-                        <div className="flex flex-col gap-1.5">
-                          <label className="text-[10px] uppercase tracking-wider font-semibold text-purple-700 dark:text-purple-400">
+                      <div ref={alumniPickerRef} className="p-3.5 sm:p-4 rounded-xl bg-gray-100/70 dark:bg-white/5 border border-gray-200 dark:border-white/10 space-y-3.5">
+                        <div className="flex flex-col gap-1.5 relative">
+                          <label className="text-[10px] uppercase tracking-wider font-semibold text-neutral-600 dark:text-neutral-400">
                             Select Alumnus from Archivum
                           </label>
 
                           {/* Selected Alumnus Card Preview */}
                           {selectedAlumnus ? (
-                            <div className="flex items-center justify-between p-2.5 bg-white dark:bg-slate-900 border border-purple-500/30 rounded-lg">
+                            <div className="flex items-center justify-between p-3 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl shadow-xs">
                               <div className="flex items-center gap-3 min-w-0">
                                 <img
-                                  src={
-                                    selectedAlumnus.photo && selectedAlumnus.photo.trim() !== ''
-                                      ? getOptimizedAvatarUrl(selectedAlumnus.photo, 72)
-                                      : `https://api.dicebear.com/7.x/initials/svg?seed=${selectedAlumnus.name}`
-                                  }
+                                  src={getAlumniAvatarUrl(selectedAlumnus.photo, selectedAlumnus.name, 72)}
                                   alt={selectedAlumnus.name}
-                                  className="w-9 h-9 rounded-full object-cover border border-purple-200 dark:border-purple-800 shrink-0"
+                                  onError={(e) => {
+                                    const fallback = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(selectedAlumnus.name || 'Alumnus')}`;
+                                    if (e.currentTarget.src !== fallback) {
+                                      e.currentTarget.src = fallback;
+                                    }
+                                  }}
+                                  className="w-9 h-9 rounded-full object-cover border border-neutral-200 dark:border-neutral-700 shrink-0"
                                 />
                                 <div className="min-w-0">
-                                  <span className="block text-xs font-bold text-neutral-900 dark:text-neutral-100 truncate">
-                                    {selectedAlumnus.name}
-                                  </span>
-                                  <span className="block text-[10px] text-purple-600 dark:text-purple-400 font-mono">
-                                    Class of {selectedAlumnus.batch} {selectedAlumnus.branch ? `· ${selectedAlumnus.branch}` : ''}
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="block text-xs font-bold text-neutral-900 dark:text-neutral-100 truncate">
+                                      {selectedAlumnus.name}
+                                    </span>
+                                    <span className="text-[9px] font-mono font-medium px-2 py-0.5 rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-700">
+                                      Class of {selectedAlumnus.batch}
+                                    </span>
+                                  </div>
+                                  <span className="block text-[10px] text-neutral-500 dark:text-neutral-400 font-mono truncate mt-0.5">
+                                    {selectedAlumnus.branch && selectedAlumnus.branch !== 'null' ? `${selectedAlumnus.branch}` : 'Archivum Alumnus'}
+                                    {selectedAlumnus.currentPosition && selectedAlumnus.currentPosition !== 'null' && selectedAlumnus.currentPosition !== 'undefined'
+                                      ? ` · ${selectedAlumnus.currentPosition}`
+                                      : ''}
                                   </span>
                                 </div>
                               </div>
                               {isEditable && (
                                 <motion.button
                                   type="button"
-                                  onClick={() => setAlumniDropdownOpen(!alumniDropdownOpen)}
-                                  whileHover={{ scale: 1.05 }}
-                                  whileTap={{ scale: 0.94 }}
+                                  onClick={() => setAlumniDropdownOpen((prev) => !prev)}
+                                  whileHover={{ scale: 1.03 }}
+                                  whileTap={{ scale: 0.96 }}
                                   transition={{ type: "spring", stiffness: 400, damping: 25, mass: 0.5 }}
-                                  className="text-xs text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 font-semibold px-2.5 py-1 rounded-md bg-purple-500/10 hover:bg-purple-500/20 transition-colors duration-200 cursor-pointer shrink-0 ml-2 shadow-2xs"
+                                  className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition-all duration-200 cursor-pointer shrink-0 ml-2 shadow-xs ${
+                                    alumniDropdownOpen
+                                      ? 'bg-black text-white dark:bg-white dark:text-black border-black dark:border-white'
+                                      : 'bg-white dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 border-neutral-200 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-700'
+                                  }`}
                                 >
                                   {alumniDropdownOpen ? 'Close' : 'Change'}
                                 </motion.button>
@@ -963,78 +1055,167 @@ export default function WorkspaceEditorPage() {
                           ) : (
                             <motion.button
                               type="button"
-                              onClick={() => setAlumniDropdownOpen(true)}
+                              onClick={() => setAlumniDropdownOpen((prev) => !prev)}
                               disabled={!isEditable}
                               whileHover={isEditable ? { scale: 1.01 } : undefined}
                               whileTap={isEditable ? { scale: 0.99 } : undefined}
                               transition={{ type: "spring", stiffness: 400, damping: 25, mass: 0.5 }}
-                              className="w-full flex items-center justify-between p-2.5 bg-white dark:bg-slate-900 border border-purple-500/30 rounded-lg text-left text-xs text-gray-500 hover:border-purple-500 hover:bg-purple-500/[0.02] transition-colors duration-200 cursor-pointer"
+                              className="w-full flex items-center justify-between p-3 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 hover:border-neutral-400 dark:hover:border-neutral-600 rounded-xl text-left text-xs text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 transition-colors duration-200 cursor-pointer shadow-xs"
                             >
-                              <span>{alumniLoading ? 'Loading alumni profiles...' : 'Choose an alumnus...'}</span>
-                              <ChevronDown className="w-4 h-4 text-purple-500" />
+                              <div className="flex items-center gap-2">
+                                <GraduationCap className="w-4 h-4 text-neutral-500 dark:text-neutral-400" />
+                                <span>{alumniLoading ? 'Loading alumni profiles...' : 'Choose an alumnus from directory...'}</span>
+                              </div>
+                              <ChevronDown className={`w-4 h-4 text-neutral-400 transition-transform duration-200 ${alumniDropdownOpen ? 'rotate-180 text-black dark:text-white' : ''}`} />
                             </motion.button>
                           )}
 
                           {/* Searchable Picker Dropdown */}
                           {alumniDropdownOpen && isEditable && (
-                            <div className="p-2.5 bg-white dark:bg-slate-900 border border-neutral-200 dark:border-neutral-800 rounded-lg shadow-lg space-y-2 mt-1">
-                              <div className="relative">
-                                <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
-                                <input
-                                  type="text"
-                                  value={alumniSearch}
-                                  onChange={(e) => setAlumniSearch(e.target.value)}
-                                  placeholder="Search by name, batch, or branch..."
-                                  className="w-full pl-8 pr-3 py-1.5 bg-gray-50 dark:bg-slate-950/60 border border-gray-200 dark:border-white/10 rounded-md text-xs text-black dark:text-white outline-none focus:border-purple-500 transition-colors"
-                                />
+                            <div 
+                              className="p-3 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl shadow-xl dark:shadow-[0_20px_50px_rgba(0,0,0,0.8)] space-y-2.5 mt-1 relative z-20"
+                            >
+                              <div className="flex items-center gap-2">
+                                <div className="relative flex-1 flex items-center">
+                                  <Search className="w-3.5 h-3.5 absolute left-3 text-neutral-400 pointer-events-none" />
+                                  <input
+                                    type="text"
+                                    value={alumniSearch}
+                                    onChange={(e) => setAlumniSearch(e.target.value)}
+                                    placeholder="Search by name, batch, branch, role..."
+                                    className="w-full pl-8 pr-7 py-2 bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-lg text-xs text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 outline-none focus:border-neutral-950 dark:focus:border-neutral-200 focus:ring-1 focus:ring-neutral-950 dark:focus:ring-neutral-200 transition-colors"
+                                    autoFocus
+                                  />
+                                  {alumniSearch && (
+                                    <button
+                                      type="button"
+                                      onClick={() => setAlumniSearch('')}
+                                      className="absolute right-2.5 text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 p-0.5 rounded cursor-pointer transition-colors"
+                                      title="Clear search"
+                                    >
+                                      <X className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
+                                </div>
+
+                                <button
+                                  type="button"
+                                  onClick={() => setAlumniDropdownOpen(false)}
+                                  className="px-3 py-2 text-xs font-semibold text-neutral-600 dark:text-neutral-300 hover:text-neutral-950 dark:hover:text-neutral-50 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer shrink-0 border border-neutral-200 dark:border-neutral-800"
+                                  title="Close dropdown"
+                                >
+                                  Close
+                                </button>
                               </div>
 
-                              <div className="max-h-48 overflow-y-auto space-y-1">
-                                {filteredAlumni.length === 0 ? (
-                                  <p className="text-[11px] text-gray-400 py-3 text-center">No alumni found.</p>
+                              {/* Alumni Count and Reset Row */}
+                              <div className="flex items-center justify-between px-1 text-[10px] text-neutral-500 dark:text-neutral-400 font-mono">
+                                <span>
+                                  {alumniLoading
+                                    ? 'Fetching directory...'
+                                    : `${filteredAlumni.length} of ${alumniList.length} ${alumniList.length === 1 ? 'alumnus' : 'alumni'} available`}
+                                </span>
+                                {alumniSearch && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setAlumniSearch('')}
+                                    className="text-neutral-900 dark:text-neutral-100 font-semibold hover:underline cursor-pointer"
+                                  >
+                                    Reset filter
+                                  </button>
+                                )}
+                              </div>
+
+                              {/* Scrollable List Container with explicit custom scrollbar */}
+                              <div className="max-h-72 overflow-y-auto space-y-1 pr-1.5 visible-scrollbar overscroll-contain touch-pan-y divide-y divide-neutral-100 dark:divide-neutral-800/40">
+                                {alumniLoading ? (
+                                  <div className="flex items-center justify-center py-8 gap-2 text-xs text-neutral-500 dark:text-neutral-400">
+                                    <Loader2 className="w-4 h-4 animate-spin text-neutral-800 dark:text-neutral-200" />
+                                    <span>Loading Archivum Directory...</span>
+                                  </div>
+                                ) : filteredAlumni.length === 0 ? (
+                                  <div className="py-8 text-center text-xs text-neutral-400">
+                                    <p className="font-medium text-neutral-600 dark:text-neutral-300">No alumni found.</p>
+                                    {alumniSearch && (
+                                      <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-1">
+                                        Try searching by name, graduation year, branch, or current position.
+                                      </p>
+                                    )}
+                                  </div>
                                 ) : (
-                                  filteredAlumni.map((alum) => (
-                                    <motion.button
-                                      key={alum.id}
-                                      type="button"
-                                      onClick={() => {
-                                        setAlumniProfileId(alum.id);
-                                        setAuthorName(alum.name);
-                                        setAlumniDropdownOpen(false);
-                                        handleAutoSaveWithParams({
-                                          newAlumniProfileId: alum.id,
-                                          newAuthorName: alum.name,
-                                        });
-                                      }}
-                                      whileHover={{ x: 4 }}
-                                      whileTap={{ scale: 0.985 }}
-                                      transition={{ type: "spring", stiffness: 400, damping: 25, mass: 0.5 }}
-                                      className={`w-full flex items-center justify-between p-2 rounded-md text-left transition-colors duration-150 cursor-pointer ${
-                                        alumniProfileId === alum.id
-                                          ? 'bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300'
-                                          : 'hover:bg-gray-100 dark:hover:bg-white/5 text-neutral-800 dark:text-neutral-200'
-                                      }`}
-                                    >
-                                      <div className="flex items-center gap-2 min-w-0">
-                                        <img
-                                          src={
-                                            alum.photo && alum.photo.trim() !== ''
-                                              ? getOptimizedAvatarUrl(alum.photo, 48)
-                                              : `https://api.dicebear.com/7.x/initials/svg?seed=${alum.name}`
-                                          }
-                                          alt={alum.name}
-                                          className="w-6 h-6 rounded-full object-cover shrink-0"
-                                        />
-                                        <div className="min-w-0">
-                                          <span className="text-xs font-semibold block truncate">{alum.name}</span>
-                                          <span className="text-[10px] text-gray-400 block font-mono">
-                                            Class of {alum.batch} {alum.branch ? `· ${alum.branch}` : ''}
-                                          </span>
+                                  filteredAlumni.map((alum) => {
+                                    const isSelected = alumniProfileId === alum.id;
+                                    return (
+                                      <motion.button
+                                        key={alum.id}
+                                        type="button"
+                                        onClick={() => {
+                                          setAlumniProfileId(alum.id);
+                                          setAuthorName(alum.name);
+                                          setAlumniDropdownOpen(false);
+                                          handleAutoSaveWithParams({
+                                            newAlumniProfileId: alum.id,
+                                            newAuthorName: alum.name,
+                                          });
+                                        }}
+                                        whileHover={{ x: 2 }}
+                                        whileTap={{ scale: 0.985 }}
+                                        transition={{ type: "spring", stiffness: 400, damping: 25, mass: 0.5 }}
+                                        className={`w-full flex items-center justify-between p-2.5 rounded-lg text-left transition-colors duration-150 cursor-pointer ${
+                                          isSelected
+                                            ? 'bg-black text-white dark:bg-white dark:text-black font-medium shadow-xs'
+                                            : 'hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-900 dark:text-neutral-100'
+                                        }`}
+                                      >
+                                        <div className="flex items-center gap-3 min-w-0">
+                                          <img
+                                            src={getAlumniAvatarUrl(alum.photo, alum.name, 48)}
+                                            alt={alum.name}
+                                            onError={(e) => {
+                                              const fallback = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(alum.name || 'Alumnus')}`;
+                                              if (e.currentTarget.src !== fallback) {
+                                                e.currentTarget.src = fallback;
+                                              }
+                                            }}
+                                            className={`w-8 h-8 rounded-full object-cover shrink-0 border ${
+                                              isSelected
+                                                ? 'border-white/20 dark:border-black/20'
+                                                : 'border-neutral-200 dark:border-neutral-700'
+                                            }`}
+                                          />
+                                          <div className="min-w-0">
+                                            <div className="flex items-center gap-2">
+                                              <span className="text-xs font-bold truncate">{alum.name}</span>
+                                              <span
+                                                className={`text-[9px] font-mono px-1.5 py-0.2 rounded-sm border ${
+                                                  isSelected
+                                                    ? 'bg-white/15 text-white dark:bg-black/10 dark:text-black border-transparent'
+                                                    : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 border-neutral-200 dark:border-neutral-700'
+                                                }`}
+                                              >
+                                                Class of {alum.batch}
+                                              </span>
+                                            </div>
+                                            <span
+                                              className={`text-[10px] block font-mono truncate mt-0.5 ${
+                                                isSelected
+                                                  ? 'text-neutral-300 dark:text-neutral-600'
+                                                  : 'text-neutral-500 dark:text-neutral-400'
+                                              }`}
+                                            >
+                                              {alum.branch && alum.branch !== 'null' ? `${alum.branch}` : ''}
+                                              {alum.currentPosition && alum.currentPosition !== 'null' && alum.currentPosition !== 'undefined'
+                                                ? ` · ${alum.currentPosition}`
+                                                : ''}
+                                            </span>
+                                          </div>
                                         </div>
-                                      </div>
-                                      {alumniProfileId === alum.id && <Check className="w-4 h-4 text-purple-600 shrink-0 ml-2" />}
-                                    </motion.button>
-                                  ))
+                                        {isSelected && (
+                                          <Check className="w-4 h-4 text-white dark:text-black shrink-0 ml-2" />
+                                        )}
+                                      </motion.button>
+                                    );
+                                  })
                                 )}
                               </div>
                             </div>
@@ -1043,7 +1224,7 @@ export default function WorkspaceEditorPage() {
 
                         {/* Optional Byline Subtitle Note */}
                         <div className="flex flex-col">
-                          <label className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold mb-1">
+                          <label className="text-[10px] text-gray-500 dark:text-neutral-400 uppercase tracking-wider font-semibold mb-1">
                             Custom Subtitle Note (Optional)
                           </label>
                           <input
@@ -1053,7 +1234,7 @@ export default function WorkspaceEditorPage() {
                             onBlur={() => handleAutoSaveWithParams({ newAuthorNote: authorNote.trim() || null })}
                             disabled={!isEditable}
                             placeholder="e.g. Former Literary Secretary · Guest Column"
-                            className="bg-white dark:bg-slate-950/40 border border-gray-200 dark:border-white/10 text-black dark:text-white rounded-lg p-2 outline-none focus:border-purple-400 transition text-xs"
+                            className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-neutral-900 dark:text-neutral-100 rounded-lg p-2 outline-none focus:border-neutral-950 dark:focus:border-neutral-200 focus:ring-1 focus:ring-neutral-950 dark:focus:ring-neutral-200 transition text-xs"
                           />
                         </div>
                       </div>
@@ -1061,10 +1242,10 @@ export default function WorkspaceEditorPage() {
 
                     {/* Mode B: Custom Unregistered Author */}
                     {authorMode === 'CUSTOM' && (
-                      <div className="p-3.5 sm:p-4 rounded-xl bg-gray-100/70 dark:bg-white/5 border border-gray-200 dark:border-white/10 space-y-3">
+                      <div className="p-3.5 sm:p-4 rounded-xl bg-neutral-100 dark:bg-neutral-800/50 border border-neutral-200 dark:border-neutral-800 space-y-3">
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           <div className="flex flex-col">
-                            <label className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold mb-1">
+                            <label className="text-[10px] text-neutral-500 dark:text-neutral-400 uppercase tracking-wider font-semibold mb-1">
                               Author Display Name *
                             </label>
                             <input
@@ -1074,12 +1255,12 @@ export default function WorkspaceEditorPage() {
                               onBlur={() => handleAutoSaveWithParams({ newAuthorName: authorName.trim() || null })}
                               disabled={!isEditable}
                               placeholder="e.g. Dr. Rajesh Verma '04"
-                              className="bg-white dark:bg-slate-950/40 border border-gray-200 dark:border-white/10 text-black dark:text-white rounded-lg p-2 outline-none focus:border-gray-400 transition text-xs font-semibold"
+                              className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-neutral-900 dark:text-neutral-100 rounded-lg p-2 outline-none focus:border-neutral-950 dark:focus:border-neutral-200 focus:ring-1 focus:ring-neutral-950 dark:focus:ring-neutral-200 transition text-xs font-semibold"
                             />
                           </div>
 
                           <div className="flex flex-col">
-                            <label className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold mb-1">
+                            <label className="text-[10px] text-neutral-500 dark:text-neutral-400 uppercase tracking-wider font-semibold mb-1">
                               Byline Note / Title (Optional)
                             </label>
                             <input
@@ -1089,11 +1270,11 @@ export default function WorkspaceEditorPage() {
                               onBlur={() => handleAutoSaveWithParams({ newAuthorNote: authorNote.trim() || null })}
                               disabled={!isEditable}
                               placeholder="e.g. Alumni Guest Essayist"
-                              className="bg-white dark:bg-slate-950/40 border border-gray-200 dark:border-white/10 text-black dark:text-white rounded-lg p-2 outline-none focus:border-gray-400 transition text-xs"
+                              className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-neutral-900 dark:text-neutral-100 rounded-lg p-2 outline-none focus:border-neutral-950 dark:focus:border-neutral-200 focus:ring-1 focus:ring-neutral-950 dark:focus:ring-neutral-200 transition text-xs"
                             />
                           </div>
                         </div>
-                        <p className="text-[10px] text-gray-400">
+                        <p className="text-[10px] text-neutral-400 dark:text-neutral-500">
                           ℹ️ This author name will appear prominently on the publication and in social cards, without linking to an active user account.
                         </p>
                       </div>
@@ -1101,9 +1282,9 @@ export default function WorkspaceEditorPage() {
                   </div>
                 )}
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 sm:gap-6 mb-5 sm:mb-6 pb-5 sm:pb-6 border-b border-gray-200 dark:border-white/10">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 sm:gap-6 mb-5 sm:mb-6 pb-5 sm:pb-6 border-b border-neutral-200 dark:border-neutral-800">
                   <div className="flex flex-col">
-                    <label className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold mb-1.5">Category</label>
+                    <label className="text-[10px] text-neutral-500 dark:text-neutral-400 uppercase tracking-wider font-semibold mb-1.5">Category</label>
                     <select
                       value={category}
                       onChange={(e) => {
@@ -1111,7 +1292,7 @@ export default function WorkspaceEditorPage() {
                         handleAutoSaveWithParams({ newCategory: e.target.value });
                       }}
                       disabled={!isEditable}
-                      className="bg-white dark:bg-slate-950/40 border border-gray-200 dark:border-white/10 text-black dark:text-white rounded-lg p-2 sm:p-2.5 outline-none focus:border-gray-400 transition text-xs sm:text-sm font-medium"
+                      className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-neutral-900 dark:text-neutral-100 rounded-lg p-2 sm:p-2.5 outline-none focus:border-neutral-950 dark:focus:border-neutral-200 focus:ring-1 focus:ring-neutral-950 dark:focus:ring-neutral-200 transition text-xs sm:text-sm font-medium"
                     >
                       <option value="STORY">Story (Fiction)</option>
                       <option value="ARTICLE">Article (Essay/Research)</option>
@@ -1121,7 +1302,7 @@ export default function WorkspaceEditorPage() {
                   </div>
 
                   <div className="flex flex-col">
-                    <label className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold mb-1.5">Language</label>
+                    <label className="text-[10px] text-neutral-500 dark:text-neutral-400 uppercase tracking-wider font-semibold mb-1.5">Language</label>
                     <select
                       value={language}
                       onChange={(e) => {
@@ -1129,7 +1310,7 @@ export default function WorkspaceEditorPage() {
                         handleAutoSaveWithParams({ newLanguage: e.target.value });
                       }}
                       disabled={!isEditable}
-                      className="bg-white dark:bg-slate-950/40 border border-gray-200 dark:border-white/10 text-black dark:text-white rounded-lg p-2 sm:p-2.5 outline-none focus:border-gray-400 transition text-xs sm:text-sm font-medium"
+                      className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-neutral-900 dark:text-neutral-100 rounded-lg p-2 sm:p-2.5 outline-none focus:border-neutral-950 dark:focus:border-neutral-200 focus:ring-1 focus:ring-neutral-950 dark:focus:ring-neutral-200 transition text-xs sm:text-sm font-medium"
                     >
                       <option value="ENGLISH">English</option>
                       <option value="HINDI">Hindi (हिंदी)</option>
@@ -1138,10 +1319,10 @@ export default function WorkspaceEditorPage() {
 
                   <div className="flex flex-col">
                     <div className="flex items-center justify-between mb-1.5">
-                      <label className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold">
+                      <label className="text-[10px] text-neutral-500 dark:text-neutral-400 uppercase tracking-wider font-semibold">
                         Tags (comma separated)
                       </label>
-                      <span className="text-[10px] text-gray-400 font-mono">
+                      <span className="text-[10px] text-neutral-400 dark:text-neutral-500 font-mono">
                         Max 3 tags
                       </span>
                     </div>
@@ -1161,13 +1342,13 @@ export default function WorkspaceEditorPage() {
                       }}
                       disabled={!isEditable}
                       placeholder="e.g. Memory, Noir, Calvino (max 3)"
-                      className="bg-white dark:bg-slate-950/40 border border-gray-200 dark:border-white/10 text-black dark:text-white rounded-lg p-2 sm:p-2.5 outline-none focus:border-gray-400 transition text-xs sm:text-sm"
+                      className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-neutral-900 dark:text-neutral-100 rounded-lg p-2 sm:p-2.5 outline-none focus:border-neutral-950 dark:focus:border-neutral-200 focus:ring-1 focus:ring-neutral-950 dark:focus:ring-neutral-200 transition text-xs sm:text-sm"
                     />
                   </div>
                 </div>
 
                 <div className="flex flex-col">
-                  <label className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold mb-2.5 block">Cover Image</label>
+                  <label className="text-[10px] text-neutral-500 dark:text-neutral-400 uppercase tracking-wider font-semibold mb-2.5 block">Cover Image</label>
                   
                   {coverImage.trim() ? (
                     <div className="relative group w-full h-44 sm:h-56 rounded-2xl overflow-hidden border border-gray-200 dark:border-white/10 shadow-sm bg-gray-50 dark:bg-slate-950/40">
@@ -1309,14 +1490,21 @@ export default function WorkspaceEditorPage() {
                 <img
                   src={
                     authorMode === 'ALUMNI' && selectedAlumnus
-                      ? (selectedAlumnus.photo && selectedAlumnus.photo.trim() !== ''
-                          ? getOptimizedAvatarUrl(selectedAlumnus.photo, 80)
-                          : `https://api.dicebear.com/7.x/initials/svg?seed=${authorName || selectedAlumnus.name}`)
+                      ? getAlumniAvatarUrl(selectedAlumnus.photo, authorName || selectedAlumnus.name, 80)
                       : authorMode === 'CUSTOM' && authorName
-                      ? `https://api.dicebear.com/7.x/initials/svg?seed=${authorName}`
-                      : session?.user?.image ? getOptimizedAvatarUrl(session.user.image, 80) : `https://api.dicebear.com/7.x/initials/svg?seed=${session?.user?.name || 'User'}`
+                      ? `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(authorName)}`
+                      : session?.user?.image ? getOptimizedAvatarUrl(session.user.image, 80) : `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(session?.user?.name || 'User')}`
                   }
                   alt={authorMode === 'CUSTOM' ? (authorName || 'Author') : (session?.user?.name || 'User')}
+                  onError={(e) => {
+                    const fallbackName = authorMode === 'ALUMNI' && selectedAlumnus 
+                      ? (authorName || selectedAlumnus.name) 
+                      : (authorMode === 'CUSTOM' ? authorName : session?.user?.name) || 'User';
+                    const fallback = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(fallbackName)}`;
+                    if (e.currentTarget.src !== fallback) {
+                      e.currentTarget.src = fallback;
+                    }
+                  }}
                   className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover border border-gray-200 dark:border-neutral-700 shrink-0"
                 />
                 <div>

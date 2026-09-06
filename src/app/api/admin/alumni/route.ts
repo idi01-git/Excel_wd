@@ -18,6 +18,12 @@ async function validateUserLink(userId: string | null) {
   return null;
 }
 
+function cleanString(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+  const str = String(value).trim();
+  return str === '' || str === 'null' || str === 'undefined' ? null : str;
+}
+
 export async function GET() {
   try {
     const { error } = await requirePermission('MANAGE_ALUMNI');
@@ -42,7 +48,11 @@ export async function POST(req: Request) {
     const { name, photo, batch, branch, currentPosition, excelsiorPosition, message, instagram, linkedin, email, phone } = body;
     const userId = cleanUserId(body.userId);
 
-    if (!name?.trim() || !batch?.trim() || !branch?.trim()) {
+    const cleanName = cleanString(name);
+    const cleanBatch = cleanString(batch);
+    const cleanBranch = cleanString(branch);
+
+    if (!cleanName || !cleanBatch || !cleanBranch) {
       return NextResponse.json({ error: 'Name, Batch, and Branch are required fields.' }, { status: 400 });
     }
     const linkError = await validateUserLink(userId);
@@ -50,10 +60,18 @@ export async function POST(req: Request) {
 
     const created = await db.alumniProfile.create({
       data: {
-        name: name.trim(), photo: photo?.trim() || null, batch: batch.trim(), branch: branch.trim(),
-        currentPosition: currentPosition?.trim() || null, excelsiorPosition: excelsiorPosition?.trim() || null,
-        message: message?.trim() || null, instagram: instagram?.trim() || null, linkedin: linkedin?.trim() || null,
-        email: email?.trim() || null, phone: phone?.trim() || null, userId,
+        name: cleanName,
+        photo: cleanString(photo),
+        batch: cleanBatch,
+        branch: cleanBranch,
+        currentPosition: cleanString(currentPosition),
+        excelsiorPosition: cleanString(excelsiorPosition),
+        message: cleanString(message),
+        instagram: cleanString(instagram),
+        linkedin: cleanString(linkedin),
+        email: cleanString(email),
+        phone: cleanString(phone),
+        userId,
         showSocialsToTeam: typeof body.showSocialsToTeam === 'boolean' ? body.showSocialsToTeam : true,
       },
       include: { user: { select: { id: true, name: true, username: true, role: true } } },

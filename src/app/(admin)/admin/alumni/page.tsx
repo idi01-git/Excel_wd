@@ -31,6 +31,7 @@ import { uploadImageBlob } from '@/lib/upload';
 import { validateUploadFile, ACCEPT_MAP } from '@/lib/file-validation';
 import { useLenis } from 'lenis/react';
 import { formatRole } from '@/lib/rbac';
+import { getOptimizedAvatarUrl } from '@/lib/image-optimization';
 
 interface LinkedUser {
   id: string;
@@ -475,7 +476,7 @@ export default function AdminAlumniPage() {
       </div>
 
       {/* Alumni Directory Grid with Stable Height and Smooth Transitions */}
-      <div className="min-h-[480px]">
+      <div className="min-h-120">
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {[1, 2, 3, 4, 5, 6].map((i) => (
@@ -532,8 +533,18 @@ export default function AdminAlumniPage() {
                     <div className="space-y-3">
                       <div className="flex items-start gap-3.5">
                         <div className="h-11 w-11 rounded-xl bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 overflow-hidden flex items-center justify-center font-bold text-neutral-900 dark:text-white font-serif text-base shrink-0 shadow-xs">
-                          {alum.photo ? (
-                            <img src={alum.photo} alt={alum.name} className="h-full w-full object-cover" />
+                          {alum.photo && alum.photo.trim() !== '' && alum.photo !== 'null' && alum.photo !== 'undefined' ? (
+                            <img
+                              src={getOptimizedAvatarUrl(alum.photo, 96)}
+                              alt={alum.name}
+                              onError={(e) => {
+                                const fallback = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(alum.name || 'Alumnus')}`;
+                                if (e.currentTarget.src !== fallback) {
+                                  e.currentTarget.src = fallback;
+                                }
+                              }}
+                              className="h-full w-full object-cover"
+                            />
                           ) : (
                             alum.name.charAt(0).toUpperCase()
                           )}
