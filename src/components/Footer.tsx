@@ -186,18 +186,25 @@ export default function Footer() {
         {/* Bottom bar */}
         <div className="mt-14 flex flex-col items-center text-center gap-4 border-t border-background/15 pt-6 font-mono text-[10px] uppercase tracking-[0.22em] text-background/40 sm:flex-row sm:items-center sm:justify-between sm:text-left">
           <span>© {new Date().getFullYear()} Excelsior Literary Society</span>
-          {/* <span>
-            Brought into Existence by{' '}
-            <a
-              href="https://www.linkedin.com/in/shivang-idi01/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-background/80 underline underline-offset-4 decoration-background/30 transition-colors hover:text-background hover:decoration-background"
-            >
+          <a
+            href="https://www.linkedin.com/in/shivang-idi01/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.22em] text-background/50 transition-colors hover:text-background cursor-pointer"
+          >
+            <span>Crafted with</span>
+            <span className="inline-block text-red-400 transition-transform duration-300 group-hover:scale-125 group-hover:rotate-6">
+              ♥
+            </span>
+            <span>by</span>
+            <span className="relative font-serif text-[12.5px] italic font-semibold text-background tracking-normal normal-case">
               Shivang
-            </a>{' '}
-            ❤️
-          </span> */}
+              <span className="absolute left-0 -bottom-0.5 h-[1px] w-0 bg-background transition-all duration-300 ease-out group-hover:w-full" />
+            </span>
+            <span className="text-[10px] opacity-40 transition-all duration-300 group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5">
+              ↗
+            </span>
+          </a>
           <span>Est. 2014 · Still in print</span>
         </div>
       </div>

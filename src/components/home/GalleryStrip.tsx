@@ -315,7 +315,7 @@ function GalleryTile({
         y: { type: 'spring', stiffness: 220, damping: 24, mass: 0.6 },
         opacity: { duration: 0.85, ease: [0.16, 1, 0.3, 1], delay: inView ? Math.min((index % 8) * 0.06, 0.36) : 0 },
       }}
-      className="group break-inside-avoid [will-change:transform]"
+      className="group break-inside-avoid"
     >
       <button
         onClick={onOpen}
@@ -336,7 +336,7 @@ function GalleryTile({
         }}
         className="relative block w-full cursor-pointer overflow-hidden rounded-xl sm:rounded-2xl border border-neutral-200/80 dark:border-neutral-800/90 bg-neutral-100 dark:bg-neutral-900 text-left shadow-[0_4px_20px_rgba(0,0,0,0.04)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.4)] transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:shadow-[0_28px_65px_-10px_rgba(0,0,0,0.22)] dark:group-hover:shadow-[0_28px_65px_-10px_rgba(0,0,0,0.75)] group-hover:border-foreground/35"
       >
-        <div className="relative w-full overflow-hidden [will-change:transform] [transform:translateZ(0)]">
+        <div className="relative w-full overflow-hidden [transform:translateZ(0)]">
           {/* Media — natural intrinsic proportions, no unwanted aspect cropping */}
           {isVideo ? (
             <video

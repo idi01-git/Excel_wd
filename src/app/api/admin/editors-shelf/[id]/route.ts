@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requirePermission } from '@/lib/api-auth';
 import { parseEditorialNote, serializeEditorialNote } from '@/lib/editors-shelf-helper';
+import { revalidatePublicContent } from '@/lib/public-cache';
 import { deleteImageByUrl } from '@/lib/cloudinary';
 
 export async function GET(
@@ -159,6 +160,7 @@ export async function PUT(
       },
     });
 
+    revalidatePublicContent('shelf');
     return NextResponse.json({ success: true, item: updated });
   } catch (error: any) {
     console.error('Update editor shelf item error:', error);

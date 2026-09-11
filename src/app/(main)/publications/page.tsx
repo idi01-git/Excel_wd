@@ -67,6 +67,13 @@ function PublicationsContent() {
 
     const queryString = nextParams.toString();
     router.replace(`/publications${queryString ? `?${queryString}` : ''}`, { scroll: false });
+
+    if (contentTopRef.current && typeof window !== 'undefined') {
+      const rect = contentTopRef.current.getBoundingClientRect();
+      if (rect.top < 80) {
+        contentTopRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
   };
 
   const fetchPublications = useCallback(async (pageNum = 1) => {
@@ -189,7 +196,7 @@ function PublicationsContent() {
   };
 
   return (
-    <div className="w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
+    <div className="w-full max-w-6xl mx-auto min-h-[85vh] px-4 sm:px-6 lg:px-8 py-6 md:py-8">
       <div className="relative pt-2 pb-2">
         <div className="pointer-events-none absolute inset-0 overflow-hidden select-none z-0">
           <span
@@ -371,7 +378,8 @@ function PublicationsContent() {
         </div>
       </div>
 
-      <AnimatePresence mode="wait">
+      <div className="min-h-[550px]">
+        <AnimatePresence mode="wait">
         {loading ? (
           <motion.div
             key="skeleton"
@@ -463,7 +471,8 @@ function PublicationsContent() {
             )}
           </motion.div>
         )}
-      </AnimatePresence>
+        </AnimatePresence>
+      </div>
     </div>
   );
 }

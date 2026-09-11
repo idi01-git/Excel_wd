@@ -27,15 +27,19 @@ export default function WorkspaceLoadingSkeleton() {
       </div>
 
       {/* ── Status Tabs & View Toggle Skeleton ──────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8 border-b border-gray-100 dark:border-neutral-800 pb-5">
-        <div className="flex items-center gap-1.5 p-1 bg-gray-100 dark:bg-neutral-900 rounded-full">
-          <div className="h-7 w-20 bg-gray-200 dark:bg-neutral-800 rounded-full" />
-          <div className="h-7 w-28 bg-gray-200 dark:bg-neutral-800 rounded-full" />
-          <div className="h-7 w-24 bg-gray-200 dark:bg-neutral-800 rounded-full" />
-          <div className="h-7 w-32 bg-gray-200 dark:bg-neutral-800 rounded-full" />
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4 mb-8 border-b border-gray-100 dark:border-neutral-800 pb-5">
+        <div className="w-full sm:w-auto overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden -mx-4 px-4 sm:mx-0 sm:px-0">
+          <div className="inline-flex items-center gap-1.5 p-1 bg-gray-100 dark:bg-neutral-900 rounded-full min-w-max">
+            <div className="h-7 w-20 bg-gray-200 dark:bg-neutral-800 rounded-full shrink-0" />
+            <div className="h-7 w-28 bg-gray-200 dark:bg-neutral-800 rounded-full shrink-0" />
+            <div className="h-7 w-24 bg-gray-200 dark:bg-neutral-800 rounded-full shrink-0" />
+            <div className="h-7 w-32 bg-gray-200 dark:bg-neutral-800 rounded-full shrink-0" />
+          </div>
         </div>
 
-        <div className="h-8 w-28 bg-gray-200 dark:bg-neutral-800 rounded-full" />
+        <div className="flex justify-start shrink-0">
+          <div className="h-8 w-28 bg-gray-200 dark:bg-neutral-800 rounded-full" />
+        </div>
       </div>
 
       {/* ── List Items Skeleton ─────────────────────────────────────────────── */}

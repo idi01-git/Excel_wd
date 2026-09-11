@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import {
   motion,
   useInView,
@@ -50,6 +50,7 @@ export function RevealWords({
   const inView = useInView(ref, { once: true });
   const reduce = useReducedMotion();
   const show = reduce || inView;
+  const [revealComplete, setRevealComplete] = useState(false);
 
   const words = text.split(' ');
   return (
@@ -61,7 +62,7 @@ export function RevealWords({
           className="inline-block overflow-hidden pb-[0.12em] -mb-[0.12em] align-bottom"
         >
           <motion.span
-            className="inline-block will-change-transform"
+            className={`inline-block ${show && !reduce && !revealComplete ? 'will-change-transform' : ''}`}
             initial={{ y: '115%' }}
             animate={
               reduce
@@ -74,6 +75,11 @@ export function RevealWords({
               duration: 0.9,
               ease: EASE,
               delay: show ? delay + i * stagger : 0,
+            }}
+            onAnimationComplete={() => {
+              if (show && i === words.length - 1) {
+                setRevealComplete(true);
+              }
             }}
           >
             {word}

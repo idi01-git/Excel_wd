@@ -1,6 +1,7 @@
 // src/app/api/admin/events/route.ts
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { revalidatePublicContent } from '@/lib/public-cache';
 import { requirePermission } from '@/lib/api-auth';
 
 export async function GET() {
@@ -123,6 +124,7 @@ export async function POST(req: Request) {
       },
     });
 
+    revalidatePublicContent('events', event.slug);
     return NextResponse.json({ success: true, event });
   } catch (error: unknown) {
     console.error('Create event error:', error);

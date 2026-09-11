@@ -167,7 +167,7 @@ export async function GET(req: Request) {
     if (userId) {
       response.headers.set('Cache-Control', 'private, no-cache, no-store, must-revalidate');
     } else {
-      response.headers.set('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=120');
+      response.headers.set('Cache-Control', 'public, max-age=60, s-maxage=86400, stale-while-revalidate=3600');
     }
 
     return response;

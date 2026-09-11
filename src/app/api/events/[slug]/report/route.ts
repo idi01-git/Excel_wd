@@ -35,7 +35,9 @@ export async function GET(
       return NextResponse.json({ error: 'Report not found for this event' }, { status: 404 });
     }
 
-    return NextResponse.json({ success: true, report, event });
+    const response = NextResponse.json({ success: true, report, event });
+    response.headers.set('Cache-Control', 'public, max-age=60, s-maxage=86400, stale-while-revalidate=86400');
+    return response;
   } catch (error: any) {
     console.error('Fetch public event report error:', error);
     return NextResponse.json({ error: 'Failed to retrieve event report' }, { status: 500 });

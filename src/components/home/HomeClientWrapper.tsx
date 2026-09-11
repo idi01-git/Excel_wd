@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useLayoutEffect, useState } from 'react';
+import { useLenis } from 'lenis/react';
 import HomePreloader from '@/components/home/HomePreloader';
 import CardwallHero from '@/components/home/CardwallHero';
 import ManifestoStrip from '@/components/home/ManifestoStrip';
@@ -25,6 +26,23 @@ export default function HomeClientWrapper({
   initialLibraryCount?: number;
 }) {
   const [isReady, setIsReady] = useState(false);
+  const lenis = useLenis();
+
+  useLayoutEffect(() => {
+    const previousScrollRestoration = window.history.scrollRestoration;
+    window.history.scrollRestoration = 'manual';
+    window.scrollTo(0, 0);
+
+    const frame = window.requestAnimationFrame(() => {
+      window.scrollTo(0, 0);
+      lenis?.scrollTo(0, { immediate: true, force: true });
+    });
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.history.scrollRestoration = previousScrollRestoration;
+    };
+  }, [lenis]);
 
   return (
     <>

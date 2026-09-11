@@ -1499,22 +1499,22 @@ export default function Cardwall({
     setCfg(pickDefaultCfg());
   }, []);
 
-  // Warm the decoder cache with the EXACT URLs the card faces render, so
-  // custom covers are already decoded before frame 1 of the entrance.
-  // Deliberately stateless: resolving decodes must never re-render this
-  // component (18 cards × deep 3D subtree) mid-flight.
+  // Warm each unique hero image once. Cards are intentionally repeated in the
+  // ribbon, so decoding each occurrence would otherwise duplicate main-thread work.
   useEffect(() => {
+    const sources = new Set<string>();
     visibleCards.forEach((card) => {
-      const sources = [card.image ? getOptimizedCardwallCoverUrl(card.image) : "", card.backImage || ""];
-      sources.forEach((src) => {
-        if (!src) return;
-        const img = new Image();
-        img.decoding = "async";
-        img.onload = () => {
-          if ("decode" in img) img.decode().catch(() => {});
-        };
-        img.src = src;
-      });
+      if (card.image) sources.add(getOptimizedCardwallCoverUrl(card.image));
+      if (card.backImage) sources.add(card.backImage);
+    });
+
+    sources.forEach((src) => {
+      const img = new Image();
+      img.decoding = 'async';
+      img.onload = () => {
+        if ('decode' in img) img.decode().catch(() => {});
+      };
+      img.src = src;
     });
   }, [visibleCards]);
 
@@ -1664,6 +1664,7 @@ export default function Cardwall({
 
     const validEntranceEls = entranceRefs.current.filter((el) => el !== null);
     const letters = sectionRef.current?.querySelectorAll("[data-reveal-letter]");
+    const mobileEntrance = typeof window !== "undefined" && window.innerWidth <= MOBILE_BREAKPOINT;
     const tagline = sectionRef.current?.querySelectorAll("[data-reveal-tagline]");
     const meta = sectionRef.current?.querySelectorAll("[data-reveal-meta]");
 
@@ -1680,7 +1681,7 @@ export default function Cardwall({
     }
 
     if (letters && letters.length > 0) {
-      gsap.set(letters, { opacity: 0, scale: 0.4, rotationY: 90 });
+      gsap.set(letters, { opacity: 0, scale: 0.4, rotationY: mobileEntrance ? 0 : 90 });
     }
     if (tagline && tagline.length > 0) {
       gsap.set(tagline, { opacity: 0, y: 20 });
@@ -1728,7 +1729,7 @@ export default function Cardwall({
           {
             opacity: 1,
             scale: 1,
-            rotationY: 0,
+            ...(mobileEntrance ? {} : { rotationY: 0 }),
             duration: 1.1,
             ease: "power3.out",
             stagger: 0.055,
@@ -1782,6 +1783,13 @@ export default function Cardwall({
       }
 
       const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
+      // Mobile cards retain the same completed composition, but do not run the
+      // desktop-only continuous wave, shadow, and shine calculations every frame.
+      // Touch interactions are disabled below, so no mobile input needs this loop.
+      if (isMobile) {
+        running = false;
+        return;
+      }
       const waveSpeed = 0.0003;
       const waveSpatialFreq = 0.12;
       const wavePhase = now * waveSpeed;
@@ -1874,12 +1882,13 @@ export default function Cardwall({
       cancelAnimationFrame(animId);
     };
 
+
     const visibilityObserver = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) start();
         else stop();
       },
-      { rootMargin: "10% 0px 10% 0px" }
+      { rootMargin: "0px" }
     );
 
     if (sectionRef.current) visibilityObserver.observe(sectionRef.current);

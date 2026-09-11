@@ -10,7 +10,9 @@ export async function GET(req: Request) {
       }
     });
 
-    return NextResponse.json({ success: true, achievements });
+    const response = NextResponse.json({ success: true, achievements });
+    response.headers.set('Cache-Control', 'public, max-age=60, s-maxage=86400, stale-while-revalidate=86400');
+    return response;
   } catch (error: any) {
     console.error('Fetch achievements error:', error);
     return NextResponse.json({ error: 'Failed to retrieve achievements list' }, { status: 500 });

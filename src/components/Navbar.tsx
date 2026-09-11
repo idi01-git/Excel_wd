@@ -21,7 +21,6 @@ import {
   PenTool,
   Feather,
   BellIcon,
-  CompassIcon,
   LayoutDashboard as LayoutDashboardIcon,
   LogOutIcon,
   ChevronRight,
@@ -459,6 +458,17 @@ export default function Navbar() {
       submenuKey: 'community' as const,
       items: communityItems,
     },
+    ...(isStaffUser
+      ? [
+          {
+            num: '05',
+            title: 'Admin Console',
+            href: '/admin',
+            subtitle: 'Management & Moderation',
+            hasSubmenu: false as const,
+          },
+        ]
+      : []),
   ];
 
   // Framer Motion Animation Variants for Full-Screen Menu
@@ -772,12 +782,12 @@ export default function Navbar() {
             variants={curtainVariants}
             className="fixed inset-0 z-550 flex flex-col justify-between bg-background/98 dark:bg-[#080808]/98 backdrop-blur-3xl pt-20 pb-8 px-6 md:hidden overflow-y-auto"
           >
-            {/* ── Top Header Strip ── */}
-            <motion.div
-              variants={itemFadeVariants}
-              className="flex items-center justify-between border-b border-border/50 pb-3.5"
-            >
-              {mobileSubmenu ? (
+            {/* ── Submenu Back Navigation (when drill-down is open) ── */}
+            {mobileSubmenu && (
+              <motion.div
+                variants={itemFadeVariants}
+                className="flex items-center border-b border-border/50 pb-3.5"
+              >
                 <button
                   onClick={() => setMobileSubmenu(null)}
                   className="flex items-center gap-2 text-foreground text-xs font-semibold uppercase tracking-wider hover:opacity-80 transition-opacity cursor-pointer"
@@ -785,18 +795,8 @@ export default function Navbar() {
                   <ArrowLeft size={14} />
                   <span>Back to Main Menu</span>
                 </button>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <CompassIcon size={14} className="text-foreground animate-spin-slow" />
-                  <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground/90 font-medium">
-                    Index · Directory
-                  </span>
-                </div>
-              )}
-              <span className="font-mono text-[11px] tracking-widest text-muted-foreground/60">
-                VOL. MMXXVI
-              </span>
-            </motion.div>
+              </motion.div>
+            )}
 
             {/* ── Main View vs Submenu Drill-Down View ── */}
             <div className="py-6 min-h-70 flex flex-col justify-center">
@@ -973,13 +973,25 @@ export default function Navbar() {
                       </div>
                     </div>
 
-                    <Link
-                      href="/workspace"
-                      onClick={() => setMobileOpen(false)}
-                      className="px-4 py-2 rounded-xl bg-foreground text-background text-xs font-semibold hover:opacity-90 active:scale-95 transition-all shadow-sm"
-                    >
-                      Workspace
-                    </Link>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {isStaffUser && (
+                        <Link
+                          href="/admin"
+                          onClick={() => setMobileOpen(false)}
+                          className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-500/10 dark:bg-amber-400/10 text-amber-900 dark:text-amber-200 border border-amber-500/25 text-xs font-semibold hover:bg-amber-500/20 active:scale-95 transition-all shadow-xs"
+                        >
+                          <LayoutDashboardIcon size={13} />
+                          <span>Admin</span>
+                        </Link>
+                      )}
+                      <Link
+                        href="/workspace"
+                        onClick={() => setMobileOpen(false)}
+                        className="px-3.5 py-2 rounded-xl bg-foreground text-background text-xs font-semibold hover:opacity-90 active:scale-95 transition-all shadow-sm"
+                      >
+                        Workspace
+                      </Link>
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-3 gap-2">

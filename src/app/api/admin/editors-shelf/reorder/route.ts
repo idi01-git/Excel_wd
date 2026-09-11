@@ -1,6 +1,7 @@
 // src/app/api/admin/editors-shelf/reorder/route.ts
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { revalidatePublicContent } from '@/lib/public-cache';
 import { requirePermission } from '@/lib/api-auth';
 
 export async function POST(req: Request) {
@@ -27,6 +28,7 @@ export async function POST(req: Request) {
       )
     );
 
+    revalidatePublicContent('shelf');
     return NextResponse.json({ success: true, message: 'Display order updated' });
   } catch (error: any) {
     console.error('Reorder shelf items error:', error);
