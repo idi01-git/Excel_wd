@@ -177,7 +177,7 @@ function Book3DMesh({ book, index, isHovered, active }: Book3DMeshProps) {
   }, [isHovered, active, invalidate]);
 
   useFrame((_, delta) => {
-    if (!groupRef.current) return;
+    if (!active || !groupRef.current) return;
 
     // Clamp delta: in demand mode the first frame after a long park carries
     // the full elapsed time, which would make damp() leap straight to its
@@ -343,7 +343,7 @@ export function Book3DCard({ book, index, paused = false }: Book3DCardProps) {
         <div className="relative w-full h-full cursor-pointer overflow-visible">
           <Canvas
             events={noopEvents}
-            frameloop={paused ? 'never' : 'demand'}
+            frameloop="demand"
             shadows={{ type: THREE.PCFShadowMap }}
             dpr={dpr}
             camera={{ position: [0, -0.04, 6.4], fov: 32 }}

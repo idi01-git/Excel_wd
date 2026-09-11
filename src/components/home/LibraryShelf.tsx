@@ -74,6 +74,10 @@ export default function LibraryShelf({
     );
     mountObserver.observe(section);
 
+    // Lenis can cross a section between IntersectionObserver sampling frames
+    // during a fast scroll. Ensure the first card always mounts shortly after
+    // hydration so the layout never remains as empty footprint placeholders.
+    const fallbackMountTimer = window.setTimeout(activate, 250);
 
     const activeObserver = new IntersectionObserver(
       ([entry]) => setShelfActive(entry.isIntersecting),
@@ -82,6 +86,7 @@ export default function LibraryShelf({
     activeObserver.observe(section);
 
     return () => {
+      window.clearTimeout(fallbackMountTimer);
       mountObserver.disconnect();
       activeObserver.disconnect();
     };

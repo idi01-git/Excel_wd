@@ -1,6 +1,6 @@
 'use client';
 
-import { useLayoutEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useState } from 'react';
 import { useLenis } from 'lenis/react';
 import HomePreloader from '@/components/home/HomePreloader';
 import CardwallHero from '@/components/home/CardwallHero';
@@ -28,6 +28,27 @@ export default function HomeClientWrapper({
   const [isReady, setIsReady] = useState(false);
   const lenis = useLenis();
 
+  useEffect(() => {
+    if (!isReady) return;
+
+    let cancelled = false;
+    const warmShelf = async () => {
+      const [, { preloadBookAssets }, { BOOKS }] = await Promise.all([
+        import('@/components/home/Book3DCard'),
+        import('@/components/sections/hardback/hardback-textures'),
+        import('@/components/sections/hardback/hardback-data'),
+      ]);
+
+      if (!cancelled) {
+        void preloadBookAssets((initialShelfBooks?.length ? initialShelfBooks : BOOKS).slice(0, 5));
+      }
+    };
+
+    void warmShelf().catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [initialShelfBooks, isReady]);
   useLayoutEffect(() => {
     const previousScrollRestoration = window.history.scrollRestoration;
     window.history.scrollRestoration = 'manual';
