@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useLayoutEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Loader from "@/components/ui/loader";
 
-import { preloadBookImage } from "@/components/sections/hardback/hardback-textures";
 import { getOptimizedCardwallCoverUrl } from "@/lib/image-optimization";
+import type { BookData } from '@/components/sections/hardback/hardback-data';
 
 // Default key assets for the home cardwall & hero showcase + 3D Library Shelf
 const CRITICAL_IMAGE_URLS = [
@@ -22,17 +22,38 @@ const CRITICAL_IMAGE_URLS = [
 
 interface HomePreloaderProps {
   heroCards?: any[];
+  shelfBooks?: BookData[];
   onPrepared?: (cards: any[]) => void;
   onComplete?: () => void;
 }
 
-export default function HomePreloader({ heroCards = [], onPrepared, onComplete }: HomePreloaderProps) {
+export default function HomePreloader({ heroCards = [], shelfBooks, onPrepared, onComplete }: HomePreloaderProps) {
   const [isLoading, setIsLoading] = useState(true);
+  const [skipIntro, setSkipIntro] = useState(false);
+
+  // Run before paint on client-side navigation. Server and client initially
+  // render the same markup, then returning visitors never see this overlay.
+  useLayoutEffect(() => {
+    try {
+      if (sessionStorage.getItem('excelsior_intro_seen')) {
+        setSkipIntro(true);
+        onComplete?.();
+      }
+    } catch {}
+  }, []);
 
   useEffect(() => {
     // Check if visitor already saw the intro in this session
     const hasSeenIntro = typeof window !== 'undefined' && sessionStorage.getItem('excelsior_intro_seen');
-    const introDuration = hasSeenIntro ? 0 : 450;
+
+    // A client-side return already has the route chunks, images, and module
+    // caches in this browser session. Do not re-mount the overlay or hold the
+    // hero entrance behind a safety timeout.
+    if (hasSeenIntro) {
+      return;
+    }
+
+    const introDuration = 450;
 
     let isMounted = true;
     const minDisplayPromise = new Promise((res) => setTimeout(res, introDuration));
@@ -50,10 +71,31 @@ export default function HomePreloader({ heroCards = [], onPrepared, onComplete }
       .slice(0, 6);
 
     const targetImages = dynamicImgs.length > 0 ? dynamicImgs : CRITICAL_IMAGE_URLS.slice(0, 5);
-    const criticalImagePromises = targetImages.map((src: string) => preloadBookImage(src));
+    const criticalImagePromises = targetImages.map(
+      (src: string) =>
+        new Promise<void>((resolve) => {
+          const image = new Image();
+          image.onload = () => resolve();
+          image.onerror = () => resolve();
+          image.src = src;
+        })
+    );
+
+    // While the loader is visible, fetch the shelf chunk and exact five covers.
+    // The cards mount behind the overlay, moving their first WebGL frame out of
+    // the visitor's scroll path.
+    const shelfWarmupPromise = Promise.all([
+      import('@/components/home/Book3DCard'),
+      import('@/components/sections/hardback/hardback-textures'),
+      import('@/components/sections/hardback/hardback-data'),
+    ])
+      .then(([, { preloadBookAssets }, { BOOKS }]) =>
+        preloadBookAssets((shelfBooks?.length ? shelfBooks : BOOKS).slice(0, 5))
+      )
+      .catch(() => {});
 
     // 3. Fallback safety timeout
-    const safetyTimeout = new Promise((res) => setTimeout(res, hasSeenIntro ? 300 : 1200));
+    const safetyTimeout = new Promise((res) => setTimeout(res, hasSeenIntro ? 650 : 1600));
 
     // Await critical assets or safety timeout
     Promise.race([
@@ -61,6 +103,7 @@ export default function HomePreloader({ heroCards = [], onPrepared, onComplete }
         minDisplayPromise,
         fontsPromise,
         Promise.allSettled(criticalImagePromises),
+        shelfWarmupPromise,
       ]),
       safetyTimeout,
     ]).then(() => {
@@ -76,7 +119,7 @@ export default function HomePreloader({ heroCards = [], onPrepared, onComplete }
     return () => {
       isMounted = false;
     };
-  }, [heroCards]);
+  }, [heroCards, shelfBooks]);
 
   const handleExitComplete = () => {
     onComplete?.();
@@ -84,7 +127,7 @@ export default function HomePreloader({ heroCards = [], onPrepared, onComplete }
 
   return (
     <AnimatePresence mode="wait" onExitComplete={handleExitComplete}>
-      {isLoading && (
+      {isLoading && !skipIntro && (
         <motion.div
           key="home-preloader"
           initial={{ opacity: 1 }}

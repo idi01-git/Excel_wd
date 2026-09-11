@@ -602,7 +602,7 @@ export function makeCoverTexture(
 
   // Asynchronous backup load in case not yet cached
   if (book.coverImage && !drawnFromCache) {
-    preloadBookImage(book.coverImage).then((img) => {
+    preloadBookImage(getOptimizedCoverUrl(book.coverImage, 800)).then((img) => {
       if (img.complete && img.naturalWidth > 0) {
         drawCoverImg(img);
         tex.needsUpdate = true;

@@ -37,20 +37,12 @@ export default function LibraryShelf({
   const [featuredBooks, setFeaturedBooks] = useState<BookData[]>(() =>
     initialBooks && initialBooks.length > 0 ? initialBooks.slice(0, 5) : BOOKS.slice(0, 5)
   );
-  // WebGL books mount one at a time (behind identical-footprint spacers):
-  // mounting all 5 in a single frame compiles 5 sets of shaders at once and
-  // causes a visible scroll hitch. Books appear progressively, with zero
-  // layout shift and zero mid-hero-flight shader compilation.
-  const [mountedBooks, setMountedBooks] = useState(0);
+  // Cards mount during the page loader, concealed by its overlay. This moves
+  // shader setup off the visitor's scroll path, so the shelf never opens empty.
+  const [mountedBooks, setMountedBooks] = useState(featuredBooks.length);
   // WebGL render loops are parked whenever the shelf is off-screen.
   const [shelfActive, setShelfActive] = useState(false);
 
-  // Progressive mounting: one book every ~150ms until all 5 are up.
-  useEffect(() => {
-    if (mountedBooks <= 0 || mountedBooks >= featuredBooks.length) return;
-    const timer = setTimeout(() => setMountedBooks((m) => m + 1), 150);
-    return () => clearTimeout(timer);
-  }, [mountedBooks, featuredBooks.length]);
 
   useEffect(() => {
     const section = sectionRef.current;
@@ -60,7 +52,7 @@ export default function LibraryShelf({
     const activate = () => {
       if (ready) return;
       ready = true;
-      setMountedBooks(1);
+      setMountedBooks(featuredBooks.length);
     };
 
     const mountObserver = new IntersectionObserver(
@@ -90,7 +82,7 @@ export default function LibraryShelf({
       mountObserver.disconnect();
       activeObserver.disconnect();
     };
-  }, []);
+  }, [featuredBooks.length]);
 
   // Fetch dynamic library volume count and picks count only if not provided by server
   useEffect(() => {
