@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requirePermission } from '@/lib/api-auth';
 import { ensureSeededShelf, parseEditorialNote, serializeEditorialNote } from '@/lib/editors-shelf-helper';
+import { revalidatePublicContent } from '@/lib/public-cache';
 
 export async function GET() {
   try {
@@ -142,6 +143,7 @@ export async function POST(req: Request) {
       },
     });
 
+    revalidatePublicContent('shelf');
     return NextResponse.json({ success: true, item });
   } catch (error: any) {
     console.error('Create editor shelf item error:', error);

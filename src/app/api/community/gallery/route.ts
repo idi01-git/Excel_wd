@@ -19,7 +19,9 @@ export async function GET(req: Request) {
       orderBy: { createdAt: 'desc' },
     });
 
-    return NextResponse.json({ success: true, items });
+    const response = NextResponse.json({ success: true, items });
+    response.headers.set('Cache-Control', 'public, max-age=60, s-maxage=86400, stale-while-revalidate=86400');
+    return response;
   } catch (error: unknown) {
     console.error('Fetch gallery items error:', error);
     return NextResponse.json({ error: 'Failed to retrieve gallery items' }, { status: 500 });

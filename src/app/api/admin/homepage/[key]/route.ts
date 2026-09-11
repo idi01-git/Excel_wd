@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { revalidatePublicContent } from '@/lib/public-cache';
 import { requirePermission } from '@/lib/api-auth';
 import { recordAuditEvent } from '@/lib/audit';
 
@@ -27,5 +28,6 @@ export async function PUT(req: Request, { params }: { params: Promise<{ key: str
   const { value } = await req.json(); if (!valid(key as Key, value)) return NextResponse.json({ error: 'Invalid setting format' }, { status: 400 });
   const setting = await db.siteSetting.upsert({ where: { key }, create: { key, value, updatedBy: session.user.id }, update: { value, updatedBy: session.user.id } });
   await recordAuditEvent({ actorId: session.user.id, action: 'HOMEPAGE_SETTING_UPDATE', entityType: 'SITE_SETTING', entityId: key, metadata: { key }, request: req });
+  revalidatePublicContent('home');
   return NextResponse.json({ success: true, setting });
 }

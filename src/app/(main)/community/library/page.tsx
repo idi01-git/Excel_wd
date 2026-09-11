@@ -236,7 +236,7 @@ export default function LibraryCatalogPage() {
     let isMounted = true;
     const fetchCatalog = async () => {
       try {
-        const res = await fetch('/api/library?limit=200', { cache: 'no-store' });
+        const res = await fetch('/api/library?limit=200');
         const data = await res.json();
         if (data.success && isMounted) {
           setAllBooks(data.books || []);

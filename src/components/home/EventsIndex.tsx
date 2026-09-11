@@ -163,7 +163,7 @@ export default function EventsIndex({ initialEvents }: { initialEvents?: HomeEve
           {/* Floating preview (desktop, fine pointer only) */}
           <motion.div
             style={{ x: px, y: py, rotate: smoothRotate }}
-            className="pointer-events-none absolute left-0 top-0 z-30 hidden lg:block will-change-transform"
+            className="pointer-events-none absolute left-0 top-0 z-30 hidden lg:block"
             aria-hidden
           >
             <AnimatePresence>

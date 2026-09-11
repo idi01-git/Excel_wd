@@ -1,7 +1,7 @@
 // src/components/sections/hardback/HardbackScene.tsx
 'use client';
 
-import React, { useRef, Suspense, useEffect } from 'react';
+import React, { useRef, Suspense, useEffect, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { ContactShadows, Environment, Lightformer } from '@react-three/drei';
 import * as THREE from 'three';
@@ -26,7 +26,7 @@ import {
 
 // Responsive offsets for mobile
 const MOBILE_OPEN_POS_X = -0.05;
-const MOBILE_OPEN_POS_Y = -1.25;
+const MOBILE_OPEN_POS_Y = -0.3;
 const MOBILE_OPEN_POS_Z = 1.35;
 
 // Constants for entrance animation
@@ -121,7 +121,7 @@ function CameraRig() {
 }
 
 // ── Lighting Rig ────────────────────────────────────────────────────────────
-function StudioLights({ isDark }: { isDark: boolean }) {
+function StudioLights({ isDark, shadowMapSize }: { isDark: boolean; shadowMapSize: number }) {
   return (
     <>
       <ambientLight
@@ -134,8 +134,8 @@ function StudioLights({ isDark }: { isDark: boolean }) {
         intensity={isDark ? 1.45 : 1.1}
         color={isDark ? '#ffd9a8' : '#fff2d8'}
         castShadow
-        shadow-mapSize-width={2048}
-        shadow-mapSize-height={2048}
+        shadow-mapSize-width={shadowMapSize}
+        shadow-mapSize-height={shadowMapSize}
         shadow-camera-left={-14}
         shadow-camera-right={14}
         shadow-camera-top={8}
@@ -200,6 +200,7 @@ interface BookManagerProps {
   pivotRefs: React.MutableRefObject<(THREE.Group | null)[]>;
   shelfGroupRef: React.MutableRefObject<THREE.Group | null>;
   isMobile: boolean;
+  requestRenderRef: React.MutableRefObject<() => void>;
 }
 
 function BookManager({
@@ -215,9 +216,19 @@ function BookManager({
   pivotRefs,
   shelfGroupRef,
   isMobile,
+  requestRenderRef,
 }: BookManagerProps) {
   const N = books.length;
   const hoverProgressRef = useRef<number[]>(new Array(N).fill(0));
+  const invalidate = useThree((state) => state.invalidate);
+
+  useEffect(() => {
+    requestRenderRef.current = invalidate;
+    invalidate();
+    return () => {
+      requestRenderRef.current = () => {};
+    };
+  }, [invalidate, requestRenderRef]);
 
   useFrame(() => {
     const mode = modeRef.current;
@@ -354,6 +365,14 @@ function BookManager({
       sg.position.set(0, SHELF_OPEN_Y * eased, SHELF_OPEN_Z * eased);
       sg.visible = t < 0.95;
     }
+
+    const sliderMoving = Math.abs(targetRef.current - positionRef.current) > 0.0005;
+    const interactionAnimating =
+      mode === 'entering' ||
+      mode === 'opening' ||
+      mode === 'closing' ||
+      (mode === 'browsing' && (sliderMoving || hoverProgressRef.current.some((value) => value > 0.001 && value < 0.999)));
+    if (interactionAnimating) invalidate();
   });
 
   return null;
@@ -364,6 +383,7 @@ export interface HardbackSceneProps {
   books?: BookData[];
   isDark: boolean;
   isMobile: boolean;
+  requestRenderRef: React.MutableRefObject<() => void>;
   positionRef: React.MutableRefObject<number>;
   targetRef: React.MutableRefObject<number>;
   modeRef: React.MutableRefObject<string>;
@@ -380,6 +400,7 @@ export const HardbackScene: React.FC<HardbackSceneProps> = ({
   books = BOOKS,
   isDark,
   isMobile,
+  requestRenderRef,
   positionRef,
   targetRef,
   modeRef,
@@ -394,13 +415,48 @@ export const HardbackScene: React.FC<HardbackSceneProps> = ({
   const groupRefs = useRef<(THREE.Group | null)[]>([]);
   const pivotRefs = useRef<(THREE.Group | null)[]>([]);
   const shelfGroupRef = useRef<THREE.Group>(null!);
+  const [pageVisible, setPageVisible] = useState(true);
+  const [mobileQuality, setMobileQuality] = useState<'balanced' | 'low'>('balanced');
+
+  useEffect(() => {
+    const updateVisibility = () => setPageVisible(document.visibilityState === 'visible');
+    updateVisibility();
+    document.addEventListener('visibilitychange', updateVisibility);
+    return () => document.removeEventListener('visibilitychange', updateVisibility);
+  }, []);
+
+  useEffect(() => {
+    if (!isMobile) {
+      setMobileQuality('balanced');
+      return;
+    }
+
+    const device = navigator as Navigator & { deviceMemory?: number };
+    const lowCapacity =
+      (typeof device.deviceMemory === 'number' && device.deviceMemory <= 4) ||
+      navigator.hardwareConcurrency <= 4;
+    setMobileQuality(lowCapacity ? 'low' : 'balanced');
+  }, [isMobile]);
 
   const activeBooks = books && books.length > 0 ? books : BOOKS;
+  const mobileLowQuality = isMobile && mobileQuality === 'low';
+  const dpr: [number, number] = !isMobile ? [1, 2] : mobileLowQuality ? [1, 1] : [1, 1.25];
+  const shadowMapSize = !isMobile ? 2048 : mobileLowQuality ? 512 : 1024;
+  const contactShadowResolutions = !isMobile
+    ? [1024, 1024, 512, 256]
+    : mobileLowQuality
+      ? [256, 256, 128, 128]
+      : [512, 512, 256, 128];
 
   return (
     <Canvas
+      frameloop={pageVisible ? 'demand' : 'never'}
+      onCreated={({ invalidate }) => {
+        requestRenderRef.current = invalidate;
+        invalidate();
+      }}
       shadows={{ type: THREE.VSMShadowMap }}
-      dpr={[1, 2]}
+      dpr={dpr}
       camera={{ position: [0, 2.7, 11.95], fov: 36, near: 0.1, far: 80 }}
       gl={{ antialias: true, alpha: true }}
       style={{ width: '100%', height: '100%' }}
@@ -408,7 +464,7 @@ export const HardbackScene: React.FC<HardbackSceneProps> = ({
       <CameraRig />
 
       <Suspense fallback={null}>
-        <StudioLights isDark={isDark} />
+        <StudioLights isDark={isDark} shadowMapSize={shadowMapSize} />
 
         {/* 4-Layer Contact Shadows + Directional Receiver Plane inside Shelf Group */}
         <group ref={shelfGroupRef}>
@@ -420,7 +476,7 @@ export const HardbackScene: React.FC<HardbackSceneProps> = ({
             blur={0.9}
             far={2.0}
             color={isDark ? '#000000' : '#1a0a04'}
-            resolution={1024}
+            resolution={contactShadowResolutions[0]}
           />
           {/* L2 — Close penumbra */}
           <ContactShadows
@@ -430,7 +486,7 @@ export const HardbackScene: React.FC<HardbackSceneProps> = ({
             blur={2.5}
             far={3.5}
             color={isDark ? '#000000' : '#1a0a04'}
-            resolution={1024}
+            resolution={contactShadowResolutions[1]}
           />
           {/* L3 — Wide soft halo */}
           <ContactShadows
@@ -440,7 +496,7 @@ export const HardbackScene: React.FC<HardbackSceneProps> = ({
             blur={5.5}
             far={5.0}
             color={isDark ? '#000000' : '#2a160a'}
-            resolution={512}
+            resolution={contactShadowResolutions[2]}
           />
           {/* L4 — Outer drop-off, fades to transparent */}
           <ContactShadows
@@ -450,7 +506,7 @@ export const HardbackScene: React.FC<HardbackSceneProps> = ({
             blur={9}
             far={6.5}
             color={isDark ? '#000000' : '#2a160a'}
-            resolution={256}
+            resolution={contactShadowResolutions[3]}
           />
           {/* Directional Cast Shadow Receiver Plane */}
           <mesh
@@ -480,6 +536,7 @@ export const HardbackScene: React.FC<HardbackSceneProps> = ({
           pivotRefs={pivotRefs}
           shelfGroupRef={shelfGroupRef}
           isMobile={isMobile}
+          requestRenderRef={requestRenderRef}
         />
 
         {activeBooks.map((book, i) => (

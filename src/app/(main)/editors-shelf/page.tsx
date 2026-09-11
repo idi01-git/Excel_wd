@@ -4,8 +4,8 @@ import { ensureSeededShelf, itemToBookData } from '@/lib/editors-shelf-helper';
 import { BOOKS } from '@/components/sections/hardback/hardback-data';
 import EditorsShelfClient from './EditorsShelfClient';
 
-// Force dynamic server rendering so latest shelf items are always loaded
-export const dynamic = 'force-dynamic';
+// Regenerate the public shelf at most once an hour; Vercel serves the cached HTML between updates.
+export const revalidate = 432000;
 
 export default async function EditorsShelfPage() {
   let initialBooks = BOOKS;

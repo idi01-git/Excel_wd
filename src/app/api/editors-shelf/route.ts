@@ -16,7 +16,7 @@ export async function GET() {
     const response = NextResponse.json({ success: true, items: books, rawItems: items });
     response.headers.set(
       'Cache-Control',
-      'public, s-maxage=120, stale-while-revalidate=600'
+      'public, max-age=60, s-maxage=432000, stale-while-revalidate=86400'
     );
     return response;
   } catch (error: any) {

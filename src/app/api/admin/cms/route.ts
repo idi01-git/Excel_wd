@@ -1,6 +1,7 @@
 // src/app/api/admin/cms/route.ts
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { revalidatePublicContent } from '@/lib/public-cache';
 import { requirePermission } from '@/lib/api-auth';
 import { recordAuditEvent } from '@/lib/audit';
 
@@ -59,6 +60,7 @@ export async function POST(req: Request) {
       request: req,
     });
 
+    revalidatePublicContent('home');
     return NextResponse.json({ success: true, setting: updated });
   } catch (error: any) {
     console.error('Save CMS setting error:', error);

@@ -1,7 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
-import { AnimatePresence, motion } from 'motion/react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { AnimatePresence, motion, useInView } from 'motion/react';
 import { ArrowLeft } from 'lucide-react';
 import { Eyebrow, FadeUp, EASE } from './primitives';
 
@@ -35,6 +35,8 @@ const VOICES = [
 const DURATION = 7000;
 
 export default function AlumniVoices({ initialVoices }: { initialVoices?: typeof VOICES }) {
+  const sectionRef = useRef<HTMLElement>(null);
+  const isInView = useInView(sectionRef, { margin: '0px' });
   const [index, setIndex] = useState(0);
   const [voices, setVoices] = useState(initialVoices && initialVoices.length > 0 ? initialVoices : VOICES);
   useEffect(() => {
@@ -55,14 +57,15 @@ export default function AlumniVoices({ initialVoices }: { initialVoices?: typeof
   );
 
   useEffect(() => {
+    if (!isInView) return;
     const timer = setTimeout(() => go(1), DURATION);
     return () => clearTimeout(timer);
-  }, [index, go]);
+  }, [index, go, isInView]);
 
   const current = voices[index] || voices[0];
 
   return (
-    <section className="relative w-full overflow-hidden border-y border-border bg-background px-6 pt-16 pb-16 md:px-10 md:pt-24 md:pb-20">
+    <section ref={sectionRef} className="relative w-full overflow-hidden border-y border-border bg-background px-6 pt-16 pb-16 md:px-10 md:pt-24 md:pb-20">
       {/* Ghost numeral */}
       <AnimatePresence mode="wait">
         <motion.span

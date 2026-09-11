@@ -1,11 +1,12 @@
 // src/app/(main)/page.tsx
+import Script from 'next/script';
 import { db } from '@/lib/db';
 import HomeClientWrapper from '@/components/home/HomeClientWrapper';
 import type { HeroCardInput } from '@/components/sections/cardwall/Cardwall';
 import { itemToBookData } from '@/lib/editors-shelf-helper';
 import type { BookData } from '@/components/sections/hardback/hardback-data';
 
-export const revalidate = 60;
+export const revalidate = 86400;
 
 const KEYS = ['home.eventsStrip', 'home.testimonials', 'home.heroCards'] as const;
 
@@ -95,12 +96,17 @@ export default async function RootPage() {
   }
 
   return (
-    <HomeClientWrapper
-      initialHeroCards={heroCards}
-      initialEvents={eventsItems}
-      initialTestimonials={testimonialsItems}
-      initialShelfBooks={shelfBooks}
-      initialLibraryCount={totalLibraryCount}
-    />
+    <>
+      <Script id="home-scroll-reset" strategy="beforeInteractive">
+        {`if ('scrollRestoration' in history) history.scrollRestoration = 'manual'; window.scrollTo(0, 0);`}
+      </Script>
+      <HomeClientWrapper
+        initialHeroCards={heroCards}
+        initialEvents={eventsItems}
+        initialTestimonials={testimonialsItems}
+        initialShelfBooks={shelfBooks}
+        initialLibraryCount={totalLibraryCount}
+      />
+    </>
   );
 }

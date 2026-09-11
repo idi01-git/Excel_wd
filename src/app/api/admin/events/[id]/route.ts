@@ -2,6 +2,7 @@
 // Handles event detail retrieval, updates, and deletion
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { revalidatePublicContent } from '@/lib/public-cache';
 import { EventStatus } from '@prisma/client';
 import { recordAuditEvent } from '@/lib/audit';
 import { requirePermission } from '@/lib/api-auth';
@@ -252,6 +253,7 @@ export async function PUT(
       metadata: { title: updated.title, status: updated.status, changes, notifiedCount },
       request: req,
     });
+    revalidatePublicContent('events', updated.slug);
     return NextResponse.json({ success: true, event: updated, notifiedCount, changes });
   } catch (error: any) {
     console.error('Update event error:', error);

@@ -1,6 +1,8 @@
 // src/app/api/moderator/[id]/review/route.ts
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { revalidatePath } from 'next/cache';
+import { revalidatePublicContent } from '@/lib/public-cache';
 import { Prisma, PublicationStatus } from '@prisma/client';
 import { requirePermission } from '@/lib/api-auth';
 
@@ -97,6 +99,8 @@ export async function PATCH(
       );
     }
 
+    revalidatePublicContent('publications');
+    if (updatedPub.slug) revalidatePath('/publications/' + updatedPub.slug);
     return NextResponse.json({ success: true, publication: updatedPub });
   } catch (error: unknown) {
     console.error('Review publication error:', error);

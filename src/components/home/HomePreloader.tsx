@@ -4,9 +4,7 @@ import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Loader from "@/components/ui/loader";
 
-import { BOOKS } from "@/components/sections/hardback/hardback-data";
-import { preloadBookAssets, preloadBookImage } from "@/components/sections/hardback/hardback-textures";
-import { onCardwallSettled } from "@/lib/cardwall-events";
+import { preloadBookImage } from "@/components/sections/hardback/hardback-textures";
 import { getOptimizedCardwallCoverUrl } from "@/lib/image-optimization";
 
 // Default key assets for the home cardwall & hero showcase + 3D Library Shelf
@@ -39,8 +37,7 @@ export default function HomePreloader({ heroCards = [], onPrepared, onComplete }
     let isMounted = true;
     const minDisplayPromise = new Promise((res) => setTimeout(res, introDuration));
 
-    // 1. Critical for LCP: 3D Card chunk, fonts, and primary hero images
-    const chunkPromise = import("@/components/home/Book3DCard").catch(() => {});
+    // 1. Critical for LCP: fonts and primary hero images only. The below-fold shelf chunk loads near the shelf.
     const fontsPromise =
       typeof document !== "undefined" && document.fonts
         ? document.fonts.ready.catch(() => {})
@@ -55,33 +52,13 @@ export default function HomePreloader({ heroCards = [], onPrepared, onComplete }
     const targetImages = dynamicImgs.length > 0 ? dynamicImgs : CRITICAL_IMAGE_URLS.slice(0, 5);
     const criticalImagePromises = targetImages.map((src: string) => preloadBookImage(src));
 
-    // 3. Non-blocking background preloads (Shelf books & textures) — deferred
-    //    until the Cardwall entrance settles. preloadBookAssets() rasterizes
-    //    canvas textures on the main thread, which previously landed right in
-    //    the middle of the 1.8s card swoop and caused the landing stutter.
-    //    Registered module-level (no cleanup): the work must still run after
-    //    this overlay unmounts.
-    onCardwallSettled(() => {
-      preloadBookAssets(BOOKS).catch(() => {});
-      CRITICAL_IMAGE_URLS.slice(5).forEach((src) => preloadBookImage(src));
-      fetch("/api/editors-shelf")
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.success && Array.isArray(data.items) && data.items.length > 0) {
-            preloadBookAssets(data.items).catch(() => {});
-          }
-        })
-        .catch(() => {});
-    });
-
-    // 4. Fallback safety timeout
+    // 3. Fallback safety timeout
     const safetyTimeout = new Promise((res) => setTimeout(res, hasSeenIntro ? 300 : 1200));
 
     // Await critical assets or safety timeout
     Promise.race([
       Promise.all([
         minDisplayPromise,
-        chunkPromise,
         fontsPromise,
         Promise.allSettled(criticalImagePromises),
       ]),

@@ -3,6 +3,8 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { db } from '@/lib/db';
+import { revalidatePath } from 'next/cache';
+import { revalidatePublicContent } from '@/lib/public-cache';
 import { PublicationStatus } from '@prisma/client';
 import { hasPermission } from '@/lib/rbac';
 import { createNotification } from '@/lib/notifications';
@@ -95,6 +97,8 @@ export async function PATCH(
       }
     }
 
+    revalidatePublicContent('publications');
+    if (updatedPub.slug) revalidatePath('/publications/' + updatedPub.slug);
     return NextResponse.json({ success: true, publication: updatedPub });
   } catch (error: any) {
     console.error('Status patch error:', error);

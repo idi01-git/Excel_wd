@@ -293,6 +293,30 @@ const noopEvents: any = () => ({
 
 export function Book3DCard({ book, index, paused = false }: Book3DCardProps) {
   const [isHovered, setIsHovered] = useState(false);
+  const [renderQuality, setRenderQuality] = useState<'desktop' | 'balanced' | 'low'>('desktop');
+
+  useEffect(() => {
+    const updateQuality = () => {
+      if (window.innerWidth >= 768) {
+        setRenderQuality('desktop');
+        return;
+      }
+
+      const device = navigator as Navigator & { deviceMemory?: number };
+      const lowCapacity =
+        (typeof device.deviceMemory === 'number' && device.deviceMemory <= 4) ||
+        navigator.hardwareConcurrency <= 4;
+      setRenderQuality(lowCapacity ? 'low' : 'balanced');
+    };
+
+    updateQuality();
+    window.addEventListener('resize', updateQuality);
+    return () => window.removeEventListener('resize', updateQuality);
+  }, []);
+
+  const dpr: [number, number] =
+    renderQuality === 'desktop' ? [1, 2] : renderQuality === 'low' ? [1, 1] : [1, 1.25];
+  const shadowMapSize = renderQuality === 'desktop' ? 1024 : renderQuality === 'low' ? 256 : 512;
 
   return (
     <div
@@ -321,6 +345,7 @@ export function Book3DCard({ book, index, paused = false }: Book3DCardProps) {
             events={noopEvents}
             frameloop={paused ? 'never' : 'demand'}
             shadows={{ type: THREE.PCFShadowMap }}
+            dpr={dpr}
             camera={{ position: [0, -0.04, 6.4], fov: 32 }}
             gl={{
               antialias: true,
@@ -341,8 +366,8 @@ export function Book3DCard({ book, index, paused = false }: Book3DCardProps) {
               intensity={3.4}
               color="#fff6e7"
               castShadow
-              shadow-mapSize-width={1024}
-              shadow-mapSize-height={1024}
+              shadow-mapSize-width={shadowMapSize}
+              shadow-mapSize-height={shadowMapSize}
               shadow-bias={-0.0005}
             />
 

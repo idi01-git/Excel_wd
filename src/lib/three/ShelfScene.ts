@@ -94,7 +94,7 @@ export class ShelfScene {
   private renderer!: THREE.WebGLRenderer;
   private scene!: THREE.Scene;
   private camera!: THREE.PerspectiveCamera;
-  private clock: THREE.Clock;
+  private clock: THREE.Timer;
   private container: HTMLDivElement;
   private animFrameId = 0;
 
@@ -146,7 +146,7 @@ export class ShelfScene {
   constructor(container: HTMLDivElement, callbacks: ShelfCallbacks) {
     this.container = container;
     this.callbacks = callbacks;
-    this.clock = new THREE.Clock();
+    this.clock = new THREE.Timer();
 
     this.initRenderer();
     this.initCamera();
@@ -675,8 +675,9 @@ export class ShelfScene {
 
   // ── Animation Loop ─────────────────────────────────────────
 
-  private animate = (): void => {
+  private animate = (timestamp?: number): void => {
     this.animFrameId = requestAnimationFrame(this.animate);
+    this.clock.update(timestamp);
     const _dt = this.clock.getDelta();
 
     if (this.mode === 'inspecting') {
@@ -924,6 +925,7 @@ export class ShelfScene {
       }
     });
 
+    this.clock.dispose();
     this.renderer.dispose();
 
     // Remove canvas from DOM

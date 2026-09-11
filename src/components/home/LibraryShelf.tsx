@@ -6,7 +6,6 @@ import dynamic from 'next/dynamic';
 import { motion, useScroll, useSpring, useTransform } from 'framer-motion';
 import { ArrowRight } from 'lucide-react';
 import { BOOKS, BookData } from '@/components/sections/hardback/hardback-data';
-import { onCardwallSettled } from '@/lib/cardwall-events';
 
 // Dynamically load the 3D Book Card with client-only canvas.
 // The chunk is warmed by the HomePreloader before the hero runs, so this
@@ -71,12 +70,10 @@ export default function LibraryShelf({
           mountObserver.disconnect();
         }
       },
-      { rootMargin: '150% 0px 150% 0px' }
+      { rootMargin: '50% 0px 50% 0px' }
     );
     mountObserver.observe(section);
 
-    const unsubscribeSettled = onCardwallSettled(activate);
-    const fallbackTimer = setTimeout(activate, 7000);
 
     const activeObserver = new IntersectionObserver(
       ([entry]) => setShelfActive(entry.isIntersecting),
@@ -87,8 +84,6 @@ export default function LibraryShelf({
     return () => {
       mountObserver.disconnect();
       activeObserver.disconnect();
-      unsubscribeSettled();
-      clearTimeout(fallbackTimer);
     };
   }, []);
 
@@ -199,7 +194,7 @@ export default function LibraryShelf({
           className="flex w-max items-center gap-8 pl-6 pr-6 will-change-transform md:gap-12 md:pl-12 md:pr-10"
         >
           {/* Intro panel */}
-          <div className="w-[85vw] shrink-0 sm:w-[65vw] md:w-[44vw] lg:w-[36vw] flex flex-col justify-center pr-4">
+          <div className="mt-[12vh] w-[85vw] shrink-0 self-start sm:w-[65vw] md:mt-0 md:w-[44vw] md:self-auto lg:w-[36vw] flex flex-col justify-center pr-4">
             <h2 className="font-display text-[clamp(2.6rem,5.5vw,5rem)] font-medium leading-[0.95] tracking-[-0.03em] text-foreground">
               The society
               <br />

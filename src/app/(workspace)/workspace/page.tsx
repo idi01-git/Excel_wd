@@ -5,7 +5,7 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, LayoutGroup } from 'motion/react';
 import {
   PenLine,
   Feather,
@@ -141,6 +141,19 @@ export default function WorkspaceDashboardPage() {
 
   const activeList = pubs.filter(p => p.status === activeTab);
 
+  const handleTabChange = (key: string) => {
+    setActiveTab(key);
+    if (typeof window !== 'undefined') {
+      const anchor = document.getElementById('workspace-tabs-anchor');
+      if (anchor) {
+        const rect = anchor.getBoundingClientRect();
+        if (rect.top < 60) {
+          anchor.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }
+    }
+  };
+
   if (loading) {
     return (
       <div className="w-full max-w-4xl mx-auto py-8 animate-pulse space-y-8">
@@ -156,7 +169,7 @@ export default function WorkspaceDashboardPage() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 md:py-16 text-black dark:text-white">
+    <div className="max-w-6xl mx-auto min-h-[85vh] px-4 sm:px-6 lg:px-8 py-8 sm:py-12 md:py-16 text-black dark:text-white">
       {/* ── Top Header ──────────────────────────────────────────────────────── */}
       <FadeUp delay={0.04} y={16}>
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10 sm:mb-12 border-b border-gray-200/80 dark:border-neutral-800 pb-8 sm:pb-10">
@@ -216,94 +229,104 @@ export default function WorkspaceDashboardPage() {
         ))}
       </div>
 
-      {/* ── Status Tabs ────────────────────────────────────────────────────── */}
+      {/* ── Status Tabs & View Toggle ─────────────────────────────────────── */}
       <FadeUp delay={0.24} y={12}>
-        <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-center justify-between gap-4 mb-8 border-b border-gray-100 dark:border-neutral-800 pb-5">
-          <div className="flex flex-wrap gap-1.5 bg-gray-50 dark:bg-neutral-900 p-1 border border-gray-200/50 dark:border-neutral-800 rounded-full">
-            {STATUS_TABS.map(({ key, label }) => (
-              <motion.button
-                key={key}
-                onClick={() => setActiveTab(key)}
-                whileHover={{ scale: activeTab === key ? 1 : 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className={`relative py-1.5 px-3.5 sm:px-4 rounded-full text-xs font-semibold tracking-wide transition-colors outline-none cursor-pointer ${
-                  activeTab === key
-                    ? 'text-white dark:text-black'
-                    : 'text-gray-500 dark:text-neutral-400 hover:text-black dark:hover:text-white hover:bg-gray-100/50 dark:hover:bg-neutral-800/50'
-                }`}
-              >
-                {activeTab === key && (
-                  <motion.div
-                    layoutId="workspace-active-tab"
-                    className="absolute inset-0 bg-black dark:bg-white rounded-full shadow-sm"
-                    transition={{ type: 'spring', stiffness: 400, damping: 30, mass: 1 }}
-                  />
-                )}
-                <span className="relative z-10">
-                  {label}
-                  <span className="ml-1.5 opacity-60">({countByTab[key]})</span>
-                </span>
-              </motion.button>
-            ))}
+        <div id="workspace-tabs-anchor" className="scroll-mt-28 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4 mb-8 border-b border-gray-100 dark:border-neutral-800 pb-5">
+          {/* Scrollable / Responsive Tab Bar */}
+          <div className="w-full sm:w-auto overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden -mx-4 px-4 sm:mx-0 sm:px-0">
+            <div className="inline-flex items-center flex-nowrap gap-1 sm:gap-1.5 p-1 bg-gray-50 dark:bg-neutral-900 border border-gray-200/50 dark:border-neutral-800 rounded-full min-w-max">
+              <LayoutGroup id="workspace-status-tabs">
+                {STATUS_TABS.map(({ key, label }) => (
+                  <motion.button
+                    key={key}
+                    onClick={() => handleTabChange(key)}
+                    whileHover={{ scale: activeTab === key ? 1 : 1.03 }}
+                    whileTap={{ scale: 0.96 }}
+                    className={`relative py-1.5 px-3.5 sm:px-4 rounded-full text-xs font-semibold tracking-wide transition-colors outline-none cursor-pointer whitespace-nowrap shrink-0 ${
+                      activeTab === key
+                        ? 'text-white dark:text-black'
+                        : 'text-gray-500 dark:text-neutral-400 hover:text-black dark:hover:text-white hover:bg-gray-100/50 dark:hover:bg-neutral-800/50'
+                    }`}
+                  >
+                    {activeTab === key && (
+                      <motion.div
+                        layoutId="workspace-active-tab"
+                        className="absolute inset-0 bg-black dark:bg-white rounded-full shadow-sm"
+                        transition={{ type: 'spring', stiffness: 400, damping: 30, mass: 1 }}
+                      />
+                    )}
+                    <span className="relative z-10">
+                      {label}
+                      <span className="ml-1.5 opacity-60">({countByTab[key]})</span>
+                    </span>
+                  </motion.button>
+                ))}
+              </LayoutGroup>
+            </div>
           </div>
 
           {/* View toggle */}
-          <div className="flex p-1 bg-gray-50 dark:bg-neutral-900 rounded-full w-fit border border-gray-200/50 dark:border-neutral-800 gap-0.5">
-            <motion.button
-              onClick={() => setViewMode('list')}
-              whileHover={{ scale: viewMode === 'list' ? 1 : 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className={`relative flex items-center gap-2 px-3.5 sm:px-4 py-1.5 text-xs font-semibold uppercase tracking-wider transition-colors rounded-full outline-none cursor-pointer ${
-                viewMode === 'list' ? 'text-white dark:text-black' : 'text-gray-500 dark:text-neutral-400 hover:text-black dark:hover:text-white hover:bg-gray-100/50 dark:hover:bg-neutral-800/50'
-              }`}
-            >
-              {viewMode === 'list' && (
-                <motion.div
-                  layoutId="workspace-view-tab"
-                  className="absolute inset-0 bg-black dark:bg-white rounded-full shadow-sm"
-                  transition={{ type: 'spring', stiffness: 400, damping: 30, mass: 1 }}
-                />
-              )}
-              <span className="relative z-10 flex items-center gap-1.5 sm:gap-2">
-                <List size={14} strokeWidth={1.8} className={viewMode === 'list' ? 'scale-110' : ''} />
-                List
-              </span>
-            </motion.button>
-            <motion.button
-              onClick={() => setViewMode('grid')}
-              whileHover={{ scale: viewMode === 'grid' ? 1 : 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className={`relative flex items-center gap-2 px-3.5 sm:px-4 py-1.5 text-xs font-semibold uppercase tracking-wider transition-colors rounded-full outline-none cursor-pointer ${
-                viewMode === 'grid' ? 'text-white dark:text-black' : 'text-gray-500 dark:text-neutral-400 hover:text-black dark:hover:text-white hover:bg-gray-100/50 dark:hover:bg-neutral-800/50'
-              }`}
-            >
-              {viewMode === 'grid' && (
-                <motion.div
-                  layoutId="workspace-view-tab"
-                  className="absolute inset-0 bg-black dark:bg-white rounded-full shadow-sm"
-                  transition={{ type: 'spring', stiffness: 400, damping: 30, mass: 1 }}
-                />
-              )}
-              <span className="relative z-10 flex items-center gap-1.5 sm:gap-2">
-                <LayoutGrid size={14} strokeWidth={1.8} className={viewMode === 'grid' ? 'scale-110' : ''} />
-                Grid
-              </span>
-            </motion.button>
+          <div className="flex items-center justify-start shrink-0">
+            <div className="flex p-1 bg-gray-50 dark:bg-neutral-900 rounded-full w-fit border border-gray-200/50 dark:border-neutral-800 gap-0.5">
+              <LayoutGroup id="workspace-view-toggle">
+                <motion.button
+                  onClick={() => setViewMode('list')}
+                  whileHover={{ scale: viewMode === 'list' ? 1 : 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className={`relative flex items-center gap-2 px-3.5 sm:px-4 py-1.5 text-xs font-semibold uppercase tracking-wider transition-colors rounded-full outline-none cursor-pointer ${
+                    viewMode === 'list' ? 'text-white dark:text-black' : 'text-gray-500 dark:text-neutral-400 hover:text-black dark:hover:text-white hover:bg-gray-100/50 dark:hover:bg-neutral-800/50'
+                  }`}
+                >
+                  {viewMode === 'list' && (
+                    <motion.div
+                      layoutId="workspace-view-tab"
+                      className="absolute inset-0 bg-black dark:bg-white rounded-full shadow-sm"
+                      transition={{ type: 'spring', stiffness: 400, damping: 30, mass: 1 }}
+                    />
+                  )}
+                  <span className="relative z-10 flex items-center gap-1.5 sm:gap-2">
+                    <List size={14} strokeWidth={1.8} className={viewMode === 'list' ? 'scale-110' : ''} />
+                    List
+                  </span>
+                </motion.button>
+                <motion.button
+                  onClick={() => setViewMode('grid')}
+                  whileHover={{ scale: viewMode === 'grid' ? 1 : 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className={`relative flex items-center gap-2 px-3.5 sm:px-4 py-1.5 text-xs font-semibold uppercase tracking-wider transition-colors rounded-full outline-none cursor-pointer ${
+                    viewMode === 'grid' ? 'text-white dark:text-black' : 'text-gray-500 dark:text-neutral-400 hover:text-black dark:hover:text-white hover:bg-gray-100/50 dark:hover:bg-neutral-800/50'
+                  }`}
+                >
+                  {viewMode === 'grid' && (
+                    <motion.div
+                      layoutId="workspace-view-tab"
+                      className="absolute inset-0 bg-black dark:bg-white rounded-full shadow-sm"
+                      transition={{ type: 'spring', stiffness: 400, damping: 30, mass: 1 }}
+                    />
+                  )}
+                  <span className="relative z-10 flex items-center gap-1.5 sm:gap-2">
+                    <LayoutGrid size={14} strokeWidth={1.8} className={viewMode === 'grid' ? 'scale-110' : ''} />
+                    Grid
+                  </span>
+                </motion.button>
+              </LayoutGroup>
+            </div>
           </div>
         </div>
       </FadeUp>
 
       {/* ── Publication List ───────────────────────────────────────────────── */}
-      <AnimatePresence mode="wait">
-        {activeList.length > 0 ? (
-          <motion.div 
-            key={`list-container-${viewMode}-${activeTab}`}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.25, ease: 'easeInOut' }}
-            className={viewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6" : "flex flex-col gap-2.5 sm:gap-3"}
-          >
+      <div className="min-h-[480px]">
+        <AnimatePresence mode="popLayout">
+          {activeList.length > 0 ? (
+            <motion.div 
+              key={`list-container-${viewMode}-${activeTab}`}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.2, ease: 'easeInOut' }}
+              className={viewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6" : "flex flex-col gap-2.5 sm:gap-3"}
+            >
             {activeList.map((p, i) => {
               const Icon = categoryIcon(p.category);
               
@@ -487,7 +510,8 @@ export default function WorkspaceDashboardPage() {
             </p>
           </motion.div>
         )}
-      </AnimatePresence>
+        </AnimatePresence>
+      </div>
 
       {/* Delete Confirmation Modal */}
       <AnimatePresence>

@@ -149,6 +149,7 @@ export default function Hardback({
 
   const [showPanel, setShowPanel] = useState<boolean>(false);
   const panelRevealTweenRef = useRef<gsap.core.Tween | null>(null);
+  const requestSceneRenderRef = useRef<() => void>(() => {});
 
   // When books change, re-align initial center if not browsing yet
   useEffect(() => {
@@ -392,11 +393,13 @@ export default function Hardback({
   const handleBookHover = useCallback((index: number) => {
     setHoverIndex(index);
     hoverIndexRef.current = index;
+    requestSceneRenderRef.current();
   }, []);
 
   const handleBookOut = useCallback(() => {
     setHoverIndex(-1);
     hoverIndexRef.current = -1;
+    requestSceneRenderRef.current();
   }, []);
 
   // ── Buy Panel Stagger Reveal & Hide Effect ────────────────────────────────
@@ -465,6 +468,8 @@ export default function Hardback({
 
     // Wheel — always preventDefault, only navigate books
     const onWheel = (e: WheelEvent) => {
+      // Let the open reading panel use its native vertical scrolling.
+      if ((e.target as HTMLElement)?.closest('[data-no-drag]')) return;
       e.preventDefault();
       if (modeRef.current !== 'browsing') return;
 
@@ -479,11 +484,13 @@ export default function Hardback({
         0,
         maxIndex
       );
+      requestSceneRenderRef.current();
 
       if (settleTimer) clearTimeout(settleTimer);
       settleTimer = setTimeout(() => {
         const snapped = Math.round(targetRef.current);
         targetRef.current = clamp(snapped, 0, maxIndex);
+        requestSceneRenderRef.current();
       }, SETTLE_IDLE_MS);
     };
 
@@ -525,6 +532,7 @@ export default function Hardback({
       );
       positionRef.current = next;
       targetRef.current = next;
+      requestSceneRenderRef.current();
     };
 
     // Pointer up: snap immediately if dragged, else let click pass through
@@ -540,6 +548,7 @@ export default function Hardback({
         const maxIndex = Math.max(0, numBooks - 1);
         const snapped = Math.round(targetRef.current);
         targetRef.current = clamp(snapped, 0, maxIndex);
+        requestSceneRenderRef.current();
       }
     };
 
@@ -575,6 +584,7 @@ export default function Hardback({
           )
         );
       }
+      requestSceneRenderRef.current();
     };
 
     window.addEventListener('wheel', onWheel, { passive: false });
@@ -685,6 +695,7 @@ export default function Hardback({
           books={books}
           isDark={isDark}
           isMobile={isMobile}
+          requestRenderRef={requestSceneRenderRef}
           positionRef={positionRef}
           targetRef={targetRef}
           modeRef={modeRef}
@@ -758,15 +769,15 @@ export default function Hardback({
         className="absolute pointer-events-auto opacity-0 z-30
           md:top-1/2 md:-translate-y-1/2 md:translate-x-0 md:left-[calc(50%+3.5vw)]
           md:w-[min(440px,38vw)] md:max-h-[78vh] md:bottom-auto
-          top-[44vh] bottom-[3vh] left-1/2 -translate-x-1/2 w-[92vw] max-w-[520px]
-          overflow-y-auto"
+          top-[56vh] bottom-[3vh] left-1/2 -translate-x-1/2 w-[92vw] max-w-[520px]
+          overflow-y-auto touch-pan-y overscroll-contain"
         style={{
           visibility: 'hidden',
           color: isDark ? '#f3ecd8' : '#1a1310',
         }}
         data-no-drag
       >
-        <div className="buy-panel-content px-2 py-2 md:px-1 md:py-2">
+        <div className="buy-panel-content px-2 py-2 pb-20 md:px-1 md:py-2">
           {/* Top row: Eyebrow + Close icon */}
           <div className="flex items-center justify-between gap-4">
             <div
@@ -794,7 +805,7 @@ export default function Hardback({
             </motion.button>
           </div>
 
-          {/* Title with fluid responsive clamp */}
+          {/* Title with inline mobile publication link */}
           <h2
             className="mt-2.5 md:mt-3.5 text-[clamp(25px,7vw,42px)] leading-[1.12] tracking-[-0.025em] font-medium text-foreground w-full line-clamp-2 md:line-clamp-none"
             style={{
@@ -803,6 +814,20 @@ export default function Hardback({
             }}
           >
             {selectedBook.title}
+            <a
+              href={selectedBook.readLink || selectedBook.retailers?.[0]?.url || '/publications'}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="md:hidden inline-flex ml-2 align-middle h-8 w-8 items-center justify-center rounded-full border backdrop-blur-sm transition-transform active:scale-95"
+              style={{
+                color: isDark ? '#ffffff' : '#1a1310',
+                backgroundColor: isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(26, 19, 16, 0.06)',
+                borderColor: isDark ? 'rgba(255, 255, 255, 0.32)' : 'rgba(26, 19, 16, 0.25)',
+              }}
+              aria-label={`Read ${selectedBook.title}`}
+            >
+              <ArrowUpRight size={15} strokeWidth={1.8} />
+            </a>
           </h2>
 
           {/* Author */}
@@ -849,7 +874,7 @@ export default function Hardback({
             rel="noopener noreferrer"
             onMouseEnter={() => setIsCtaHovered(true)}
             onMouseLeave={() => setIsCtaHovered(false)}
-            className="group mt-6 md:mt-8 pb-3 md:pb-0 inline-flex items-center gap-4 text-left cursor-pointer select-none"
+            className="group hidden mt-6 md:static md:left-auto md:mt-8 md:pb-0 md:flex items-center gap-4 text-left cursor-pointer select-none"
             aria-label={`Read ${selectedBook.title}`}
           >
             <div className="font-mono text-[11px] uppercase tracking-[0.24em] font-medium">
@@ -914,6 +939,7 @@ export default function Hardback({
           </a>
         </div>
       </aside>
+
     </section>
   );
 }
