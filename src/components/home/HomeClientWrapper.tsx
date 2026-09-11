@@ -48,6 +48,7 @@ export default function HomeClientWrapper({
     <>
       <HomePreloader
         heroCards={initialHeroCards}
+        shelfBooks={initialShelfBooks}
         onComplete={() => setIsReady(true)}
       />
 
