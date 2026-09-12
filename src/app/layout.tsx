@@ -80,11 +80,66 @@ const notoSerifDevanagari = Noto_Serif_Devanagari({
   preload: false,
 });
 
+import JsonLd from '@/components/seo/JsonLd';
+import { SITE_URL, DEFAULT_SEO, generateOrganizationSchema, generateWebSiteSchema, generateFaqSchema } from '@/lib/seo';
+
 export const metadata: Metadata = {
-  title: 'Excelsior Literary Club',
-  description: 'Digital ecosystem of the Excelsior literary society. Discover articles, poetry, stories, and connect with other writers.',
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: DEFAULT_SEO.title,
+    template: DEFAULT_SEO.titleTemplate,
+  },
+  description: DEFAULT_SEO.description,
+  keywords: DEFAULT_SEO.keywords,
+  authors: [{ name: DEFAULT_SEO.author, url: DEFAULT_SEO.social.collegeUrl }],
+  creator: DEFAULT_SEO.author,
+  publisher: DEFAULT_SEO.publisher,
+  formatDetection: {
+    email: true,
+    telephone: true,
+    address: true,
+  },
+  alternates: {
+    canonical: '/',
+  },
+  openGraph: {
+    title: DEFAULT_SEO.title,
+    description: DEFAULT_SEO.description,
+    url: SITE_URL,
+    siteName: DEFAULT_SEO.siteName,
+    locale: 'en_IN',
+    type: 'website',
+    images: [
+      {
+        url: '/favicon.ico',
+        width: 1200,
+        height: 630,
+        alt: 'Excelsior - The Literary Club of IET Lucknow',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: DEFAULT_SEO.title,
+    description: DEFAULT_SEO.description,
+    images: ['/favicon.ico'],
+    creator: '@iet_excelsior',
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
+  },
   icons: {
     icon: '/favicon.ico',
+    shortcut: '/favicon.ico',
+    apple: '/favicon.ico',
   },
 };
 
@@ -113,6 +168,7 @@ export default function RootLayout({
       )}
     >
       <body className="min-h-full flex flex-col font-sans">
+        <JsonLd data={[generateOrganizationSchema(), generateWebSiteSchema(), generateFaqSchema()]} />
         <Suspense fallback={null}>
           <TopProgressBar />
         </Suspense>

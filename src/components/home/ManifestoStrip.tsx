@@ -4,7 +4,7 @@ import { Eyebrow, RevealWords, FadeUp } from './primitives';
 
 const STATS = [
   ['Est.', '2014'],
-  ['Published works', '500+'],
+  ['Published works', '150+'],
   ['Alumni scattered', '40+'],
   ['Legacy', 'Ongoing'],
 ];

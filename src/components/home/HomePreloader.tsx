@@ -43,23 +43,11 @@ export default function HomePreloader({ heroCards = [], shelfBooks, onComplete }
         .slice(0, 6);
       const targets = heroImages.length > 0 ? heroImages : FALLBACK_HERO_IMAGES;
 
-      const [, , { preloadBookAssets }, { BOOKS }] = await Promise.all([
-        Promise.allSettled(targets.map(preloadImage)),
-        import('@/components/home/Book3DCard'),
-        import('@/components/sections/hardback/hardback-textures'),
-        import('@/components/sections/hardback/hardback-data'),
-      ]);
-
-      if (!cancelled) {
-        await preloadBookAssets((shelfBooks?.length ? shelfBooks : BOOKS).slice(0, 5));
-      }
+      await Promise.allSettled(targets.map(preloadImage));
     };
 
     void warmAssets().catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [heroCards, shelfBooks]);
+  }, [heroCards]);
 
   return null;
 }
