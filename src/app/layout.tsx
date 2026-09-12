@@ -18,6 +18,8 @@ import { ThemeProvider } from '@/components/providers/ThemeProvider';
 import { cn } from "@/lib/utils";
 import { SmoothScrollProvider } from "@/components/providers/SmoothScrollProvider";
 import TopProgressBar from "@/components/ui/TopProgressBar";
+import { SpeedInsights } from '@vercel/speed-insights/next';
+import { Analytics } from '@vercel/analytics/react';
 
 const geistSans = Geist({
   subsets: ['latin'],
@@ -169,6 +171,8 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col font-sans">
         <JsonLd data={[generateOrganizationSchema(), generateWebSiteSchema(), generateFaqSchema()]} />
+        <Analytics />
+        <SpeedInsights />
         <Suspense fallback={null}>
           <TopProgressBar />
         </Suspense>
