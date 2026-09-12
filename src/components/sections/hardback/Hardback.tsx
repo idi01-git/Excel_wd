@@ -179,26 +179,23 @@ export default function Hardback({
     };
   }, []);
 
-  // ── Active Book Derivation (Polling rAF for integer snap) ────────────────
+  // ── Active Book Derivation ────────────────────────────────────────────────────
   useEffect(() => {
     let last = Math.floor(books.length / 2);
-    let raf = 0;
     const numBooks = books.length || 1;
     const maxIndex = Math.max(0, numBooks - 1);
-    const tick = () => {
+    const syncActiveBook = () => {
       const rounded = Math.round(positionRef.current);
-      // Strictly clamp between 0 and maxIndex so edge books never wrap or bleed over
       const idx = Math.max(0, Math.min(maxIndex, rounded));
       if (idx !== last) {
         last = idx;
         setActiveIndex(idx);
       }
-      raf = requestAnimationFrame(tick);
     };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
+    syncActiveBook();
+    const interval = window.setInterval(syncActiveBook, 100);
+    return () => window.clearInterval(interval);
   }, [books.length]);
-
   // ── Hero Title Cascade (700ms delayed GSAP 3D page flip) ─────────────────
   useEffect(() => {
     const letters = titleRef.current?.querySelectorAll('.title-letter');

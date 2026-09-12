@@ -121,7 +121,17 @@ function CameraRig() {
 }
 
 // ── Lighting Rig ────────────────────────────────────────────────────────────
-function StudioLights({ isDark, shadowMapSize }: { isDark: boolean; shadowMapSize: number }) {
+function StudioLights({
+  isDark,
+  shadowMapSize,
+  enableShadows,
+  enableEnvironment,
+}: {
+  isDark: boolean;
+  shadowMapSize: number;
+  enableShadows: boolean;
+  enableEnvironment: boolean;
+}) {
   return (
     <>
       <ambientLight
@@ -133,7 +143,7 @@ function StudioLights({ isDark, shadowMapSize }: { isDark: boolean; shadowMapSiz
         position={[5, 7, 6]}
         intensity={isDark ? 1.45 : 1.1}
         color={isDark ? '#ffd9a8' : '#fff2d8'}
-        castShadow
+        castShadow={enableShadows}
         shadow-mapSize-width={shadowMapSize}
         shadow-mapSize-height={shadowMapSize}
         shadow-camera-left={-14}
@@ -159,7 +169,7 @@ function StudioLights({ isDark, shadowMapSize }: { isDark: boolean; shadowMapSiz
         color="#ffc89a"
       />
 
-      <Environment resolution={256}>
+      {enableEnvironment && <Environment resolution={256}>
         <Lightformer
           form="rect"
           intensity={isDark ? 1.4 : 1.8}
@@ -181,7 +191,7 @@ function StudioLights({ isDark, shadowMapSize }: { isDark: boolean; shadowMapSiz
           position={[7, 0, -2]}
           scale={[4, 6, 1]}
         />
-      </Environment>
+      </Environment>}
     </>
   );
 }
@@ -440,13 +450,9 @@ export const HardbackScene: React.FC<HardbackSceneProps> = ({
 
   const activeBooks = books && books.length > 0 ? books : BOOKS;
   const mobileLowQuality = isMobile && mobileQuality === 'low';
-  const dpr: [number, number] = !isMobile ? [1, 2] : mobileLowQuality ? [1, 1] : [1, 1.25];
+  const dpr: [number, number] = !isMobile ? [1, 2] : [1.25, 1.5];
   const shadowMapSize = !isMobile ? 2048 : mobileLowQuality ? 512 : 1024;
-  const contactShadowResolutions = !isMobile
-    ? [1024, 1024, 512, 256]
-    : mobileLowQuality
-      ? [256, 256, 128, 128]
-      : [512, 512, 256, 128];
+  const contactShadowResolutions = !isMobile ? [1024, 1024, 512, 256] : [256, 192, 128, 64];
 
   return (
     <Canvas
@@ -455,21 +461,27 @@ export const HardbackScene: React.FC<HardbackSceneProps> = ({
         requestRenderRef.current = invalidate;
         invalidate();
       }}
-      shadows={{ type: THREE.VSMShadowMap }}
+      shadows={!isMobile ? { type: THREE.VSMShadowMap } : false}
       dpr={dpr}
       camera={{ position: [0, 2.7, 11.95], fov: 36, near: 0.1, far: 80 }}
-      gl={{ antialias: true, alpha: true }}
+      gl={{ antialias: !isMobile, alpha: true, stencil: false, powerPreference: 'high-performance' }}
       style={{ width: '100%', height: '100%' }}
     >
       <CameraRig />
 
       <Suspense fallback={null}>
-        <StudioLights isDark={isDark} shadowMapSize={shadowMapSize} />
+        <StudioLights
+          isDark={isDark}
+          shadowMapSize={shadowMapSize}
+          enableShadows={!isMobile}
+          enableEnvironment={!isMobile}
+        />
 
         {/* 4-Layer Contact Shadows + Directional Receiver Plane inside Shelf Group */}
         <group ref={shelfGroupRef}>
           {/* L1 — Pinpoint AO directly under each book */}
           <ContactShadows
+            frames={isMobile ? 1 : Infinity}
             position={[0, SHELF_Y + 0.004, 0]}
             opacity={isDark ? 0.85 : 0.55}
             scale={9}
@@ -480,6 +492,7 @@ export const HardbackScene: React.FC<HardbackSceneProps> = ({
           />
           {/* L2 — Close penumbra */}
           <ContactShadows
+            frames={isMobile ? 1 : Infinity}
             position={[0, SHELF_Y + 0.003, 0]}
             opacity={isDark ? 0.5 : 0.35}
             scale={18}
@@ -490,6 +503,7 @@ export const HardbackScene: React.FC<HardbackSceneProps> = ({
           />
           {/* L3 — Wide soft halo */}
           <ContactShadows
+            frames={isMobile ? 1 : Infinity}
             position={[0, SHELF_Y + 0.002, 0]}
             opacity={isDark ? 0.28 : 0.2}
             scale={32}
@@ -500,6 +514,7 @@ export const HardbackScene: React.FC<HardbackSceneProps> = ({
           />
           {/* L4 — Outer drop-off, fades to transparent */}
           <ContactShadows
+            frames={isMobile ? 1 : Infinity}
             position={[0, SHELF_Y + 0.001, 0]}
             opacity={isDark ? 0.14 : 0.1}
             scale={50}

@@ -50,11 +50,12 @@ interface Book3DMeshProps {
   book: BookData;
   index: number;
   isHovered: boolean;
+  showSheen: boolean;
   /** False while the shelf is off-screen — used to kick a render on re-entry. */
   active: boolean;
 }
 
-function Book3DMesh({ book, index, isHovered, active }: Book3DMeshProps) {
+function Book3DMesh({ book, index, isHovered, showSheen, active }: Book3DMeshProps) {
   const groupRef = useRef<THREE.Group>(null);
   const sheenMatRef = useRef<THREE.ShaderMaterial>(null);
   const progressRef = useRef(0);
@@ -261,16 +262,19 @@ function Book3DMesh({ book, index, isHovered, active }: Book3DMeshProps) {
         <boxGeometry args={[W, H, COVER_T]} />
       </mesh>
 
-      {/* Living Foil Sheen Plane (Shimmers across foil on hover) */}
-      <mesh
-        position={[xCenter, 0, D / 2 + 0.002]}
-        material={livingSheenMaterial}
-        ref={(m) => {
-          if (m) sheenMatRef.current = m.material as THREE.ShaderMaterial;
-        }}
-      >
-        <planeGeometry args={[W, H]} />
-      </mesh>
+      {/* Touch devices do not hover, so avoid compiling this extra shader for
+          every homepage book canvas. */}
+      {showSheen && (
+        <mesh
+          position={[xCenter, 0, D / 2 + 0.002]}
+          material={livingSheenMaterial}
+          ref={(m) => {
+            if (m) sheenMatRef.current = m.material as THREE.ShaderMaterial;
+          }}
+        >
+          <planeGeometry args={[W, H]} />
+        </mesh>
+      )}
     </group>
   );
 }
@@ -303,7 +307,13 @@ export function Book3DCard({ book, index, paused = false }: Book3DCardProps) {
       }
 
       const device = navigator as Navigator & { deviceMemory?: number };
+      const connection = (navigator as Navigator & {
+        connection?: { effectiveType?: string; saveData?: boolean };
+      }).connection;
       const lowCapacity =
+        connection?.saveData === true ||
+        connection?.effectiveType === 'slow-2g' ||
+        connection?.effectiveType === '2g' ||
         (typeof device.deviceMemory === 'number' && device.deviceMemory <= 4) ||
         navigator.hardwareConcurrency <= 4;
       setRenderQuality(lowCapacity ? 'low' : 'balanced');
@@ -314,9 +324,16 @@ export function Book3DCard({ book, index, paused = false }: Book3DCardProps) {
     return () => window.removeEventListener('resize', updateQuality);
   }, []);
 
+  // Mobile cover typography stays sharp. We reduce the expensive shadow pass
+  // instead of dropping the canvas to a visibly soft DPR of 1.
+  // Keep the same 3D composition on every device; only the GPU workload scales.
+  // The lower bound of 1 keeps cover artwork crisp rather than blurry.
   const dpr: [number, number] =
-    renderQuality === 'desktop' ? [1, 2] : renderQuality === 'low' ? [1, 1] : [1, 1.25];
-  const shadowMapSize = renderQuality === 'desktop' ? 1024 : renderQuality === 'low' ? 256 : 512;
+    renderQuality === 'desktop' ? [1, 2] : renderQuality === 'low' ? [1, 1] : [1, 1.15];
+  const isDesktopQuality = renderQuality === 'desktop';
+  const enableShadows = renderQuality === 'desktop';
+  const enableRimLight = renderQuality !== 'low';
+  const enablePointLight = renderQuality === 'desktop';
 
   return (
     <div
@@ -344,11 +361,11 @@ export function Book3DCard({ book, index, paused = false }: Book3DCardProps) {
           <Canvas
             events={noopEvents}
             frameloop="demand"
-            shadows={{ type: THREE.PCFShadowMap }}
+            shadows={enableShadows ? { type: THREE.PCFShadowMap } : false}
             dpr={dpr}
             camera={{ position: [0, -0.04, 6.4], fov: 32 }}
             gl={{
-              antialias: true,
+              antialias: isDesktopQuality,
               alpha: true,
               stencil: false,
               powerPreference: 'high-performance',
@@ -365,20 +382,28 @@ export function Book3DCard({ book, index, paused = false }: Book3DCardProps) {
               position={[4.5, 7.0, 5.5]}
               intensity={3.4}
               color="#fff6e7"
-              castShadow
-              shadow-mapSize-width={shadowMapSize}
-              shadow-mapSize-height={shadowMapSize}
+              castShadow={enableShadows}
               shadow-bias={-0.0005}
             />
 
             {/* Cool Studio Rim Light (Highlights spine edge and cloth texture) */}
-            <directionalLight position={[-5.0, 3.5, -4.0]} intensity={2.2} color="#c8d5e5" />
+            {enableRimLight && (
+              <directionalLight position={[-5.0, 3.5, -4.0]} intensity={2.2} color="#c8d5e5" />
+            )}
 
             {/* Warm Under-Bounce Fill */}
-            <pointLight position={[-2.0, -1.6, 3.5]} intensity={1.1} color="#d79b72" />
+            {enablePointLight && (
+              <pointLight position={[-2.0, -1.6, 3.5]} intensity={1.1} color="#d79b72" />
+            )}
 
             <Suspense fallback={null}>
-              <Book3DMesh book={book} index={index} isHovered={isHovered} active={!paused} />
+              <Book3DMesh
+                book={book}
+                index={index}
+                isHovered={isHovered}
+                showSheen={isDesktopQuality}
+                active={!paused}
+              />
             </Suspense>
           </Canvas>
         </div>

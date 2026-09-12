@@ -37,9 +37,10 @@ export default function LibraryShelf({
   const [featuredBooks, setFeaturedBooks] = useState<BookData[]>(() =>
     initialBooks && initialBooks.length > 0 ? initialBooks.slice(0, 5) : BOOKS.slice(0, 5)
   );
-  // Cards mount during the page loader, concealed by its overlay. This moves
-  // shader setup off the visitor's scroll path, so the shelf never opens empty.
-  const [mountedBooks, setMountedBooks] = useState(featuredBooks.length);
+  // Keep below-the-fold WebGL out of the initial mobile workload. Cards are
+  // introduced one at a time before the shelf enters view, avoiding a burst of
+  // five WebGL contexts compiling shaders in the same frame.
+  const [mountedBooks, setMountedBooks] = useState(0);
   // WebGL render loops are parked whenever the shelf is off-screen.
   const [shelfActive, setShelfActive] = useState(false);
 
@@ -52,7 +53,7 @@ export default function LibraryShelf({
     const activate = () => {
       if (ready) return;
       ready = true;
-      setMountedBooks(featuredBooks.length);
+      setMountedBooks((current) => Math.max(current, 1));
     };
 
     const mountObserver = new IntersectionObserver(
@@ -66,10 +67,6 @@ export default function LibraryShelf({
     );
     mountObserver.observe(section);
 
-    // Lenis can cross a section between IntersectionObserver sampling frames
-    // during a fast scroll. Ensure the first card always mounts shortly after
-    // hydration so the layout never remains as empty footprint placeholders.
-    const fallbackMountTimer = window.setTimeout(activate, 250);
 
     const activeObserver = new IntersectionObserver(
       ([entry]) => setShelfActive(entry.isIntersecting),
@@ -78,12 +75,20 @@ export default function LibraryShelf({
     activeObserver.observe(section);
 
     return () => {
-      window.clearTimeout(fallbackMountTimer);
       mountObserver.disconnect();
       activeObserver.disconnect();
     };
   }, [featuredBooks.length]);
 
+  useEffect(() => {
+    if (mountedBooks === 0 || mountedBooks >= featuredBooks.length) return;
+
+    const timer = window.setTimeout(() => {
+      setMountedBooks((current) => Math.min(featuredBooks.length, current + 1));
+    }, 300);
+
+    return () => window.clearTimeout(timer);
+  }, [featuredBooks.length, mountedBooks]);
   // Fetch dynamic library volume count and picks count only if not provided by server
   useEffect(() => {
     if (initialBooks && initialBooks.length > 0 && initialLibraryCount !== undefined) return;
